@@ -106,7 +106,7 @@ jobs:
       - name: Remove source and dataset-derived bulk files
         if: always()
         run: |
-          rm -rf external data/processed/shiu783/nodes.csv data/processed/shiu783/edges.csv data/processed/shiu783/routing.json || true
+          rm -rf external data/processed/shiu783/nodes.csv data/processed/shiu783/edges.npz data/processed/shiu783/edges.csv data/processed/shiu783/routing.json || true
 
       - name: Upload provenance and benchmark only
         if: always()
