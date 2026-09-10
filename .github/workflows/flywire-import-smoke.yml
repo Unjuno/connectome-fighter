@@ -1,0 +1,82 @@
+name: flywire-import-smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/flywire-import-smoke.yml'
+      - 'scripts/import_shiu_flywire.py'
+      - 'src/connectome_fighter/graph.py'
+      - 'pyproject.toml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flywire-import-smoke
+  cancel-in-progress: true
+
+env:
+  SHIU_COMMIT: 91bdd1e7dcf193f3e7ca5a8933497fcef63b7960
+
+jobs:
+  import-v783:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install import runtime
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install torch==2.10.0 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install '.[data,test]'
+
+      - name: Fetch pinned Shiu/FlyWire v783 tables
+        run: |
+          mkdir -p external/shiu783 data/processed/shiu783 runs/import
+          BASE="https://raw.githubusercontent.com/philshiu/Drosophila_brain_model/$SHIU_COMMIT"
+          curl -fL --retry 3 -o external/shiu783/Completeness_783.csv "$BASE/Completeness_783.csv"
+          curl -fL --retry 3 -o external/shiu783/Connectivity_783.parquet "$BASE/Connectivity_783.parquet"
+          sha256sum external/shiu783/* | tee runs/import/source-sha256.txt
+          du -h external/shiu783/* | tee runs/import/source-sizes.txt
+
+      - name: Normalize and validate graph
+        run: |
+          python scripts/import_shiu_flywire.py \
+            --completeness external/shiu783/Completeness_783.csv \
+            --connectivity external/shiu783/Connectivity_783.parquet \
+            --out data/processed/shiu783 \
+            --source-version "FlyWire 783 / Shiu table @ $SHIU_COMMIT" \
+            --source-url "https://github.com/philshiu/Drosophila_brain_model/tree/$SHIU_COMMIT" \
+            --license "CC BY-NC 4.0 (FlyWire public release data)" \
+            | tee runs/import/import-report.json
+          cp data/processed/shiu783/manifest.json runs/import/manifest.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          m = json.loads(Path('data/processed/shiu783/manifest.json').read_text())
+          print(json.dumps(m['counts'], indent=2))
+          if m['counts']['neurons'] < 100000:
+              raise SystemExit('Unexpectedly small neuron set')
+          if m['counts']['normalized_edges'] < 1000000:
+              raise SystemExit('Unexpectedly small connection set')
+          PY
+
+      - name: Record normalized file sizes but do not upload dataset-derived graph
+        run: |
+          du -h data/processed/shiu783/nodes.csv data/processed/shiu783/edges.csv \
+            | tee runs/import/processed-sizes.txt
+          rm -f data/processed/shiu783/nodes.csv data/processed/shiu783/edges.csv
+          rm -rf external/shiu783
+
+      - name: Upload provenance evidence only
+        uses: actions/upload-artifact@v4
+        with:
+          name: flywire-import-v783-provenance
+          path: runs/import/
+          if-no-files-found: error
