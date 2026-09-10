@@ -5,9 +5,11 @@
   "source_version": "REPLACE_WITH_RELEASE_OR_DATASET_VERSION",
   "source_sha256": "REPLACE_WITH_64_HEX_SHA256",
   "license": "REPLACE_WITH_DATASET_TERMS",
+  "edge_storage": "npz_v1",
+  "edges_sorted_pre_post": true,
   "preprocessing": "Describe filtering, aggregation, sign assignment, and any excluded neurons/edges.",
   "processed_files_sha256": {
     "nodes.csv": "REPLACE_WITH_64_HEX_SHA256",
-    "edges.csv": "REPLACE_WITH_64_HEX_SHA256"
+    "edges.npz": "REPLACE_WITH_64_HEX_SHA256"
   }
 }
