@@ -28,9 +28,11 @@ def main() -> int:
     parser.add_argument("--seed-p1", type=int, default=10)
     parser.add_argument("--seed-p2", type=int, default=20)
     parser.add_argument("--expected-rounds", type=int)
+    parser.add_argument("--neural-steps", type=int, default=1,
+                        help="Engineering recurrent updates per game decision; not biological milliseconds")
     args = parser.parse_args()
-    if args.games <= 0 or args.timeout <= 0 or not 1 <= args.port <= 65535:
-        parser.error("Invalid count, timeout, or port")
+    if args.games <= 0 or args.timeout <= 0 or not 1 <= args.port <= 65535 or args.neural_steps <= 0:
+        parser.error("Invalid count, timeout, port, or neural step count")
     if args.expected_rounds is not None and args.expected_rounds <= 0:
         parser.error("Expected rounds must be positive")
     run_id = args.run_id or uuid.uuid4().hex[:12]
@@ -47,7 +49,8 @@ def main() -> int:
     status = {"started_at_utc": now_utc(), "status": "STARTING", "learning_performed": False,
               "connectome_used": args.policy == "connectome", "host": args.host, "port": args.port,
               "games_requested": args.games, "seeds": [args.seed_p1, args.seed_p2],
-              "python": sys.version.split()[0], "pyftg": pyftg_version}
+              "python": sys.version.split()[0], "pyftg": pyftg_version,
+              "neural_steps_per_decision": (args.neural_steps if args.policy == "connectome" else None)}
     write_json(out/"status.json", status)
     agents = []
     code = 1
@@ -63,14 +66,29 @@ def main() -> int:
             import torch
             from connectome_fighter.graph import load_graph
             from connectome_fighter.brain import ConnectomeActorCritic, NeuralPolicy
+            from connectome_fighter.routing import validate_routing
             torch.set_num_threads(1)
             graph = load_graph(args.graph_dir, require_biological=True)
             routing = json.loads(Path(args.routing).read_text())
+            validate_routing(graph, routing)
+            status["graph_sha256"] = graph.fingerprint()
+            status["routing_sha256"] = routing["routing_sha256"]
+            status["routing_annotation_version"] = routing.get("annotation_version")
+            status["input_neurons"] = len(routing["input_nodes"])
+            status["output_neurons"] = len(routing["output_nodes"])
             policies = []
             for seed in seeds:
                 torch.manual_seed(seed)
-                model = ConnectomeActorCritic(graph, routing["input_nodes"], routing["output_nodes"])
-                policies.append(NeuralPolicy(model, f"untrained-{graph.fingerprint()[:12]}-{seed}", seed))
+                model = ConnectomeActorCritic(
+                    graph,
+                    routing["input_nodes"], routing["output_nodes"],
+                    input_features=routing["input_features"],
+                    input_polarities=routing["input_polarities"],
+                    input_scale=float(routing["selection"]["input_scale"]),
+                    neural_steps=args.neural_steps,
+                    plastic=False,
+                )
+                policies.append(NeuralPolicy(model, f"untrained-{graph.fingerprint()[:12]}-{routing['routing_sha256'][:8]}-{seed}", seed))
         agents = [FighterAI(f"ConnectomeFighterP{i+1}", policy, JsonlSink(out/f"p{i+1}.jsonl"),
                             run_id, policies[1-i].version) for i, policy in enumerate(policies)]
 
