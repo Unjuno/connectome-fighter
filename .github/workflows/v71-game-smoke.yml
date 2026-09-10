@@ -71,8 +71,11 @@ jobs:
           GAME_DIR="$(cat runs/game-dir.txt)"
           (
             cd "$GAME_DIR"
+            # Short, deterministic integration smoke: one 600-frame round.
+            # --input-sync is the upstream v7.1 recommendation for faster training/headless runs.
             nohup java -cp 'FightingICE.jar:./lib/*:./lib/lwjgl/*:./lib/lwjgl/natives/linux/amd64/*:./lib/grpc/*' \
-              Main --headless-mode --pyftg-mode --limithp 400 400 --port 31415 \
+              Main --headless-mode --pyftg-mode --input-sync --limithp 400 400 \
+              --port 31415 -r 1 -f 600 \
               > "$GITHUB_WORKSPACE/runs/fightingice-v71.log" 2>&1 &
             echo $! > "$GITHUB_WORKSPACE/runs/fightingice-v71.pid"
           )
@@ -100,7 +103,7 @@ jobs:
           python scripts/run_game.py \
             --host 127.0.0.1 --port 31415 --games 1 \
             --policy random --seed-p1 10 --seed-p2 20 \
-            --timeout 180 --out runs/live
+            --timeout 120 --expected-rounds 1 --out runs/live
 
       - name: Capture post-match evidence
         if: always()
