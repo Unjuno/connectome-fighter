@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "connectome-fighter"
+version = "0.2.0"
+description = "Research scaffold for connectome-constrained controllers in FightingICE"
+requires-python = ">=3.11,<3.14"
+dependencies = ["numpy==2.3.5", "torch==2.10.0"]
+
+[project.optional-dependencies]
+test = ["pytest==9.0.2"]
+game = ["pyftg==2.3"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
