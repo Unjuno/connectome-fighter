@@ -2,10 +2,12 @@
 from __future__ import annotations
 import argparse
 import asyncio
+import importlib.metadata
 import json
 from pathlib import Path
 import re
 import sys
+import traceback
 import uuid
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/"src"))
@@ -38,9 +40,14 @@ def main() -> int:
         parser.error("Connectome mode requires --graph-dir and --routing")
     out = args.out.resolve()/run_id
     out.mkdir(parents=True, exist_ok=False)
+    try:
+        pyftg_version = importlib.metadata.version("pyftg")
+    except importlib.metadata.PackageNotFoundError:
+        pyftg_version = None
     status = {"started_at_utc": now_utc(), "status": "STARTING", "learning_performed": False,
               "connectome_used": args.policy == "connectome", "host": args.host, "port": args.port,
-              "games_requested": args.games, "seeds": [args.seed_p1, args.seed_p2]}
+              "games_requested": args.games, "seeds": [args.seed_p1, args.seed_p2],
+              "python": sys.version.split()[0], "pyftg": pyftg_version}
     write_json(out/"status.json", status)
     agents = []
     code = 1
@@ -90,7 +97,11 @@ def main() -> int:
         status["status"], status["error"] = "INTERRUPTED", "Interrupted by user"
         code = 130
     except Exception as exc:
+        trace = traceback.format_exc()
+        (out/"exception_traceback.txt").write_text(trace, encoding="utf-8")
         status["status"], status["error"] = "FAILED", f"{type(exc).__name__}: {exc}"
+        status["traceback_file"] = "exception_traceback.txt"
+        print(trace, file=sys.stderr)
     finally:
         for ai in agents:
             ai.close()
