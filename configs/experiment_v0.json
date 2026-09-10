@@ -1,0 +1,12 @@
+{
+  "experiment_id": "fightingice-terminal-reward-v0",
+  "game": "FightingICE 7.1",
+  "characters": ["ZEN", "ZEN"],
+  "observation_dim": 18,
+  "actions": ["NEUTRAL", "FORWARD", "BACKWARD", "UP", "DOWN", "A", "B", "C"],
+  "decision_interval_delayed_frames": 4,
+  "reward": {"win": 1.0, "loss": -1.0, "draw": 0.0, "intermediate": 0.0},
+  "truncated_rounds_trainable": false,
+  "primary_comparison": ["biological_topology", "signed_degree_preserving_rewire"],
+  "status": "design_not_confirmatory"
+}
