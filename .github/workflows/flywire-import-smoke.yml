@@ -65,13 +65,15 @@ jobs:
               raise SystemExit('Unexpectedly small neuron set')
           if m['counts']['normalized_edges'] < 1000000:
               raise SystemExit('Unexpectedly small connection set')
+          if m.get('edge_storage') != 'npz_v1':
+              raise SystemExit('Expected compact NPZ edge storage')
           PY
 
       - name: Record normalized file sizes but do not upload dataset-derived graph
         run: |
-          du -h data/processed/shiu783/nodes.csv data/processed/shiu783/edges.csv \
+          du -h data/processed/shiu783/nodes.csv data/processed/shiu783/edges.npz \
             | tee runs/import/processed-sizes.txt
-          rm -f data/processed/shiu783/nodes.csv data/processed/shiu783/edges.csv
+          rm -f data/processed/shiu783/nodes.csv data/processed/shiu783/edges.npz
           rm -rf external/shiu783
 
       - name: Upload provenance evidence only
