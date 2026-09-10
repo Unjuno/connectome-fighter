@@ -1,16 +1,57 @@
 services:
   game:
-    image: ${FIGHTINGICE_IMAGE:?Run scripts/pin_game_image.sh on a Docker host to record an image digest}
+    build:
+      context: .
+      dockerfile: Dockerfile.fightingice-v71
+    command:
+      - --headless-mode
+      - --pyftg-mode
+      - --input-sync
+      - --limithp
+      - "400"
+      - "400"
+      - --port
+      - "31415"
+      - -r
+      - "1"
+      - -f
+      - "600"
     ports:
       - "127.0.0.1:31415:31415"
     volumes:
-      - ./runs/game:/app/log
+      - ./runs/game:/opt/fightingice/log
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/31415' || exit 1"]
+      interval: 2s
+      timeout: 2s
+      retries: 45
+      start_period: 5s
     restart: "no"
+
   agent:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     depends_on:
+      game:
+        condition: service_healthy
+    command:
+      - python
+      - scripts/run_game.py
+      - --host
       - game
-    command: ["python", "scripts/run_game.py", "--host", "game", "--policy", "random", "--games", "1", "--out", "runs/live"]
+      - --port
+      - "31415"
+      - --policy
+      - random
+      - --games
+      - "1"
+      - --expected-rounds
+      - "1"
+      - --timeout
+      - "120"
+      - --out
+      - runs/live
     volumes:
       - ./runs:/app/runs
       - ./data:/app/data:ro
