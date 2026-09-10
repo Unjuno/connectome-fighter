@@ -1,0 +1,17 @@
+services:
+  game:
+    image: ${FIGHTINGICE_IMAGE:?Run scripts/pin_game_image.sh on a Docker host to record an image digest}
+    ports:
+      - "127.0.0.1:31415:31415"
+    volumes:
+      - ./runs/game:/app/log
+    restart: "no"
+  agent:
+    build: .
+    depends_on:
+      - game
+    command: ["python", "scripts/run_game.py", "--host", "game", "--policy", "random", "--games", "1", "--out", "runs/live"]
+    volumes:
+      - ./runs:/app/runs
+      - ./data:/app/data:ro
+    restart: "no"
