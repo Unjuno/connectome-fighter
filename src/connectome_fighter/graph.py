@@ -7,6 +7,15 @@ import hashlib
 import json
 import numpy as np
 
+
+def _sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as raw:
+        for block in iter(lambda: raw.read(1024 * 1024), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
 @dataclass(frozen=True)
 class Graph:
     node_ids: tuple[str, ...]
@@ -21,13 +30,13 @@ class Graph:
             raise ValueError("Missing or duplicate neuron IDs")
         if any(not isinstance(x, str) or not x for x in self.node_ids):
             raise TypeError("Neuron IDs must be nonempty strings; never float64 IDs")
-        arrays = {}
+        arrays: dict[str, np.ndarray] = {}
         for name, dtype in [("src", np.int64), ("dst", np.int64),
                             ("magnitude", np.float32), ("sign", np.float32)]:
             raw = np.asarray(getattr(self, name))
             if name in ("src", "dst") and not np.issubdtype(raw.dtype, np.integer):
                 raise TypeError("Graph endpoints must be integer indices")
-            arrays[name] = np.array(raw, dtype=dtype, copy=True)
+            arrays[name] = np.asarray(raw, dtype=dtype).copy()
         if any(x.ndim != 1 for x in arrays.values()) or len({len(x) for x in arrays.values()}) != 1:
             raise ValueError("Edge arrays must be one-dimensional and equally sized")
         if len(arrays["src"]) == 0:
@@ -39,9 +48,20 @@ class Graph:
             raise ValueError("Magnitudes must be finite and strictly positive")
         if not np.isin(arrays["sign"], [-1, 1]).all():
             raise ValueError("Unknown transmitter sign must be resolved explicitly upstream")
-        pairs = np.stack([arrays["src"], arrays["dst"]], axis=1)
-        if len(np.unique(pairs, axis=0)) != len(pairs):
-            raise ValueError("Duplicate neuron pairs: explicitly aggregate synapses before import")
+
+        # Importer-generated whole graphs are sorted by (pre, post), so duplicate
+        # detection can be O(E) with tiny auxiliary memory instead of np.unique's
+        # multi-GiB temporary arrays. Arbitrary/small graphs retain the full check.
+        if self.manifest.get("edges_sorted_pre_post") is True:
+            duplicate = ((arrays["src"][1:] == arrays["src"][:-1]) &
+                         (arrays["dst"][1:] == arrays["dst"][:-1])).any()
+            if duplicate:
+                raise ValueError("Duplicate adjacent neuron pair in sorted graph")
+        else:
+            pairs = np.stack([arrays["src"], arrays["dst"]], axis=1)
+            if len(np.unique(pairs, axis=0)) != len(pairs):
+                raise ValueError("Duplicate neuron pairs: explicitly aggregate synapses before import")
+
         for name, arr in arrays.items():
             arr.flags.writeable = False
             object.__setattr__(self, name, arr)
@@ -56,9 +76,9 @@ class Graph:
 
     def fingerprint(self) -> str:
         h = hashlib.sha256(json.dumps(self.node_ids, separators=(",", ":")).encode())
-        for value in (self.src.astype("<i8"), self.dst.astype("<i8"),
-                      self.magnitude.astype("<f4"), self.sign.astype("<f4")):
-            h.update(value.tobytes())
+        for value, dtype in ((self.src, "<i8"), (self.dst, "<i8"),
+                             (self.magnitude, "<f4"), (self.sign, "<f4")):
+            h.update(np.asarray(value, dtype=dtype).tobytes())
         return h.hexdigest()
 
     def require_biological(self) -> None:
@@ -73,36 +93,53 @@ class Graph:
         if self.manifest["scope"] not in ("whole_brain", "induced_subgraph", "coarse_grained", "other"):
             raise ValueError("Declare whether this is a whole graph, subgraph, or abstraction")
 
+
 def load_graph(directory: str | Path, *, require_biological: bool = True) -> Graph:
     directory = Path(directory)
+    manifest = json.loads((directory / "manifest.json").read_text())
     with (directory / "nodes.csv").open(newline="", encoding="utf-8") as f:
         nodes = tuple(row["node_id"] for row in csv.DictReader(f))
-    mapping = {node_id: idx for idx, node_id in enumerate(nodes)}
-    src, dst, magnitude, sign = [], [], [], []
-    with (directory / "edges.csv").open(newline="", encoding="utf-8") as f:
-        for row in csv.DictReader(f):
-            try:
-                src.append(mapping[row["pre_id"]]); dst.append(mapping[row["post_id"]])
-            except KeyError as exc:
-                raise ValueError(f"Unknown edge endpoint: {exc}") from exc
-            magnitude.append(float(row["magnitude"])); sign.append(float(row["sign"]))
-    manifest = json.loads((directory / "manifest.json").read_text())
-    g = Graph(nodes, np.asarray(src, dtype=np.int64), np.asarray(dst, dtype=np.int64),
-              np.asarray(magnitude), np.asarray(sign), manifest)
+
+    npz_path = directory / "edges.npz"
+    csv_path = directory / "edges.csv"
+    if npz_path.is_file():
+        with np.load(npz_path, allow_pickle=False) as z:
+            required = {"src", "dst", "magnitude", "sign"}
+            if set(z.files) != required:
+                raise ValueError(f"edges.npz members must be exactly {sorted(required)}")
+            src = np.asarray(z["src"])
+            dst = np.asarray(z["dst"])
+            magnitude = np.asarray(z["magnitude"])
+            sign = np.asarray(z["sign"])
+        edge_filename = "edges.npz"
+    elif csv_path.is_file():
+        mapping = {node_id: idx for idx, node_id in enumerate(nodes)}
+        src_list, dst_list, magnitude_list, sign_list = [], [], [], []
+        with csv_path.open(newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                try:
+                    src_list.append(mapping[row["pre_id"]]); dst_list.append(mapping[row["post_id"]])
+                except KeyError as exc:
+                    raise ValueError(f"Unknown edge endpoint: {exc}") from exc
+                magnitude_list.append(float(row["magnitude"])); sign_list.append(float(row["sign"]))
+        src, dst = np.asarray(src_list, dtype=np.int64), np.asarray(dst_list, dtype=np.int64)
+        magnitude, sign = np.asarray(magnitude_list), np.asarray(sign_list)
+        edge_filename = "edges.csv"
+    else:
+        raise FileNotFoundError("Expected edges.npz (preferred) or edges.csv")
+
+    g = Graph(nodes, src, dst, magnitude, sign, manifest)
     if require_biological:
         g.require_biological()
         checksums = manifest.get("processed_files_sha256", {})
-        for filename in ("nodes.csv", "edges.csv"):
+        for filename in ("nodes.csv", edge_filename):
             expected = checksums.get(filename)
             if not isinstance(expected, str) or len(expected) != 64:
                 raise ValueError(f"Missing processed-file checksum: {filename}")
-            actual = hashlib.sha256()
-            with (directory / filename).open("rb") as raw:
-                for block in iter(lambda: raw.read(1024*1024), b""):
-                    actual.update(block)
-            if actual.hexdigest() != expected:
+            if _sha256_file(directory / filename) != expected:
                 raise ValueError(f"Processed-file checksum mismatch: {filename}")
     return g
+
 
 def synthetic_graph(n_nodes: int = 32, seed: int = 0) -> Graph:
     """Explicit engineering fixture, NOT a fly connectome."""
@@ -116,8 +153,14 @@ def synthetic_graph(n_nodes: int = 32, seed: int = 0) -> Graph:
                  rng.uniform(.5, 1.5, size=len(src)), node_sign[src],
                  {"kind": "synthetic", "seed": seed, "scope": "engineering_fixture"})
 
+
 def rewire_signed_degrees(graph: Graph, swaps: int, seed: int) -> tuple[Graph, dict]:
-    """Directed double-edge swaps within the same sign."""
+    """Directed double-edge swaps within the same sign.
+
+    Current implementation is intended for engineering/small-graph validation.
+    It materializes a Python edge set and must be replaced/benchmarked before
+    rewiring a 15M-edge whole graph in confirmatory experiments.
+    """
     if swaps <= 0 or np.any(graph.src == graph.dst):
         raise ValueError("Use positive swaps and explicitly remove/retain autapses before this null")
     rng = np.random.default_rng(seed)
@@ -144,7 +187,7 @@ def rewire_signed_degrees(graph: Graph, swaps: int, seed: int) -> tuple[Graph, d
     manifest = {**graph.manifest, "kind": ("biological_rewired" if graph.manifest.get("kind") == "biological"
                                          else "synthetic_rewired"),
                 "parent_graph_sha256": graph.fingerprint(), "rewire_seed": seed,
-                "accepted_swaps": completed}
+                "accepted_swaps": completed, "edges_sorted_pre_post": False}
     result = Graph(graph.node_ids, src, dst, graph.magnitude, graph.sign, manifest)
     overlap = len(edges & set(zip(graph.src.tolist(), graph.dst.tolist()))) / graph.n_edges
     return result, {"accepted_swaps": completed, "attempts": attempts,
