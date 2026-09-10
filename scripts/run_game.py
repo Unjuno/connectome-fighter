@@ -30,9 +30,11 @@ def main() -> int:
     parser.add_argument("--expected-rounds", type=int)
     parser.add_argument("--neural-steps", type=int, default=1,
                         help="Engineering recurrent updates per game decision; not biological milliseconds")
+    parser.add_argument("--torch-threads", type=int, default=1)
     args = parser.parse_args()
-    if args.games <= 0 or args.timeout <= 0 or not 1 <= args.port <= 65535 or args.neural_steps <= 0:
-        parser.error("Invalid count, timeout, port, or neural step count")
+    if (args.games <= 0 or args.timeout <= 0 or not 1 <= args.port <= 65535
+        or args.neural_steps <= 0 or args.torch_threads <= 0):
+        parser.error("Invalid count, timeout, port, neural step count, or thread count")
     if args.expected_rounds is not None and args.expected_rounds <= 0:
         parser.error("Expected rounds must be positive")
     run_id = args.run_id or uuid.uuid4().hex[:12]
@@ -50,7 +52,8 @@ def main() -> int:
               "connectome_used": args.policy == "connectome", "host": args.host, "port": args.port,
               "games_requested": args.games, "seeds": [args.seed_p1, args.seed_p2],
               "python": sys.version.split()[0], "pyftg": pyftg_version,
-              "neural_steps_per_decision": (args.neural_steps if args.policy == "connectome" else None)}
+              "neural_steps_per_decision": (args.neural_steps if args.policy == "connectome" else None),
+              "torch_threads": (args.torch_threads if args.policy == "connectome" else None)}
     write_json(out/"status.json", status)
     agents = []
     code = 1
@@ -65,17 +68,22 @@ def main() -> int:
         else:
             import torch
             from connectome_fighter.graph import load_graph
-            from connectome_fighter.brain import ConnectomeActorCritic, NeuralPolicy
+            from connectome_fighter.brain import ConnectomeActorCritic, NeuralPolicy, SparseGraphCore
             from connectome_fighter.routing import validate_routing
-            torch.set_num_threads(1)
+            torch.set_num_threads(args.torch_threads)
             graph = load_graph(args.graph_dir, require_biological=True)
             routing = json.loads(Path(args.routing).read_text())
             validate_routing(graph, routing)
-            status["graph_sha256"] = graph.fingerprint()
+            graph_hash = graph.fingerprint()
+            status["graph_sha256"] = graph_hash
             status["routing_sha256"] = routing["routing_sha256"]
             status["routing_annotation_version"] = routing.get("annotation_version")
             status["input_neurons"] = len(routing["input_nodes"])
             status["output_neurons"] = len(routing["output_nodes"])
+            # Fixed-connectome agents have distinct recurrent states and readouts,
+            # but may share the immutable sparse anatomical core to avoid holding
+            # two copies of a 15M-edge matrix in memory.
+            shared_core = SparseGraphCore(graph, plastic=False)
             policies = []
             for seed in seeds:
                 torch.manual_seed(seed)
@@ -87,8 +95,10 @@ def main() -> int:
                     input_scale=float(routing["selection"]["input_scale"]),
                     neural_steps=args.neural_steps,
                     plastic=False,
+                    shared_core=shared_core,
                 )
-                policies.append(NeuralPolicy(model, f"untrained-{graph.fingerprint()[:12]}-{routing['routing_sha256'][:8]}-{seed}", seed))
+                policies.append(NeuralPolicy(model, f"untrained-{graph_hash[:12]}-{routing['routing_sha256'][:8]}-{seed}", seed))
+            status["immutable_core_shared_between_agents"] = True
         agents = [FighterAI(f"ConnectomeFighterP{i+1}", policy, JsonlSink(out/f"p{i+1}.jsonl"),
                             run_id, policies[1-i].version) for i, policy in enumerate(policies)]
 
