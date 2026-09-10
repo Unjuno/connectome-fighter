@@ -5,6 +5,13 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/live-game-smoke.yml'
+      - 'scripts/run_game.py'
+      - 'src/connectome_fighter/pyftg_bridge.py'
+      - 'src/connectome_fighter/observations.py'
+      - 'src/connectome_fighter/session.py'
+      - 'src/connectome_fighter/trajectory.py'
+      - 'src/connectome_fighter/match_audit.py'
+      - 'pyproject.toml'
   workflow_dispatch:
 
 permissions:
@@ -33,18 +40,23 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install torch==2.10.0 --index-url https://download.pytorch.org/whl/cpu
           python -m pip install '.[game,test]'
+          python - <<'PY'
+          import importlib.metadata
+          print('pyftg', importlib.metadata.version('pyftg'))
+          PY
 
       - name: Start official FightingICE container
         run: |
           mkdir -p runs/game runs/live
           docker pull "$GAME_IMAGE"
           docker image inspect "$GAME_IMAGE" --format '{{index .RepoDigests 0}}' | tee runs/game-image.txt
+          docker inspect "$GAME_IMAGE" > runs/game-image-inspect.json
           docker run -d --rm --name fightingice \
             -p 31415:31415 \
             -v "$PWD/runs/game:/app/log" \
             "$GAME_IMAGE"
 
-      - name: Wait for FightingICE gRPC server log
+      - name: Wait for FightingICE server
         run: |
           ready=0
           for i in $(seq 1 60); do
@@ -55,12 +67,14 @@ jobs:
             sleep 1
           done
           if [ "$ready" -ne 1 ]; then
-            docker logs fightingice 2>&1 | tee runs/fightingice.log
+            docker logs fightingice 2>&1 | tee runs/fightingice-before.log
             exit 1
           fi
-          docker logs fightingice 2>&1 | tee runs/fightingice.log
+          docker logs fightingice 2>&1 | tee runs/fightingice-before.log
 
       - name: Run actual Random vs Random match
+        id: match
+        continue-on-error: true
         run: |
           python scripts/run_game.py \
             --host 127.0.0.1 \
@@ -71,6 +85,12 @@ jobs:
             --seed-p2 20 \
             --timeout 180 \
             --out runs/live
+
+      - name: Capture post-match game evidence
+        if: always()
+        run: |
+          docker logs fightingice 2>&1 | tee runs/fightingice-after.log || true
+          docker ps -a --no-trunc > runs/docker-ps.txt || true
 
       - name: Stop game
         if: always()
@@ -83,3 +103,11 @@ jobs:
           name: live-game-smoke-evidence
           path: runs/
           if-no-files-found: warn
+
+      - name: Enforce live-match pass
+        if: always()
+        run: |
+          if [ '${{ steps.match.outcome }}' != 'success' ]; then
+            echo 'Live match failed; inspect uploaded evidence.' >&2
+            exit 1
+          fi
