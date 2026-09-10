@@ -12,6 +12,7 @@ dependencies = ["numpy==2.3.5", "torch==2.10.0"]
 [project.optional-dependencies]
 test = ["pytest==9.0.2"]
 game = ["pyftg==2.3"]
+data = ["pandas>=2.2,<3", "pyarrow>=16,<24"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
