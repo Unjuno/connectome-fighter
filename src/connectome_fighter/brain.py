@@ -31,12 +31,14 @@ class SparseGraphCore(nn.Module):
             self.register_buffer("static_matrix", None)
         else:
             self.register_parameter("theta", None)
-            # Coalescing millions of edges is expensive. A fixed-connectome
-            # condition must pay this cost once, not once per neural update.
             static = torch.sparse_coo_tensor(
                 indices, sign * base, (self.n_nodes, self.n_nodes)
             ).coalesce()
             self.register_buffer("static_matrix", static)
+
+    @property
+    def plastic(self) -> bool:
+        return self.theta is not None
 
     def weights(self) -> torch.Tensor:
         factor = 1.0 if self.theta is None else 2 * torch.sigmoid(self.theta)
@@ -88,7 +90,6 @@ class FixedRouting(nn.Module):
         if observation.ndim != 2 or observation.shape[-1] != self.obs_dim:
             raise ValueError("Unexpected observation shape")
         drive = observation.new_zeros((observation.shape[0], self.n_nodes))
-        # Half-wave coding: polarity + receives max(x,0), polarity - receives max(-x,0).
         values = torch.relu(observation[:, self.features] * self.polarities) * self.input_scale
         return drive.index_add(1, self.nodes, values)
 
@@ -99,13 +100,23 @@ class ConnectomeActorCritic(nn.Module):
                  input_polarities: list[int] | None = None,
                  input_scale: float = 0.25,
                  plastic: bool = False, gain: float = 0.1, leak: float = 0.5,
-                 neural_steps: int = 4):
+                 neural_steps: int = 4,
+                 shared_core: SparseGraphCore | None = None):
         super().__init__()
         if (not output_nodes or len(set(output_nodes)) != len(output_nodes)
             or min(output_nodes) < 0 or max(output_nodes) >= graph.n_nodes
             or set(input_nodes) & set(output_nodes) or neural_steps <= 0):
             raise ValueError("Use unique, valid, disjoint input/output nodes and positive steps")
-        self.core = SparseGraphCore(graph, plastic=plastic, gain=gain, leak=leak)
+        if shared_core is None:
+            self.core = SparseGraphCore(graph, plastic=plastic, gain=gain, leak=leak)
+        else:
+            if shared_core.n_nodes != graph.n_nodes or shared_core.graph_hash != graph.fingerprint():
+                raise ValueError("Shared core does not match graph")
+            if shared_core.plastic:
+                raise ValueError("A mutable/plastic core must not be shared between competing agents")
+            if plastic:
+                raise ValueError("plastic=True conflicts with immutable shared_core")
+            self.core = shared_core
         self.routing = FixedRouting(
             graph.n_nodes, input_nodes, input_features=input_features,
             input_polarities=input_polarities, input_scale=input_scale
@@ -124,7 +135,7 @@ class ConnectomeActorCritic(nn.Module):
 
 
 class NeuralPolicy:
-    """Inference wrapper. Separate instance/state/random stream for each fighter."""
+    """Inference wrapper. Separate recurrent state/random stream for each fighter."""
     def __init__(self, model: ConnectomeActorCritic, version: str, seed: int = 0):
         if not version:
             raise ValueError("Policy version is required")
@@ -134,6 +145,7 @@ class NeuralPolicy:
         self.reset()
 
     def reset(self):
+        # Recurrent state remains private even when the immutable graph core is shared.
         self.state = self.model.core.base.new_zeros((1, self.model.core.n_nodes))
 
     @torch.no_grad()
