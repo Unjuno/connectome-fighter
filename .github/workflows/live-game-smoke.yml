@@ -1,0 +1,85 @@
+name: live-game-smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/live-game-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-game-smoke
+  cancel-in-progress: true
+
+env:
+  GAME_IMAGE: ghcr.io/teamfightingice/fightingice:latest
+
+jobs:
+  random-vs-random:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU runtime and pyftg
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install torch==2.10.0 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install '.[game,test]'
+
+      - name: Start official FightingICE container
+        run: |
+          mkdir -p runs/game runs/live
+          docker pull "$GAME_IMAGE"
+          docker image inspect "$GAME_IMAGE" --format '{{index .RepoDigests 0}}' | tee runs/game-image.txt
+          docker run -d --rm --name fightingice \
+            -p 31415:31415 \
+            -v "$PWD/runs/game:/app/log" \
+            "$GAME_IMAGE"
+
+      - name: Wait for FightingICE gRPC server log
+        run: |
+          ready=0
+          for i in $(seq 1 60); do
+            if docker logs fightingice 2>&1 | grep -q 'Socket server is started'; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            docker logs fightingice 2>&1 | tee runs/fightingice.log
+            exit 1
+          fi
+          docker logs fightingice 2>&1 | tee runs/fightingice.log
+
+      - name: Run actual Random vs Random match
+        run: |
+          python scripts/run_game.py \
+            --host 127.0.0.1 \
+            --port 31415 \
+            --games 1 \
+            --policy random \
+            --seed-p1 10 \
+            --seed-p2 20 \
+            --timeout 180 \
+            --out runs/live
+
+      - name: Stop game
+        if: always()
+        run: docker stop fightingice || true
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-game-smoke-evidence
+          path: runs/
+          if-no-files-found: warn
