@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Connectome Fighter Lab</title>
+  <style>
+    :root { color-scheme: light dark; font-family: ui-sans-serif, system-ui, sans-serif; }
+    body { margin: 0; background: #0b0f14; color: #e7edf5; }
+    main { max-width: 920px; margin: 0 auto; padding: 48px 24px 72px; }
+    h1 { font-size: clamp(2rem, 5vw, 4rem); margin: 0 0 8px; }
+    .lead { color: #aeb9c8; max-width: 720px; line-height: 1.6; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap: 16px; margin: 32px 0; }
+    .card { border: 1px solid #273242; border-radius: 14px; padding: 18px; background: #111822; }
+    .metric { font-size: 1.7rem; font-weight: 700; }
+    .label { color: #91a0b5; font-size: .9rem; }
+    a { color: #8ecbff; }
+    .status { display:inline-block; border:1px solid #39506b; border-radius:999px; padding:6px 10px; font-size:.85rem; }
+  </style>
+</head>
+<body>
+<main>
+  <span class="status">research scaffold · no biological result claimed</span>
+  <h1>Connectome Fighter Lab</h1>
+  <p class="lead">A reproducible testbed for asking whether connectome-constrained controllers learn competitive policies differently from matched control networks in FightingICE.</p>
+  <div class="grid">
+    <div class="card"><div class="label">Game target</div><div class="metric">FightingICE 7.1</div></div>
+    <div class="card"><div class="label">Python bridge</div><div class="metric">pyftg 2.3</div></div>
+    <div class="card"><div class="label">Current stage</div><div class="metric">Integration</div></div>
+  </div>
+  <section><h2>Primary experiment</h2><p>Compare a verified Drosophila-derived wiring topology against degree/sign-preserving rewired controls under identical observations, actions, reward, training budget, seeds, and evaluation opponents.</p></section>
+  <section><h2>Current status</h2><p>The repository contains the game bridge, trace auditing, graph/control scaffolding, offline tests, Docker configuration, and experiment protocol. Real connectome ingestion and PPO/self-play training remain separate milestones.</p></section>
+  <section><h2>Reproducibility rule</h2><p>Mock tests, synthetic graphs, and live FightingICE runs are recorded as distinct evidence classes. Synthetic fixtures must never be reported as biological results.</p></section>
+  <p><a href="https://github.com/Unjuno/connectome-fighter">Repository</a></p>
+</main>
+</body>
+</html>
