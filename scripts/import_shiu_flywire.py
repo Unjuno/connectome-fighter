@@ -10,6 +10,9 @@ and signed `Excitatory x Connectivity`. Parallel identical pre->post rows are
 collapsed by signed summation, which is equivalent for the Shiu model's common
 presynaptic event, additive synaptic update, and common delay. Any exact signed
 cancellations are removed and counted in the manifest.
+
+Normalized storage is `nodes.csv` + compressed `edges.npz`; the binary edge
+container is an implementation/storage choice and does not alter graph values.
 """
 from __future__ import annotations
 
@@ -20,6 +23,7 @@ import json
 from pathlib import Path
 import sys
 from typing import Iterable
+import numpy as np
 
 
 def sha256_file(path: Path) -> str:
@@ -38,8 +42,6 @@ def _require_columns(columns: Iterable[str], required: set[str], label: str) -> 
 
 
 def _safe_node_ids(index) -> list[str]:
-    # Read as object and stringify exactly once. Float-looking IDs are rejected
-    # because FlyWire root IDs must not pass through IEEE-754 and lose precision.
     result: list[str] = []
     for raw in index.tolist():
         text = str(raw).strip()
@@ -82,7 +84,7 @@ def main() -> int:
         if not path.is_file():
             raise FileNotFoundError(path)
     args.out.mkdir(parents=True, exist_ok=True)
-    outputs = [args.out / "nodes.csv", args.out / "edges.csv", args.out / "manifest.json"]
+    outputs = [args.out / "nodes.csv", args.out / "edges.npz", args.out / "manifest.json"]
     if not args.force and any(p.exists() for p in outputs):
         raise FileExistsError("Output exists; use --force only after verifying the target directory")
 
@@ -91,8 +93,6 @@ def main() -> int:
         args.connectivity.name: sha256_file(args.connectivity),
     }
 
-    # dtype=object prevents pandas from intentionally treating the index column
-    # as float. We still validate the final textual IDs below.
     comp = pd.read_csv(args.completeness, index_col=0, dtype=object)
     node_ids = _safe_node_ids(comp.index)
 
@@ -103,9 +103,6 @@ def main() -> int:
     pre = pd.to_numeric(con["Presynaptic_Index"], errors="raise")
     post = pd.to_numeric(con["Postsynaptic_Index"], errors="raise")
     signed = pd.to_numeric(con["Excitatory x Connectivity"], errors="raise")
-
-    # Integer endpoint checks must happen before cast, otherwise 1.5 -> 1 would
-    # silently corrupt topology.
     if not ((pre % 1 == 0).all() and (post % 1 == 0).all()):
         raise ValueError("Connectivity endpoint indices must be integers")
     if not signed.notna().all():
@@ -121,10 +118,6 @@ def main() -> int:
     table = pd.DataFrame({"pre": pre, "post": post, "signed": signed})
     zero_input_rows = int((table["signed"] == 0).sum())
     original_rows = int(len(table))
-
-    # In Shiu's model every row has the same delay and is activated by the same
-    # presynaptic spike; g += w is additive. Therefore summing signed weights for
-    # identical (pre, post) pairs preserves that model's instantaneous update.
     grouped = table.groupby(["pre", "post"], sort=True, as_index=False)["signed"].sum()
     duplicate_rows_collapsed = original_rows - int(len(grouped))
     zero_after_aggregation = int((grouped["signed"] == 0).sum())
@@ -132,33 +125,33 @@ def main() -> int:
     if grouped.empty:
         raise ValueError("No nonzero connections remain after aggregation")
 
-    # Write through temporary files and rename after all validation completes.
+    # groupby(sort=True) provides lexicographic (pre, post) order. Retain that
+    # invariant so Graph can validate duplicate pairs without np.unique(E x 2).
+    src = grouped["pre"].to_numpy(dtype=np.int64, copy=True)
+    dst = grouped["post"].to_numpy(dtype=np.int64, copy=True)
+    signed_values = grouped["signed"].to_numpy(dtype=np.float64, copy=False)
+    magnitude = np.abs(signed_values).astype(np.float32)
+    sign = np.where(signed_values > 0, 1, -1).astype(np.int8)
+    if len(src) > 1:
+        sorted_ok = bool(np.all((src[1:] > src[:-1]) | ((src[1:] == src[:-1]) & (dst[1:] > dst[:-1]))))
+        if not sorted_ok:
+            raise RuntimeError("Internal error: normalized edges are not strictly sorted by (pre, post)")
+
     nodes_tmp = args.out / "nodes.csv.tmp"
-    edges_tmp = args.out / "edges.csv.tmp"
+    edges_tmp = args.out / "edges.npz.tmp"
     with nodes_tmp.open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f, lineterminator="\n")
         writer.writerow(["node_id"])
         writer.writerows((node_id,) for node_id in node_ids)
-
-    with edges_tmp.open("w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f, lineterminator="\n")
-        writer.writerow(["pre_id", "post_id", "magnitude", "sign"])
-        for row in grouped.itertuples(index=False):
-            value = float(row.signed)
-            writer.writerow([
-                node_ids[int(row.pre)], node_ids[int(row.post)],
-                format(abs(value), ".9g"), 1 if value > 0 else -1,
-            ])
-
+    with edges_tmp.open("wb") as f:
+        np.savez_compressed(f, src=src, dst=dst, magnitude=magnitude, sign=sign)
     nodes_tmp.replace(args.out / "nodes.csv")
-    edges_tmp.replace(args.out / "edges.csv")
+    edges_tmp.replace(args.out / "edges.npz")
+
     processed_hashes = {
         "nodes.csv": sha256_file(args.out / "nodes.csv"),
-        "edges.csv": sha256_file(args.out / "edges.csv"),
+        "edges.npz": sha256_file(args.out / "edges.npz"),
     }
-
-    # graph.load_graph currently requires source_sha256 as one 64-hex identity.
-    # Hash the ordered source-file digests to identify this exact source pair.
     source_pair_identity = hashlib.sha256(
         json.dumps(source_hashes, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
@@ -172,10 +165,13 @@ def main() -> int:
         "source_sha256": source_pair_identity,
         "source_files_sha256": source_hashes,
         "license": args.license,
+        "edge_storage": "npz_v1",
+        "edges_sorted_pre_post": True,
         "preprocessing": (
             "Neuron order from completeness index; Presynaptic_Index/Postsynaptic_Index map into that order; "
             "signed edge value from `Excitatory x Connectivity`; identical directed pairs aggregated by signed sum; "
-            "zero signed edges removed. No synthetic edges added."
+            "zero signed edges removed; edge arrays stored losslessly as int64 src/dst, float32 magnitude, int8 sign in NPZ. "
+            "No synthetic edges added."
         ),
         "model_lineage": {
             "repository": "https://github.com/philshiu/Drosophila_brain_model",
@@ -189,9 +185,9 @@ def main() -> int:
             "zero_source_rows": zero_input_rows,
             "duplicate_rows_collapsed": duplicate_rows_collapsed,
             "zero_pairs_after_signed_aggregation": zero_after_aggregation,
-            "normalized_edges": int(len(grouped)),
-            "excitatory_edges": int((grouped["signed"] > 0).sum()),
-            "inhibitory_edges": int((grouped["signed"] < 0).sum()),
+            "normalized_edges": int(len(src)),
+            "excitatory_edges": int((sign > 0).sum()),
+            "inhibitory_edges": int((sign < 0).sum()),
         },
         "warning": (
             "The FlyWire public release is non-commercially licensed. Re-check canonical FlyWire terms and citations "
@@ -202,7 +198,6 @@ def main() -> int:
         json.dumps(manifest, indent=2, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8"
     )
 
-    # Validate our own normalized format before declaring success.
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
     from connectome_fighter.graph import load_graph
     graph = load_graph(args.out, require_biological=True)
@@ -211,6 +206,7 @@ def main() -> int:
         "graph_sha256": graph.fingerprint(),
         "neurons": graph.n_nodes,
         "edges": graph.n_edges,
+        "edge_storage": "edges.npz",
         "manifest": str(args.out / "manifest.json"),
     }
     print(json.dumps(report, indent=2))
