@@ -2,7 +2,7 @@
 
 A research and engineering testbed for a **persistent Drosophila-connectome-constrained fighter** that resumes from checkpoints, keeps learning through FightingICE matches, evaluates against a checkpoint league, and publishes watchable fights on GitHub Pages.
 
-[Training Arena](https://unjuno.github.io/connectome-fighter/) · [日本語](README.ja.md)
+[Training Arena](https://unjuno.github.io/connectome-fighter/) · [Roadmap](ROADMAP.md) · [日本語](README.ja.md)
 
 ## Primary product loop
 
@@ -24,7 +24,7 @@ next job restores checkpoint and continues
 
 GitHub-hosted Actions jobs are bounded rather than persistent, so training is split into chunks joined by durable checkpoints. If near-24/7 compute becomes necessary, the trainer can move to a self-hosted runner while Actions remains the scheduler/orchestrator and Pages remains the spectator UI.
 
-See [`docs/CONTINUOUS_TRAINING.ja.md`](docs/CONTINUOUS_TRAINING.ja.md) and [milestone #5](https://github.com/Unjuno/connectome-fighter/issues/5).
+See [`ROADMAP.md`](ROADMAP.md), [`docs/CONTINUOUS_TRAINING.ja.md`](docs/CONTINUOUS_TRAINING.ja.md), and [milestone #5](https://github.com/Unjuno/connectome-fighter/issues/5).
 
 ## Current scope
 
