@@ -35,6 +35,21 @@
 
   <div class="notice"><span class="statusline"><span class="dot"></span><strong>Important:</strong></span> The reward and plasticity configurations shown here are audited smoke/candidate contracts. This page does not claim that continuous canonical learning is enabled until a production lineage is explicitly promoted and its checkpoint provenance is published.</div>
 
+  <section class="panel" id="lineage">
+    <div class="section-title"><div><div class="eyebrow">checkpoint lineage</div><h2>Approved inference vs candidate resume evidence</h2></div></div>
+    <div class="grid" style="margin:0">
+      <div class="card"><div class="label">GARNET generation 2</div><div class="value small">approved arena inference</div><p class="muted">Published in <code>arena-inference-latest</code> as a read-only inference state.</p></div>
+      <div class="card"><div class="label">ZEN generation 2</div><div class="value small">candidate cross-run resume proven</div><p class="muted">Independent state/RNG/history; not promoted to the public arena.</p></div>
+      <div class="card"><div class="label">LUD generation 2</div><div class="value small">candidate cross-run resume proven</div><p class="muted">Independent state/RNG/history; not promoted to the public arena.</p></div>
+      <div class="card"><div class="label">NEZ generation 2</div><div class="value small">candidate cross-run resume proven</div><p class="muted">Independent state/RNG/history; not promoted to the public arena.</p></div>
+    </div>
+    <p class="boundary">ZEN/LUD/NEZ were resumed from generation 1 to generation 2 in a separate GitHub Actions run under the current <code>R2d-v0</code> / <code>KC-MBON-valence-depression-v0</code> candidate smoke contract. This establishes checkpoint plumbing and lineage independence; it does not establish a production-trained four-character league or validate the reward as biological.</p>
+    <div class="actions">
+      <a class="btn" href="https://github.com/Unjuno/connectome-fighter/releases/tag/arena-inference-latest">approved arena snapshot ↗</a>
+      <a class="btn" href="https://github.com/Unjuno/connectome-fighter/releases/tag/canonical-missing-lineage-smoke-v1">candidate lineage release ↗</a>
+    </div>
+  </section>
+
   <section class="panel" id="reward">
     <div class="section-title"><div><div class="eyebrow">reinforcement contract</div><h2>How reward is assigned</h2></div><a class="muted" href="./research-data/reward.json">raw JSON ↗</a></div>
     <div class="reward-grid">
@@ -84,7 +99,8 @@
       <a href="./data/status.json"><strong>status.json</strong><br><span class="muted">current aggregate phase and stats</span></a>
       <a href="./research-data/reward.json"><strong>reward.json</strong><br><span class="muted">deployed reward contract copied from configs/</span></a>
       <a href="./research-data/plasticity.json"><strong>plasticity.json</strong><br><span class="muted">deployed plasticity contract copied from configs/</span></a>
-      <a href="https://github.com/Unjuno/connectome-fighter/releases/tag/canonical-state-smoke-v1"><strong>checkpoint smoke release</strong><br><span class="muted">durable generation resume evidence</span></a>
+      <a href="https://github.com/Unjuno/connectome-fighter/releases/tag/canonical-state-smoke-v1"><strong>GARNET checkpoint smoke</strong><br><span class="muted">approved-lineage generation resume evidence</span></a>
+      <a href="https://github.com/Unjuno/connectome-fighter/releases/tag/canonical-missing-lineage-smoke-v1"><strong>ZEN / LUD / NEZ candidate checkpoint smoke</strong><br><span class="muted">generation-2 cross-Actions-run resume evidence; not arena-promoted</span></a>
       <a href="https://github.com/Unjuno/connectome-fighter/actions"><strong>GitHub Actions</strong><br><span class="muted">raw artifacts, checksums, logs and provenance</span></a>
     </div>
   </section>
