@@ -47,39 +47,38 @@ jobs:
           echo "RUNTIME_SHA=$runtime_sha" >> "$GITHUB_ENV"
           echo "RUNTIME_BASE=$runtime_base" >> "$GITHUB_ENV"
 
-      - name: Warm immutable runtime base snapshot
+      - name: Warm immutable runtime base snapshot through streaming state machine
         run: |
           set -euo pipefail
           ready=0
           for i in $(seq 1 180); do
             tmp="$(mktemp)"
-            code="$(curl -sS -o "$tmp" -w '%{http_code}' -X POST "$BASE/api/connectome/session" \
-              -H 'content-type: application/json' \
-              --data '{"operation":"warm-runtime"}' || true)"
+            code="$(curl -sS -o "$tmp" -w '%{http_code}' "$BASE/api/connectome/runtime-base" || true)"
             body="$(cat "$tmp")"
             rm -f "$tmp"
             if [[ -n "$body" ]]; then
-              echo "$body" | jq '{mode, ready, runtime_base_name, runtime_base_status, runtime_archive_sha256, reason, learning_enabled, policy_pixel_access}'
+              echo "$body" | jq '{ready, status, name, snapshot_id, session_id, command_id, command_exit_code, stage_age_ms, stage_version, runtime_archive_sha256, diagnostic, reason, learning_enabled, policy_pixel_access}'
               test "$(echo "$body" | jq -r '.learning_enabled')" = 'false'
               test "$(echo "$body" | jq -r '.policy_pixel_access')" = 'false'
-              base="$(echo "$body" | jq -r '.runtime_base_name // empty')"
+              base="$(echo "$body" | jq -r '.name // empty')"
               sha="$(echo "$body" | jq -r '.runtime_archive_sha256 // empty')"
-              status="$(echo "$body" | jq -r '.runtime_base_status // empty')"
+              status="$(echo "$body" | jq -r '.status // empty')"
               test "$base" = "$RUNTIME_BASE"
               test "$sha" = "$RUNTIME_SHA"
-              if [[ "$code" == '200' && "$(echo "$body" | jq -r '.ready')" == 'true' ]]; then
+              if [[ "$code" == '200' && "$(echo "$body" | jq -r '.ready')" == 'true' && "$status" == 'ready' ]]; then
                 ready=1
                 break
               fi
               case "$status" in
-                create-error|stage-start-error|stage-failed-reset|snapshot-stop-error|runtime-bundle-unavailable|inspect-error)
+                create-error|stage-start-error|snapshot-stop-error|runtime-release-unavailable|inspect-error|auth-unavailable)
                   echo "Runtime base hard failure: $status" >&2
+                  echo "$body" | jq . >&2
                   exit 1
                   ;;
               esac
             fi
             if [[ "$code" != '200' && "$code" != '202' ]]; then
-              echo "Runtime warm endpoint returned HTTP $code" >&2
+              echo "Runtime base endpoint returned HTTP $code" >&2
               [[ -n "$body" ]] && echo "$body" | jq . >&2 || true
               exit 1
             fi
