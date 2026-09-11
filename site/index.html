@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Connectome Fighter · Training Arena</title>
+  <title>Connectome Fighter · MaleCNS migration</title>
   <style>
     :root { color-scheme:dark; font-family:ui-sans-serif,system-ui,sans-serif; }
     * { box-sizing:border-box; }
@@ -12,7 +12,8 @@
     h1 { font-size:clamp(2rem,5vw,4rem); margin:.15em 0; }
     h2 { margin-top:36px; }
     .lead,.muted { color:#91a0b5; }
-    .lead { max-width:880px; line-height:1.6; }
+    .lead { max-width:900px; line-height:1.6; }
+    .warning { border:1px solid #8f6a28; background:#251d0e; border-radius:14px; padding:16px 18px; line-height:1.55; margin:18px 0 24px; }
     .status { display:inline-block; border:1px solid #39506b; border-radius:999px; padding:6px 10px; font-size:.85rem; }
     .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; margin:24px 0; }
     .card,.panel { border:1px solid #273242; border-radius:14px; background:#111822; }
@@ -41,15 +42,16 @@
 </head>
 <body>
 <main>
-  <span class="status">cloud continuous learning · phase: <strong id="phase">loading</strong></span>
+  <span class="status">canonical training paused · MaleCNS migration</span>
   <h1>Connectome Fighter</h1>
-  <p class="lead">GARNET, ZEN, LUD and NEZ each own an independent Drosophila-connectome-constrained brain lineage. GitHub Actions resumes their checkpoints, trains them in FightingICE, evaluates a frozen matchup, and publishes the fight and neural activity here.</p>
+  <div class="warning"><strong>Legacy-data warning.</strong> Any replay or generation shown below was produced by the earlier FlyWire-v783/custom-sigmoid engineering scaffold. It is retained only as integration evidence and is <strong>not</strong> a canonical MaleCNS result. Automatic legacy training has been disabled.</div>
+  <p class="lead">The canonical target is now the Google Research/Janelia/Cambridge/MRC LMB <strong>MaleCNS v1.0</strong> connectome, with neural time dynamics supplied by a separately versioned published Drosophila LIF model. No generic trainable RNN/MLP/GNN is allowed to replace the fly nervous system in the canonical control path.</p>
 
-  <h2>Character brains</h2>
+  <h2>Legacy character brains</h2>
   <div id="characters" class="grid"></div>
 
   <section>
-    <h2>Latest fight</h2>
+    <h2>Legacy fight evidence</h2>
     <div class="panel">
       <div id="replay-status" class="muted">Loading replay…</div>
       <canvas id="replay"></canvas>
@@ -64,8 +66,8 @@
   </section>
 
   <section>
-    <h2>Brain activity at the selected decision</h2>
-    <p class="muted">Dots are real FlyWire annotation coordinates (XY projection) when available. The list shows decision-evoked increases (Δ) and descending/readout activity (D). Values are dimensionless model activations, not measured biological firing rates.</p>
+    <h2>Legacy activity telemetry</h2>
+    <p class="muted">Shown only for pipeline debugging. Canonical MaleCNS replays will instead log real MaleCNS body IDs, spike events, neuron annotations, neurotransmitter identity and action contributions.</p>
     <div class="brain-grid">
       <div class="panel"><strong id="brain-p1-title">P1</strong><div id="brain-p1-summary" class="muted"></div><canvas id="brain-map-p1" class="brain-map"></canvas><div id="brain-p1" class="brain-list"></div></div>
       <div class="panel"><strong id="brain-p2-title">P2</strong><div id="brain-p2-summary" class="muted"></div><canvas id="brain-map-p2" class="brain-map"></canvas><div id="brain-p2" class="brain-list"></div></div>
@@ -73,18 +75,18 @@
   </section>
 
   <section>
-    <h2>Learning history</h2>
+    <h2>Legacy learning history</h2>
     <div class="panel"><canvas id="history"></canvas></div>
-    <p class="muted">Elo here is an operational league visualization, not a biological-effect statistic. Updated: <span id="updated">—</span>.</p>
+    <p class="muted">Legacy operational metric only. Updated: <span id="updated">—</span>.</p>
   </section>
 
   <section>
-    <h2>Interpretation boundary</h2>
-    <p>The current milestone tests persistent learning with a fixed anatomical graph and character-specific readout/value heads. It does <strong>not</strong> establish that Drosophila topology is superior to matched rewired controls; that remains a separate confirmatory A/B experiment.</p>
+    <h2>Canonical gate</h2>
+    <p>Scheduled training remains disabled until official MaleCNS provenance/schema checks, the published-LIF reference check, one complete MaleCNS→LIF→FightingICE round, real-body-ID activity replay, and four-character state isolation all pass.</p>
   </section>
 
   <p id="error" class="muted"></p>
-  <p><a href="https://github.com/Unjuno/connectome-fighter">Repository</a> · <a href="https://github.com/Unjuno/connectome-fighter/blob/main/ROADMAP.md">Roadmap</a> · <a href="https://github.com/Unjuno/connectome-fighter/issues/5">Continuous-training milestone</a></p>
+  <p><a href="https://github.com/Unjuno/connectome-fighter">Repository</a> · <a href="https://github.com/Unjuno/connectome-fighter/blob/main/docs/SUBSTRATE_CONTRACT.ja.md">Substrate contract</a></p>
 </main>
 <script src="./app.js"></script>
 </body>
