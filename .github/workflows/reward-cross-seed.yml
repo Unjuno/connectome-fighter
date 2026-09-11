@@ -1,0 +1,120 @@
+name: reward-cross-seed
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/reward-cross-seed.yml'
+      - 'scripts/score_reward_candidates.py'
+      - 'scripts/score_stalemate_reward.py'
+      - 'scripts/score_engagement_potential.py'
+      - 'scripts/score_engagement_stalemate_reward.py'
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: reward-cross-seed
+  cancel-in-progress: true
+
+env:
+  RUN_A: '34620984683'
+  RUN_B: '34629644845'
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Download baseline chunk A
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.RUN_A }}
+          pattern: malecns-baseline-*
+          path: runs/A
+
+      - name: Download baseline chunk B
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.RUN_B }}
+          pattern: malecns-baseline-*
+          path: runs/B
+
+      - name: Score both chunks identically
+        run: |
+          for X in A B; do
+            mkdir -p "runs/out-$X"
+            python scripts/score_reward_candidates.py \
+              --root "runs/$X" --out-json "runs/out-$X/base.json" --out-csv "runs/out-$X/events.csv" \
+              --max-hp 400 --damage-unit-hp 10
+            python scripts/score_stalemate_reward.py \
+              --events "runs/out-$X/events.csv" --out "runs/out-$X/stalemate.json"
+            python scripts/score_engagement_potential.py \
+              --root "runs/$X" --out "runs/out-$X/engagement.json" --stage-width 960 --damage-unit-hp 10
+            python scripts/score_engagement_stalemate_reward.py \
+              --root "runs/$X" --out "runs/out-$X/mixed.json" --stage-width 960 --damage-unit-hp 10
+          done
+
+      - name: Build cross-seed comparison
+        run: |
+          python - <<'PY'
+          import json, os, pathlib
+          chunks={}
+          for label,run_id in [('A',os.environ['RUN_A']),('B',os.environ['RUN_B'])]:
+              base=json.load(open(f'runs/out-{label}/base.json'))
+              st=json.load(open(f'runs/out-{label}/stalemate.json'))
+              en=json.load(open(f'runs/out-{label}/engagement.json'))
+              mix=json.load(open(f'runs/out-{label}/mixed.json'))
+              # predeclared conservative mixed config: contact=180, w_phi=.05, stalemate=.01
+              chosen=next(c for c in mix['configs'] if c['contact_band_px']==180.0 and c['potential_weight']==0.05 and c['no_damage_draw_penalty']==0.01)
+              chunks[label]={
+                  'baseline_run_id':int(run_id),
+                  'game_rounds':base['input']['game_rounds'],
+                  'R0':base['candidate_families']['R0_terminal_sign']['decision_reward'],
+                  'damage_window_rate':base['observed']['damage_window_rate'],
+                  'no_damage_draw_rate':st['no_damage_draw_rate'],
+                  'R2c_conservative':next(c for c in en['configs'] if c['contact_band_px']==180.0 and c['potential_weight']==0.05),
+                  'R2d_conservative':chosen,
+              }
+          out={
+              'schema_version':1,'status':'PASS','learning_performed':False,
+              'chunks':chunks,
+              'candidate_under_review':{
+                  'id':'R2d-v0-candidate',
+                  'terminal_win_loss_bonus':1.0,
+                  'damage_weight_per_10hp':0.1,
+                  'contact_band_px':180.0,
+                  'engagement_potential_weight':0.05,
+                  'no_damage_draw_penalty':0.01,
+              },
+              'selection_rule':'Do not enable learning unless the candidate provides non-zero feedback in both independent seed chunks without exceeding |1| terminal outcome scale.',
+          }
+          p=pathlib.Path('runs/cross-seed-reward.json')
+          p.write_text(json.dumps(out,indent=2,sort_keys=True)+'\n')
+          print(json.dumps(out,indent=2,sort_keys=True))
+          # Gate: the mixed candidate must actually create signal in both chunks.
+          for x in chunks.values():
+              assert x['R2d_conservative']['decision_reward']['nonzero_rate'] > 0.05
+              assert x['R2d_conservative']['decision_reward']['max_abs'] <= 1.0
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reward-cross-seed-comparison
+          path: |
+            runs/cross-seed-reward.json
+            runs/out-A/*.json
+            runs/out-B/*.json
+          if-no-files-found: error
+          retention-days: 30
