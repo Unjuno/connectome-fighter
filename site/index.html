@@ -5,42 +5,47 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Connectome Fighter · Training Arena</title>
   <style>
-    :root { color-scheme: dark; font-family: ui-sans-serif, system-ui, sans-serif; }
-    * { box-sizing: border-box; }
+    :root { color-scheme:dark; font-family:ui-sans-serif,system-ui,sans-serif; }
+    * { box-sizing:border-box; }
     body { margin:0; background:#0b0f14; color:#e7edf5; }
-    main { max-width:1080px; margin:0 auto; padding:40px 20px 72px; }
+    main { max-width:1180px; margin:0 auto; padding:36px 20px 72px; }
     h1 { font-size:clamp(2rem,5vw,4rem); margin:.15em 0; }
-    h2 { margin-top:38px; }
-    .lead { color:#aeb9c8; max-width:800px; line-height:1.6; }
+    h2 { margin-top:36px; }
+    .lead,.muted { color:#91a0b5; }
+    .lead { max-width:880px; line-height:1.6; }
     .status { display:inline-block; border:1px solid #39506b; border-radius:999px; padding:6px 10px; font-size:.85rem; }
-    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin:28px 0; }
-    .card { border:1px solid #273242; border-radius:14px; padding:16px; background:#111822; min-height:92px; }
-    .metric { font-size:1.55rem; font-weight:750; overflow-wrap:anywhere; }
-    .label { color:#91a0b5; font-size:.86rem; margin-bottom:8px; }
-    .panel { border:1px solid #273242; border-radius:14px; padding:18px; background:#111822; margin:16px 0; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; margin:24px 0; }
+    .card,.panel { border:1px solid #273242; border-radius:14px; background:#111822; }
+    .card { padding:16px; }
+    .panel { padding:18px; margin:14px 0; }
+    .metric { font-size:1.35rem; font-weight:750; overflow-wrap:anywhere; }
+    .label { color:#91a0b5; font-size:.82rem; margin-top:7px; }
+    .character-name { font-size:1.35rem; font-weight:800; }
+    .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    button,select { background:#172231; color:#e7edf5; border:1px solid #39506b; border-radius:8px; padding:8px 11px; }
     canvas { width:100%; display:block; border-radius:10px; }
-    #history { height:220px; }
-    #replay { height:300px; }
-    #replay-slider { width:100%; margin-top:12px; }
-    .muted { color:#91a0b5; }
+    #history { height:240px; }
+    #replay { height:330px; }
+    #replay-slider { width:100%; margin:12px 0; }
+    .brain-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:14px; }
+    .brain-list { display:grid; gap:6px; margin-top:10px; }
+    .brain-row { display:grid; grid-template-columns:minmax(120px,1fr) 4fr 56px; gap:8px; align-items:center; font-size:.78rem; }
+    .brain-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#b8c4d4; }
+    .bar { height:8px; border-radius:999px; background:#223044; overflow:hidden; }
+    .bar > span { display:block; height:100%; background:#8ecbff; }
+    .brain-grid .panel:nth-child(2) .bar > span { background:#ff9f8e; }
     a { color:#8ecbff; }
     code { background:#171f2b; padding:.12em .35em; border-radius:4px; }
   </style>
 </head>
 <body>
 <main>
-  <span class="status">continuous-learning spectator · phase: <strong id="phase">loading</strong></span>
+  <span class="status">cloud continuous learning · phase: <strong id="phase">loading</strong></span>
   <h1>Connectome Fighter</h1>
-  <p class="lead">The target system is a persistent Drosophila-connectome-constrained fighter: each bounded training job resumes the previous checkpoint, learns from more fights, evaluates against a checkpoint league, and publishes a browser-viewable match here.</p>
+  <p class="lead">GARNET, ZEN, LUD and NEZ each own an independent Drosophila-connectome-constrained brain lineage. GitHub Actions resumes their checkpoints, trains them in FightingICE, evaluates a frozen matchup, and publishes the fight and neural activity here.</p>
 
-  <div class="grid">
-    <div class="card"><div class="label">generation</div><div id="generation" class="metric">—</div></div>
-    <div class="card"><div class="label">training matches</div><div id="matches" class="metric">—</div></div>
-    <div class="card"><div class="label">current checkpoint</div><div id="checkpoint" class="metric">—</div></div>
-    <div class="card"><div class="label">champion</div><div id="champion" class="metric">—</div></div>
-    <div class="card"><div class="label">Elo</div><div id="elo" class="metric">—</div></div>
-    <div class="card"><div class="label">fixed-baseline win rate</div><div id="baseline" class="metric">—</div></div>
-  </div>
+  <h2>Character brains</h2>
+  <div id="characters" class="grid"></div>
 
   <section>
     <h2>Latest evaluation fight</h2>
@@ -48,27 +53,37 @@
       <div id="replay-status" class="muted">Loading replay…</div>
       <canvas id="replay"></canvas>
       <input id="replay-slider" type="range" min="0" max="0" value="0" />
+      <div class="row">
+        <button id="play">Play</button>
+        <button id="pause">Pause</button>
+        <label class="muted">speed <select id="speed"><option value="240">0.5×</option><option value="120" selected>1×</option><option value="60">2×</option><option value="30">4×</option></select></label>
+        <span id="frame-label" class="muted"></span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Brain activity at the selected decision</h2>
+    <p class="muted">The viewer shows the most active whole-brain nodes and descending/readout neurons exported by the fixed-connectome controller. Values are model activations, not measured biological firing rates.</p>
+    <div class="brain-grid">
+      <div class="panel"><strong id="brain-p1-title">P1</strong><div id="brain-p1-summary" class="muted"></div><div id="brain-p1" class="brain-list"></div></div>
+      <div class="panel"><strong id="brain-p2-title">P2</strong><div id="brain-p2-summary" class="muted"></div><div id="brain-p2" class="brain-list"></div></div>
     </div>
   </section>
 
   <section>
     <h2>Learning history</h2>
     <div class="panel"><canvas id="history"></canvas></div>
-    <p class="muted">Updated: <span id="updated">—</span>. The public viewer only displays exported evaluation telemetry; evaluation fights do not update weights.</p>
+    <p class="muted">Elo here is an operational league visualization, not a biological-effect statistic. Updated: <span id="updated">—</span>.</p>
   </section>
 
   <section>
-    <h2>How it is intended to run</h2>
-    <p>GitHub Actions is used in bounded chunks, not as one immortal process: restore checkpoint → train → checkpoint → evaluate → export replay/metrics → deploy Pages → resume on the next run. The current hosted-runner job ceiling is six hours, so true near-24/7 compute should eventually move to a self-hosted runner while keeping the same checkpoint and spectator contracts.</p>
-  </section>
-
-  <section>
-    <h2>Evidence boundary</h2>
-    <p>Continuous learning demonstrates a persistent competitive agent. It does <strong>not</strong> by itself show that the biological Drosophila topology is superior. That claim requires the separate matched-rewire A/B protocol.</p>
+    <h2>Interpretation boundary</h2>
+    <p>The current milestone tests persistent learning with a fixed anatomical graph and character-specific readout/value heads. It does <strong>not</strong> establish that Drosophila topology is superior to matched rewired controls; that remains a separate confirmatory A/B experiment.</p>
   </section>
 
   <p id="error" class="muted"></p>
-  <p><a href="https://github.com/Unjuno/connectome-fighter">Repository</a> · <a href="https://github.com/Unjuno/connectome-fighter/issues/5">Continuous-training milestone</a> · <a href="https://github.com/Unjuno/connectome-fighter/blob/main/docs/CONTINUOUS_TRAINING.ja.md">Architecture</a></p>
+  <p><a href="https://github.com/Unjuno/connectome-fighter">Repository</a> · <a href="https://github.com/Unjuno/connectome-fighter/blob/main/ROADMAP.md">Roadmap</a> · <a href="https://github.com/Unjuno/connectome-fighter/issues/5">Continuous-training milestone</a></p>
 </main>
 <script src="./app.js"></script>
 </body>
