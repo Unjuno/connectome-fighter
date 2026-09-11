@@ -17,7 +17,9 @@ from urllib.parse import urljoin
 import pandas as pd
 
 
-def read_json(path: Path, default):
+def read_json(path: Path | None, default):
+    if path is None:
+        return default
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except Exception:
@@ -90,11 +92,10 @@ def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--run-dir", type=Path, required=True)
     p.add_argument("--structure-index", type=Path, required=True)
-    p.add_argument("--video", type=Path, required=True)
     p.add_argument("--video-meta", type=Path, required=True)
     p.add_argument("--previous-queue", type=Path)
     p.add_argument("--out", type=Path, required=True)
-    p.add_argument("--public-base", required=True)
+    p.add_argument("--public-base", required=True, help="Stable release asset base ending in /spectator-latest/")
     p.add_argument("--source-run-url", required=True)
     p.add_argument("--next-expected-at", required=True)
     args = p.parse_args()
@@ -106,16 +107,15 @@ def main() -> int:
     if len(chars) != 2 or len(seeds) != 2:
         raise ValueError("render status does not identify two fighters")
 
+    base = args.public_base.rstrip("/") + "/"
     clip_id = f"{status.get('run_id','clip')}-{video.get('source_actions_run','run')}"
-    filename = args.video.name
-    public_url = urljoin(args.public_base.rstrip("/") + "/", f"fights/{filename}")
     entry = {
         "clip_id": clip_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "video_url": public_url,
+        "video_url": urljoin(base, "latest-fight.mp4"),
         "duration_seconds": float(video.get("duration_seconds", 0.0)),
         "frames": int(video.get("frames", 0)),
-        "round_count": int(video.get("round_count", status.get("games_requested", 0))),
+        "round_count": int(video.get("rounds", video.get("round_count", 6))),
         "p1": {"character": str(chars[0]), "seed": int(seeds[0])},
         "p2": {"character": str(chars[1]), "seed": int(seeds[1])},
         "outcomes": round_summary(status),
@@ -127,7 +127,7 @@ def main() -> int:
         "policy_pixel_access": False,
     }
 
-    previous = read_json(args.previous_queue, {}) if args.previous_queue else {}
+    previous = read_json(args.previous_queue, {})
     previous_entries = previous.get("clips") if isinstance(previous, dict) else []
     if not isinstance(previous_entries, list):
         previous_entries = []
@@ -139,13 +139,18 @@ def main() -> int:
         old_id = str(old.get("clip_id", ""))
         if not old_id or old_id in seen:
             continue
-        clips.append(old)
+        clips.append(dict(old))
         seen.add(old_id)
         if len(clips) >= 3:
             break
 
+    stable_names = ["latest-fight.mp4", "previous-1.mp4", "previous-2.mp4"]
+    for index, clip in enumerate(clips):
+        clip["video_url"] = urljoin(base, stable_names[index])
+        clip["queue_slot"] = index
+
     queue = {
-        "schema_version": 1,
+        "schema_version": 2,
         "mode": "rolling-pseudo-live",
         "learning_enabled": False,
         "poll_interval_seconds": 30,
@@ -153,7 +158,7 @@ def main() -> int:
         "clips": clips,
         "current_clip_id": clip_id,
         "source_run_url": args.source_run_url,
-        "note": "Each clip is a fresh canonical MaleCNS + pinned Shiu LIF simulation. Queue activity is post-hoc structural annotation only.",
+        "note": "Each clip is a fresh canonical MaleCNS + pinned Shiu LIF simulation. Brain activity is post-hoc structural annotation and never enters policy input.",
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(queue, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
