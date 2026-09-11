@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "R2d-v0",
+  "status": "frozen-for-single-match-plasticity-smoke-not-continuous-training",
+  "terminal": {
+    "win": 1.0,
+    "loss": -1.0,
+    "ordinary_draw": 0.0,
+    "no_damage_draw_penalty": -0.01
+  },
+  "damage": {
+    "unit_hp": 10.0,
+    "weight_per_unit": 0.1,
+    "formula": "weight_per_unit * ((damage_dealt_hp - damage_taken_hp) / unit_hp)"
+  },
+  "engagement_potential": {
+    "enabled": true,
+    "distance": "abs(p1_x - p2_x)",
+    "contact_band_px": 180.0,
+    "stage_width_px": 960.0,
+    "weight": 0.05,
+    "phi": "-max(horizontal_distance_px - contact_band_px, 0) / stage_width_px",
+    "local_reward": "weight * (phi(next_distance) - phi(current_distance))"
+  },
+  "total_decision_reward": "damage_reward + engagement_potential_reward + terminal_or_stalemate_reward_on_final_decision",
+  "fixed_during_comparison": {
+    "anatomy": "MaleCNS v1.0",
+    "dynamics": "pinned Shiu LIF",
+    "decision_interval_fightingice_frames": 60,
+    "sensory_randomness": "observation-driven Poisson spikes",
+    "action_readout": "deterministic spike-count argmax",
+    "epsilon_greedy": false,
+    "specific_action_reward": false
+  },
+  "cross_seed_evidence": {
+    "workflow_run": 34631037696,
+    "artifact_id": 10275709210,
+    "artifact_sha256": "58e17ac3eadeaf0baaf7ec6dbfacccc443cab2207462d5a40aee8dd038e04acd",
+    "chunk_A_baseline_run": 34620984683,
+    "chunk_A_decision_nonzero_rate": 0.175,
+    "chunk_A_positive_decisions": 71,
+    "chunk_A_negative_decisions": 97,
+    "chunk_B_baseline_run": 34629644845,
+    "chunk_B_decision_nonzero_rate": 0.13333333333333333,
+    "chunk_B_positive_decisions": 32,
+    "chunk_B_negative_decisions": 96
+  },
+  "interpretation_boundary": "R2d-v0 is an engineering curriculum/reinforcement signal for FightingICE. Distance, damage and game outcome are not claimed to be endogenous Drosophila reinforcement signals. This config is frozen only for the first audited single-match plasticity smoke; continuous learning remains disabled."
+}
