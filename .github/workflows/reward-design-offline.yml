@@ -18,7 +18,7 @@ on:
       - '.github/workflows/reward-design-offline.yml'
 
 permissions:
-  contents: read
+  contents: write
   actions: read
 
 concurrency:
@@ -32,6 +32,11 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Fast-forward to latest public baseline data
+        run: git pull --ff-only origin main
 
       - uses: actions/setup-python@v5
         with:
@@ -109,6 +114,29 @@ jobs:
               'R2b_first_config_decision_nonzero_rate': s['configs'][0]['decision_reward']['nonzero_rate'],
           }, indent=2))
           PY
+
+      - name: Publish compact reward analysis for Pages
+        run: |
+          mkdir -p site/data
+          python - <<'PY'
+          import json, os, pathlib
+          pairs=[
+              ('runs/reward-analysis/reward-analysis.json','site/data/reward-analysis.json'),
+              ('runs/reward-analysis/stalemate-analysis.json','site/data/stalemate-analysis.json'),
+          ]
+          for src,dst in pairs:
+              data=json.load(open(src))
+              data['source_baseline_run_id']=int(os.environ['BASELINE_RUN_ID'])
+              data['source_baseline_run_url']=f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['BASELINE_RUN_ID']}"
+              pathlib.Path(dst).write_text(json.dumps(data,indent=2,sort_keys=True)+'\n',encoding='utf-8')
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add site/data/reward-analysis.json site/data/stalemate-analysis.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'Update offline reward analysis [skip ci]'
+            git push origin HEAD:main
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
