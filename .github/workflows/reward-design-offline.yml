@@ -14,6 +14,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/score_reward_candidates.py'
+      - 'scripts/score_stalemate_reward.py'
       - '.github/workflows/reward-design-offline.yml'
 
 permissions:
@@ -79,24 +80,33 @@ jobs:
             --max-hp 400 \
             --damage-unit-hp 10
 
+      - name: Offline-score R2b anti-stalemate candidate
+        run: |
+          python scripts/score_stalemate_reward.py \
+            --events runs/reward-analysis/reward-events.csv \
+            --out runs/reward-analysis/stalemate-analysis.json
+
       - name: Sanity gate
         run: |
           python - <<'PY'
           import json
-          p='runs/reward-analysis/reward-analysis.json'
-          d=json.load(open(p))
-          assert d['status']=='PASS'
-          assert d['learning_performed'] is False
+          d=json.load(open('runs/reward-analysis/reward-analysis.json'))
+          s=json.load(open('runs/reward-analysis/stalemate-analysis.json'))
+          assert d['status']=='PASS' and s['status']=='PASS'
+          assert d['learning_performed'] is False and s['learning_performed'] is False
           assert d['guardrails']['same_logged_trajectories_for_all_candidates'] is True
           assert d['guardrails']['current_action_randomness_unchanged'] is True
+          assert s['guardrails']['same_trajectories'] is True
+          assert s['guardrails']['current_action_randomness_unchanged'] is True
           assert d['input']['game_rounds'] > 0
-          assert d['input']['decision_windows_per_brain'] > 0
           print(json.dumps({
               'baseline_run_id': '${{ env.BASELINE_RUN_ID }}',
               'game_rounds': d['input']['game_rounds'],
               'decision_windows_per_brain': d['input']['decision_windows_per_brain'],
-              'terminal_nonzero_rate': d['candidate_families']['R0_terminal_sign']['decision_reward']['nonzero_rate'],
+              'R0_decision_nonzero_rate': d['candidate_families']['R0_terminal_sign']['decision_reward']['nonzero_rate'],
               'damage_window_rate': d['observed']['damage_window_rate'],
+              'no_damage_draw_rate': s['no_damage_draw_rate'],
+              'R2b_first_config_decision_nonzero_rate': s['configs'][0]['decision_reward']['nonzero_rate'],
           }, indent=2))
           PY
 
