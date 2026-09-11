@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "id": "R3b-terminal-nodamage-v0",
+  "status": "candidate-comparison-only-not-production-learning",
+  "terminal": {
+    "win": 1.0,
+    "loss": -1.0,
+    "ordinary_draw": 0.0,
+    "no_damage_draw_penalty": -0.1
+  },
+  "damage": {
+    "unit_hp": 10.0,
+    "weight_per_unit": 0.0,
+    "formula": "weight_per_unit * ((damage_dealt_hp - damage_taken_hp) / unit_hp)"
+  },
+  "engagement_potential": {
+    "enabled": false,
+    "distance": "abs(p1_x - p2_x)",
+    "contact_band_px": 180.0,
+    "stage_width_px": 960.0,
+    "weight": 0.0,
+    "phi": "-max(horizontal_distance_px - contact_band_px, 0) / stage_width_px",
+    "local_reward": "weight * (phi(next_distance) - phi(current_distance))"
+  },
+  "total_decision_reward": "terminal outcome on final decision plus no-damage draw penalty when applicable",
+  "fixed_during_comparison": {
+    "anatomy": "MaleCNS v1.0",
+    "dynamics": "pinned Shiu LIF",
+    "decision_interval_fightingice_frames": 60,
+    "sensory_randomness": "observation-driven Poisson spikes",
+    "action_readout": "deterministic spike-count argmax",
+    "epsilon_greedy": false,
+    "specific_action_reward": false
+  },
+  "interpretation_boundary": "R3b-terminal-nodamage-v0 adds only a small project-defined penalty for zero-damage draws/timeouts to the terminal outcome objective. It is not claimed to be an endogenous Drosophila reinforcement signal and does not enable production continuous learning."
+}

@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "KC-MBON-valence-depression-v0",
+  "status": "candidate-comparison-only",
+  "learning_rate_per_unit_modulatory_signal": 0.01,
+  "eligibility_decay_per_decision": 0.9,
+  "pair_count_cap": 25.0,
+  "normalization_percentile": 95.0,
+  "multiplier_min": 0.8,
+  "multiplier_max": 1.0,
+  "positive_signal_target": "avoidance_associated",
+  "negative_signal_target": "approach_associated",
+  "update_direction": "depression_only",
+  "reward_config": "R3b-terminal-nodamage-v0",
+  "literature_basis": {
+    "doi": "10.7554/eLife.04580",
+    "summary": "Aso et al. 2014 reported avoidance-associated glutamatergic MBON activation and attraction-associated GABAergic/cholinergic MBON activation, with dopamine-dependent KC-MBON depression proposed to shift the MBON ensemble balance."
+  },
+  "interpretation_boundary": "The plasticity parameters are held identical to the R2d smoke contract so the reward signal can be compared without silently changing the learning rule. The game reward-to-valence mapping remains project-defined."
+}

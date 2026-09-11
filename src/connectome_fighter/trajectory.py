@@ -6,7 +6,7 @@ import json
 import math
 import numbers
 import threading
-from .contracts import Decision, Observation, player_index, action_keys
+from .contracts import Action, Decision, Observation, player_index, action_keys
 
 
 def round_reward(remaining_hps: list[int], player: bool) -> float:
@@ -32,8 +32,16 @@ class JsonlSink:
 
 
 class RoundLedger:
-    def __init__(self, sink: Callable[[dict[str, Any]], None], *, trainable: bool = True):
+    def __init__(
+        self,
+        sink: Callable[[dict[str, Any]], None],
+        *,
+        trainable: bool = True,
+        decision_sink: Callable[[dict[str, Any]], None] | None = None,
+    ):
         self.sink = sink
+        self.decision_sink = decision_sink
+        self.decision_sink_errors = 0
         self.trainable = bool(trainable)
         self.records: list[dict[str, Any]] = []
         self.round_id: int | None = None
@@ -73,6 +81,28 @@ class RoundLedger:
         if display is not None:
             record["display"] = display
         self.records.append(record)
+
+        # Spectator telemetry is deliberately side-channel only. Observer
+        # failures must never change the action, policy state, reward, or the
+        # canonical append-only round trace.
+        if self.decision_sink is not None:
+            event = {
+                "kind": "decision",
+                "match_id": self.match_id,
+                "round_id": int(obs.round_id),
+                "player_index": player_index(bool(self.player)),
+                "frame": int(obs.frame),
+                "action": int(choice.action),
+                "action_name": Action(choice.action).name,
+                "policy_version": choice.policy_version,
+                "facing_right": bool(obs.facing_right),
+                "brain": brain,
+                "display": display,
+            }
+            try:
+                self.decision_sink(event)
+            except Exception:
+                self.decision_sink_errors += 1
 
     def finish(self, match_id: str, round_id: int, player: bool,
                remaining_hps: list[int], elapsed_frame: int) -> bool:

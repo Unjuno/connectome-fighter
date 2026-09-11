@@ -3,7 +3,8 @@
 There is no learned artificial neural network in this control path. Each
 character owns a separate Brian2 worker process with independent membrane/
 synaptic state and RNG. Optional spectator video is captured through pyftg's
-separate StreamInterface and is never exposed to either policy.
+separate StreamInterface and is never exposed to either policy. Optional live
+telemetry is a write-only spectator side channel and cannot influence actions.
 """
 from __future__ import annotations
 
@@ -48,6 +49,8 @@ def main() -> int:
     p.add_argument("--timeout", type=float, default=900.0)
     p.add_argument("--trainable-trace", action="store_true",
                    help="Mark round traces eligible for post-match plasticity; no weights change during play")
+    p.add_argument("--live-telemetry-jsonl", type=Path,
+                   help="Optional per-decision spectator JSONL. Observer failures never affect policy execution.")
     p.add_argument("--spectator-video", type=Path,
                    help="Optional MP4 written from official FightingICE ScreenData on a separate spectator socket")
     p.add_argument("--spectator-fps", type=int, default=60)
@@ -93,6 +96,8 @@ def main() -> int:
         "games_requested": args.games,
         "host": args.host,
         "port": args.port,
+        "live_telemetry_requested": args.live_telemetry_jsonl is not None,
+        "live_telemetry_policy_access": False,
         "spectator_requested": args.spectator_video is not None,
         "spectator_policy_pixel_access": False,
     }
@@ -145,12 +150,31 @@ def main() -> int:
         status["interface_sha256"] = interface_hash
         write_json(out / "status.json", status)
 
+        live_sink = JsonlSink(args.live_telemetry_jsonl) if args.live_telemetry_jsonl is not None else None
+
+        def spectator_sink(side: int, character: str):
+            if live_sink is None:
+                return None
+
+            def emit(event: dict) -> None:
+                live_sink({
+                    **event,
+                    "session_id": run_id,
+                    "side": int(side),
+                    "character": character,
+                    "learning_enabled": False,
+                    "policy_pixel_access": False,
+                })
+
+            return emit
+
         agents = [
             FighterAI(
                 f"CF-{run_id}-P{i+1}-{characters[i]}", policies[i],
                 JsonlSink(out / f"p{i+1}.jsonl"), run_id, policies[1-i].version,
                 decision_interval=args.decision_interval,
                 trainable=bool(args.trainable_trace),
+                decision_sink=spectator_sink(i + 1, characters[i]),
             )
             for i in range(2)
         ]
@@ -171,7 +195,6 @@ def main() -> int:
             if recorder is not None:
                 gateway.register_stream(recorder)
                 stream_task = asyncio.create_task(gateway.start_stream(keep_alive=False))
-                # Give the spectator socket an opportunity to register before the game request.
                 await asyncio.sleep(0.25)
             try:
                 await asyncio.wait_for(
@@ -237,6 +260,7 @@ def main() -> int:
                 status["spectator_close_error"] = f"{type(exc).__name__}: {exc}"
             status["spectator"] = recorder.summary()
         status["completed_rounds_per_agent"] = [a.ledger.completed for a in agents]
+        status["live_telemetry_observer_errors"] = [a.ledger.decision_sink_errors for a in agents]
         status["finished_at_utc"] = now_utc()
         status["exit_code"] = code
         write_json(out / "status.json", status)
@@ -244,6 +268,7 @@ def main() -> int:
             "status": status["status"],
             "path": str(out),
             "completed_rounds_per_agent": status["completed_rounds_per_agent"],
+            "live_telemetry_observer_errors": status["live_telemetry_observer_errors"],
             "spectator": status.get("spectator"),
             "error": status.get("error"),
         }, indent=2))

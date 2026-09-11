@@ -37,9 +37,10 @@ def _display_frame(frame_data) -> dict[str, Any] | None:
 class FighterAI(AIInterface):
     def __init__(self, agent_name: str, policy: Policy, sink: Callable[[dict[str, Any]], None],
                  match_id: str, opponent_version: str, decision_interval: int = 4,
-                 scales: ObservationScales = ObservationScales(), *, trainable: bool = True):
+                 scales: ObservationScales = ObservationScales(), *, trainable: bool = True,
+                 decision_sink: Callable[[dict[str, Any]], None] | None = None):
         self.agent_name, self.policy = agent_name, policy
-        self.ledger = RoundLedger(sink, trainable=trainable)
+        self.ledger = RoundLedger(sink, trainable=trainable, decision_sink=decision_sink)
         self.match_prefix, self.opponent_version = match_id, opponent_version
         self.interval, self.scales = decision_interval, scales
         self.initializations = 0

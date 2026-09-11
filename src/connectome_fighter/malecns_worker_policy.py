@@ -1,7 +1,6 @@
 """Policy client for a persistent per-character MaleCNS + Shiu LIF worker."""
 from __future__ import annotations
 
-from collections import Counter
 import hashlib
 import json
 from pathlib import Path
@@ -172,10 +171,12 @@ class MaleCNSWorkerPolicy:
             output_contributions=output_contributions,
             membrane_summary={str(k): float(v) for k, v in response["membrane_summary"].items()},
         )
+        spike_events = [(float(t), int(body)) for t, body in response["spikes"]]
         self._trace.append_spikes(
             decision_index=self._decision_index,
-            events=[(float(t), int(body)) for t, body in response["spikes"]],
+            events=spike_events,
         )
+        unique_bodies = len({body for _, body in spike_events})
         self._last_telemetry = {
             "canonical_model": "male-cns:v1.0 + pinned Shiu LIF",
             "character": self.character,
@@ -183,6 +184,7 @@ class MaleCNSWorkerPolicy:
             "biological_time_start_ms": response["biological_time_start_ms"],
             "biological_time_end_ms": response["biological_time_end_ms"],
             "total_spikes": int(response["total_spikes"]),
+            "unique_spike_bodies": int(unique_bodies),
             "group_spike_counts": response["group_spike_counts"],
             "top_spike_bodies": response["top_spike_bodies"],
             "membrane_summary": response["membrane_summary"],
