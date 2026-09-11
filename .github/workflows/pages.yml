@@ -1,18 +1,20 @@
-name: pages
+name: pages-static-preview
+
+# Manual preview only. The authoritative public Pages deployment is produced by
+# continuous-training.yml so a source-code push cannot overwrite learned status
+# and replay JSON with repository placeholders.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'site/**'
-      - '.github/workflows/pages.yml'
   workflow_dispatch:
+
 permissions:
   contents: read
   pages: write
   id-token: write
+
 concurrency:
-  group: pages
+  group: pages-static-preview
   cancel-in-progress: true
+
 jobs:
   deploy:
     environment:
@@ -25,6 +27,6 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
-      - name: Deploy to GitHub Pages
+      - name: Deploy static preview
         id: deployment
         uses: actions/deploy-pages@v4
