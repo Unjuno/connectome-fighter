@@ -29,10 +29,16 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
+
+      - name: Install pyftg client for full-round verification
+        run: python -m pip install 'pyftg==2.3'
 
       - name: Download verified FightingICE v7.1 runtime
         run: |
@@ -57,15 +63,16 @@ jobs:
           bash deploy/arena-runtime/build-jre21.sh \
             "$JAVA_HOME" runs/jre21
 
+          test ! -d runs/packaged-fightingice/data/ai
           test ! -d runs/packaged-fightingice/lib/lwjgl/natives
           game_bytes="$(du -sb runs/packaged-fightingice | awk '{print $1}')"
           jre_bytes="$(du -sb runs/jre21 | awk '{print $1}')"
           echo "packaged_fightingice_bytes=$game_bytes"
           echo "jlink_jre_bytes=$jre_bytes"
-          test "$game_bytes" -lt $((180 * 1024 * 1024))
+          test "$game_bytes" -lt $((80 * 1024 * 1024))
           test "$jre_bytes" -lt $((180 * 1024 * 1024))
 
-      - name: Require packaged lightweight pyftg socket startup
+      - name: Require full pyftg round on packaged runtime
         run: |
           set -euo pipefail
           mkdir -p runs/lightweight-socket
@@ -79,6 +86,10 @@ jobs:
               > "$GITHUB_WORKSPACE/runs/lightweight-socket/fightingice.log" 2>&1 &
             echo $! > "$GITHUB_WORKSPACE/runs/lightweight-socket/fightingice.pid"
           )
+          cleanup() {
+            kill "$(cat runs/lightweight-socket/fightingice.pid 2>/dev/null || true)" 2>/dev/null || true
+          }
+          trap cleanup EXIT
           ready=0
           for i in $(seq 1 45); do
             if grep -q 'Socket server is started' runs/lightweight-socket/fightingice.log 2>/dev/null; then
@@ -91,8 +102,25 @@ jobs:
             sleep 1
           done
           cat runs/lightweight-socket/fightingice.log || true
-          kill "$(cat runs/lightweight-socket/fightingice.pid)" 2>/dev/null || true
           test "$ready" -eq 1
+
+          PYTHONPATH=src python scripts/run_game.py \
+            --host 127.0.0.1 --port 31415 \
+            --games 1 --policy random --evaluation \
+            --character-p1 GARNET --character-p2 ZEN \
+            --seed-p1 10101 --seed-p2 20202 \
+            --expected-rounds 1 --timeout 180 \
+            --run-id minimal-lightweight-runtime \
+            --out runs/lightweight-match
+
+          python - <<'PY'
+          import json
+          s=json.load(open('runs/lightweight-match/minimal-lightweight-runtime/status.json'))
+          assert s['status']=='COMPLETED_WITH_VALIDATED_TRACES'
+          assert s['completed_rounds_per_agent']==[1,1]
+          assert s['learning_performed'] is False
+          print({'status':s['status'],'rounds':s['completed_rounds_per_agent']})
+          PY
 
       - name: Verify live arena defaults to lightweight mode
         run: |
