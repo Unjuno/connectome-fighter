@@ -142,9 +142,12 @@ jobs:
       - name: Require real FightingICE plus MaleCNS decision telemetry
         run: |
           set -euo pipefail
+          last_status=''
+          last_state=''
           for i in $(seq 1 360); do
             body="$(curl -fsS "$TELEMETRY_URL" || true)"
             if [[ -n "$body" ]]; then
+              last_state="$body"
               echo "$body" | jq '{status, bootstrap, round, frame, p1: {character: .p1.character, hp: .p1.hp, action: .p1.action}, p2: {character: .p2.character, hp: .p2.hp, action: .p2.action}, p1_spikes: .brain.p1.total_spikes, p2_spikes: .brain.p2.total_spikes, learning_enabled, policy_pixel_access, error, exit_code}'
               test "$(echo "$body" | jq -r '.learning_enabled')" = 'false'
               test "$(echo "$body" | jq -r '.policy_pixel_access')" = 'false'
@@ -160,7 +163,49 @@ jobs:
                 exit 0
               fi
             fi
+
+            if (( i == 1 || i % 15 == 0 )); then
+              separator='?'
+              [[ "$STATUS_URL" == *'?'* ]] && separator='&'
+              status_body="$(curl -fsS "$BASE${STATUS_URL}${separator}include_runtime_log=1" || true)"
+              if [[ -n "$status_body" ]]; then
+                last_status="$status_body"
+                echo "$status_body" | jq '{session_id, status, diagnostic_telemetry_url, telemetry_url, bootstrap_phase, bootstrap, error, runtime_diagnostic}'
+                bootstrap_exit="$(echo "$status_body" | jq -r '.bootstrap.exit_code // empty')"
+                runtime_exit="$(echo "$status_body" | jq -r '.bootstrap.runtime_exit_code // empty')"
+                status="$(echo "$status_body" | jq -r '.status // empty')"
+                if [[ -n "$bootstrap_exit" && "$bootstrap_exit" != '0' ]]; then
+                  echo "Snapshot fork bootstrap command failed with exit code $bootstrap_exit" >&2
+                  echo "$status_body" | jq . >&2
+                  exit 1
+                fi
+                if [[ -n "$runtime_exit" && "$runtime_exit" != '0' ]]; then
+                  echo "Snapshot fork runtime failed with exit code $runtime_exit" >&2
+                  echo "$status_body" | jq . >&2
+                  exit 1
+                fi
+                if [[ "$status" == 'error' ]]; then
+                  echo "$status_body" | jq . >&2
+                  exit 1
+                fi
+              fi
+            fi
             sleep 2
           done
+
           echo 'No real decision telemetry arrived from the snapshot fork before the deadline.' >&2
+          if [[ -n "$last_state" ]]; then
+            echo '--- last direct sandbox state ---' >&2
+            echo "$last_state" | jq . >&2 || true
+          fi
+          separator='?'
+          [[ "$STATUS_URL" == *'?'* ]] && separator='&'
+          final_status="$(curl -fsS "$BASE${STATUS_URL}${separator}include_runtime_log=1" || true)"
+          if [[ -n "$final_status" ]]; then
+            echo '--- final Vercel session diagnostic ---' >&2
+            echo "$final_status" | jq . >&2 || true
+          elif [[ -n "$last_status" ]]; then
+            echo '--- last Vercel session diagnostic ---' >&2
+            echo "$last_status" | jq . >&2 || true
+          fi
           exit 1
