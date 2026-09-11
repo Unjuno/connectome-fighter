@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -19,7 +19,7 @@
 <body><main class="shell">
   <div class="row"><span class="pill">MaleCNS v1.0</span><span class="pill">pinned Shiu LIF</span><span class="pill">research / provenance surface</span></div>
   <h1>Connectome Fighter<br>Research Ledger</h1>
-  <p class="lead">ここは学習・報酬・plasticity・checkpoint lineage・実験証跡を公開する研究面です。観戦用Vercelは「見せる」ことに限定し、長期の実験履歴や報酬設計はこのGitHub Pages側に集約します。</p>
+  <p class="lead">This page publishes the research method behind Connectome Fighter: reward contracts, plasticity assumptions, checkpoint lineage, experimental conditions and evidence. The Vercel arena is intentionally limited to short-lived inference and visualization.</p>
   <div class="actions">
     <a class="btn primary" href="https://liveunjuno.vercel.app/connectome">Open public arena →</a>
     <a class="btn" href="https://github.com/Unjuno/connectome-fighter/actions">GitHub Actions evidence ↗</a>
@@ -33,10 +33,10 @@
     <div class="card"><div class="label">reward contract</div><div id="reward-id" class="value small">—</div></div>
   </div>
 
-  <div class="notice"><span class="statusline"><span class="dot"></span><strong>重要:</strong></span> 現在公開されている報酬・plasticity設定は監査済みsmoke/候補契約です。continuous canonical learningを有効化したと偽って表示しません。実際にproduction lineageへ昇格した時点で、このページのstatusとcheckpoint provenanceを同時に更新します。</div>
+  <div class="notice"><span class="statusline"><span class="dot"></span><strong>Important:</strong></span> The reward and plasticity configurations shown here are audited smoke/candidate contracts. This page does not claim that continuous canonical learning is enabled until a production lineage is explicitly promoted and its checkpoint provenance is published.</div>
 
   <section class="panel" id="reward">
-    <div class="section-title"><div><div class="eyebrow">reinforcement contract</div><h2>報酬をどう与えるか</h2></div><a class="muted" href="./research-data/reward.json">raw JSON ↗</a></div>
+    <div class="section-title"><div><div class="eyebrow">reinforcement contract</div><h2>How reward is assigned</h2></div><a class="muted" href="./research-data/reward.json">raw JSON ↗</a></div>
     <div class="reward-grid">
       <div class="reward"><div class="label">win</div><div id="reward-win" class="n">—</div></div>
       <div class="reward"><div class="label">loss</div><div id="reward-loss" class="n">—</div></div>
@@ -51,7 +51,7 @@
   </section>
 
   <section class="panel" id="plasticity">
-    <div class="section-title"><div><div class="eyebrow">plasticity contract</div><h2>報酬を重みにどう反映するか</h2></div><a class="muted" href="./research-data/plasticity.json">raw JSON ↗</a></div>
+    <div class="section-title"><div><div class="eyebrow">plasticity contract</div><h2>How reward changes trainable weights</h2></div><a class="muted" href="./research-data/plasticity.json">raw JSON ↗</a></div>
     <div class="grid" style="margin:0">
       <div class="card"><div class="label">model</div><div id="plasticity-id" class="value small">—</div></div>
       <div class="card"><div class="label">status</div><div id="plasticity-status" class="value small">—</div></div>
@@ -63,7 +63,7 @@
   </section>
 
   <section class="panel">
-    <div class="section-title"><div><div class="eyebrow">fixed controls</div><h2>比較時に固定するもの</h2></div></div>
+    <div class="section-title"><div><div class="eyebrow">fixed controls</div><h2>Controls held constant during comparisons</h2></div></div>
     <div id="fixed-controls" class="files"></div>
   </section>
 
@@ -85,10 +85,10 @@
       <a href="./research-data/reward.json"><strong>reward.json</strong><br><span class="muted">deployed reward contract copied from configs/</span></a>
       <a href="./research-data/plasticity.json"><strong>plasticity.json</strong><br><span class="muted">deployed plasticity contract copied from configs/</span></a>
       <a href="https://github.com/Unjuno/connectome-fighter/releases/tag/canonical-state-smoke-v1"><strong>checkpoint smoke release</strong><br><span class="muted">durable generation resume evidence</span></a>
-      <a href="https://github.com/Unjuno/connectome-fighter/actions"><strong>GitHub Actions</strong><br><span class="muted">raw artifacts, checksums, logs, provenance</span></a>
+      <a href="https://github.com/Unjuno/connectome-fighter/actions"><strong>GitHub Actions</strong><br><span class="muted">raw artifacts, checksums, logs and provenance</span></a>
     </div>
   </section>
 
-  <div class="foot">Public-surface split: Vercel = short-lived spectator display. GitHub Pages/Actions = research method, reward/plasticity contract, checkpoint lineage, and evidence. Screen pixels and morphology visualization remain outside the policy input.</div>
+  <div class="foot">Public-surface split: Vercel = ephemeral inference and visualization. GitHub Pages/Actions = research method, reward/plasticity contracts, checkpoint lineage and evidence. Screen pixels and visualization-only morphology remain outside policy input.</div>
   <p id="error" class="muted"></p>
 </main><script src="./app.js"></script></body></html>
