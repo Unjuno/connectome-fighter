@@ -4,7 +4,10 @@ on:
   pull_request:
     paths:
       - 'scripts/run_live_arena_server.py'
+      - 'deploy/arena-runtime/stage-fightingice-lightweight.sh'
+      - 'deploy/arena-runtime/build-jre21.sh'
       - '.github/workflows/fightingice-lightweight-socket-smoke.yml'
+      - '.github/workflows/publish-arena-runtime-bundle.yml'
   workflow_dispatch:
 
 permissions:
@@ -44,15 +47,33 @@ jobs:
           test -n "$GAME_JAR"
           unzip -q -o external/downloads/resource.zip -d "$(dirname "$GAME_JAR")"
 
-      - name: Require lightweight pyftg socket startup
+      - name: Stage production-equivalent lightweight assets
+        run: |
+          set -euo pipefail
+          GAME_JAR="$(find external/v71 -type f -name FightingICE.jar -print -quit)"
+          GAME_DIR="$(dirname "$GAME_JAR")"
+          bash deploy/arena-runtime/stage-fightingice-lightweight.sh \
+            "$GAME_DIR" runs/packaged-fightingice
+          bash deploy/arena-runtime/build-jre21.sh \
+            "$JAVA_HOME" runs/jre21
+
+          test ! -d runs/packaged-fightingice/lib/lwjgl/natives
+          game_bytes="$(du -sb runs/packaged-fightingice | awk '{print $1}')"
+          jre_bytes="$(du -sb runs/jre21 | awk '{print $1}')"
+          echo "packaged_fightingice_bytes=$game_bytes"
+          echo "jlink_jre_bytes=$jre_bytes"
+          test "$game_bytes" -lt $((180 * 1024 * 1024))
+          test "$jre_bytes" -lt $((180 * 1024 * 1024))
+
+      - name: Require packaged lightweight pyftg socket startup
         run: |
           set -euo pipefail
           mkdir -p runs/lightweight-socket
-          GAME_JAR="$(find external/v71 -type f -name FightingICE.jar -print -quit)"
-          GAME_DIR="$(dirname "$GAME_JAR")"
+          GAME_DIR="$GITHUB_WORKSPACE/runs/packaged-fightingice"
+          JAVA="$GITHUB_WORKSPACE/runs/jre21/bin/java"
           (
             cd "$GAME_DIR"
-            java -cp 'FightingICE.jar:./lib/*:./lib/lwjgl/*' Main \
+            "$JAVA" -cp 'FightingICE.jar:./lib/*:./lib/lwjgl/*' Main \
               --lightweight-mode --pyftg-mode --input-sync \
               --limithp 400 400 --port 31415 -r 1 -f 600 \
               > "$GITHUB_WORKSPACE/runs/lightweight-socket/fightingice.log" 2>&1 &
