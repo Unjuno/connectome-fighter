@@ -6,6 +6,7 @@ P2="ZEN"
 MANIFEST_URL="https://github.com/Unjuno/connectome-fighter/releases/download/arena-inference-latest/manifest.json"
 LISTEN=8080
 SESSION_ID=""
+UV_VERSION="0.12.12"
 
 while (($#)); do
   case "$1" in
@@ -24,13 +25,13 @@ if [[ "$P1" == "$P2" ]]; then echo "fighters must differ" >&2; exit 2; fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK="${CONNECTOME_SESSION_ROOT:-/tmp/connectome-arena-session}"
-mkdir -p "$WORK"
+mkdir -p "$WORK/bin"
 
 if [[ -z "$SESSION_ID" ]]; then
   SESSION_ID="arena-$(date +%s)-$RANDOM"
 fi
 
-if ! command -v java >/dev/null 2>&1; then
+if ! command -v curl >/dev/null 2>&1 || ! command -v java >/dev/null 2>&1; then
   if command -v sudo >/dev/null 2>&1; then
     sudo apt-get update -qq
     sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq openjdk-21-jre-headless ca-certificates curl
@@ -40,11 +41,13 @@ if ! command -v java >/dev/null 2>&1; then
   fi
 fi
 
-UV="$ROOT/bin/uv"
+UV="$WORK/bin/uv"
 if [[ ! -x "$UV" ]]; then
-  echo "runtime bundle is missing pinned uv binary" >&2
-  exit 3
+  export UV_INSTALL_DIR="$WORK/bin"
+  export UV_NO_MODIFY_PATH=1
+  curl -LsSf "https://astral.sh/uv/${UV_VERSION}/install.sh" | sh
 fi
+"$UV" --version
 
 export UV_PYTHON_INSTALL_DIR="$WORK/uv-python"
 export UV_CACHE_DIR="$WORK/uv-cache"
