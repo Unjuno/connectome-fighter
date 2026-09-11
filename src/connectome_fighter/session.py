@@ -39,6 +39,11 @@ class Session:
             self.frame_gaps += max(0, obs.frame-self.last_seen-1)
         self.last_seen = obs.frame
         if self.last_decision < 0 or obs.frame-self.last_decision >= self.interval:
+            # Optional hook for analysis-first policies. It carries game identity
+            # only; it does not change observations or grant non-delayed state.
+            context_fn = getattr(self.policy, "set_context", None)
+            if callable(context_fn):
+                context_fn(frame=int(obs.frame), round_id=int(obs.round_id))
             decision = self.policy.act(obs.vector)
             telemetry = None
             telemetry_fn = getattr(self.policy, "telemetry", None)
