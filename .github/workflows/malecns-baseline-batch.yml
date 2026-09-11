@@ -175,7 +175,7 @@ jobs:
           done
           test "$ready" -eq 1
 
-      - name: Run canonical baseline match
+      - name: Run canonical baseline matches
         run: |
           RUN_ID="baseline-${{ matrix.label }}-${{ matrix.p1 }}-${{ matrix.p2 }}"
           PYTHONPATH=src python scripts/run_game_malecns_lif.py \
@@ -187,7 +187,7 @@ jobs:
             --adapter-dir data/processed/malecns-shiu-strict-v1 \
             --interface data/processed/malecns-interface-v1/interface.json \
             --decision-interval 60 \
-            --games 1 --expected-rounds 1 --timeout 1800 \
+            --games 8 --expected-rounds 8 --timeout 1800 \
             --trainable-trace \
             --run-id "$RUN_ID" \
             --out runs/malecns-batch
@@ -203,7 +203,7 @@ jobs:
         if: always()
         run: |
           python - <<'PY'
-          import collections, json
+          import json
           from pathlib import Path
           root = Path('runs/malecns-batch')
           runs = [p for p in root.iterdir() if p.is_dir()]
