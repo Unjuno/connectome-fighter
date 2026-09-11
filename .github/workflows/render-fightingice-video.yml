@@ -24,6 +24,7 @@ concurrency:
 env:
   SHIU_COMMIT: 2a83ad611cd9768f8c9723fc613ed27761a5feb5
   ADAPTER_CACHE_KEY: malecns-v1.0-shiu-strict-minw5-2a83ad611cd9768f8c9723fc613ed27761a5feb5-adapter-v1
+  STRUCTURE_CACHE_KEY: malecns-v1.0-structure-index-v1
   GAME_URL: https://github.com/TeamFightingICE/FightingICE/releases/download/v7.1/DareFightingICE-7.1.zip
   GAME_SHA256: 510752a69a097b767677d3911b1407d6a08a721dad4faf2cb5b7a19b988f1c62
   RESOURCE_URL: https://github.com/TeamFightingICE/FightingICE/releases/download/v7.1/resource-7.1.zip
@@ -102,6 +103,20 @@ jobs:
           path: data/processed/malecns-shiu-strict-v1
           key: ${{ env.ADAPTER_CACHE_KEY }}
           fail-on-cache-miss: true
+
+      - name: Restore spectator-only structural annotation index
+        uses: actions/cache@v4
+        with:
+          path: data/processed/malecns-structure-v1
+          key: ${{ env.STRUCTURE_CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: Enrich public replay with structural annotations
+        run: |
+          python scripts/enrich_replay_structure.py \
+            --replay site/data/replay-latest.json \
+            --status site/data/status.json \
+            --structure-index data/processed/malecns-structure-v1/body_structure.csv.gz
 
       - name: Build fixed game interface
         run: |
@@ -229,6 +244,8 @@ jobs:
           path: |
             site/data/latest-fight.mp4
             site/data/video.json
+            site/data/replay-latest.json
+            site/data/status.json
             runs/rendered/video-probe.json
             runs/rendered/sample-frame.png
             runs/rendered/fightingice.log
