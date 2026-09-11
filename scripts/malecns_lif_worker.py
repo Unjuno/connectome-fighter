@@ -114,6 +114,13 @@ def main() -> int:
     net = Network(neu, recurrent_syn, spike_monitor, poisson, input_syn)
     poisson.rates = np.zeros(n_inputs) * Hz
     net.store("baseline")
+    # Trigger Brian2 code generation/compilation before registering the worker
+    # as ready. A zero-duration run compiles the exact same code objects without
+    # advancing biological time; restore then guarantees the logged initial
+    # state is identical to the stored baseline.
+    net.run(0 * ms)
+    net.restore("baseline")
+    poisson.rates = np.zeros(n_inputs) * Hz
 
     max_rate_hz = float(interface["input"]["max_poisson_rate_hz"])
     window_ms = float(interface["decision"]["window_ms"])
@@ -135,6 +142,7 @@ def main() -> int:
         "f_poi": int(params["f_poi"]),
         "stimulated_target_rfc_ms": 0.0,
         "codegen_target": str(prefs.codegen.target),
+        "precompiled_before_ready": True,
     }
     initial_identity = {
         "dataset": structural["dataset"],
