@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 import signal
 import subprocess
+import sys
 import threading
 import time
 from typing import Any
@@ -217,6 +218,14 @@ def hold_observable(seconds: float, stopping: callable) -> None:
         time.sleep(0.2)
 
 
+def log_tail(path: Path, max_chars: int = 2400) -> str:
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    return text[-max_chars:]
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--listen", type=int, default=8080)
@@ -320,10 +329,39 @@ def main() -> int:
             except Exception:
                 error = None
         state.finish(code, error)
+        if code != 0:
+            log_handle.flush()
+            print(
+                json.dumps(
+                    {
+                        "kind": "arena-runner-exit",
+                        "exit_code": code,
+                        "error": error,
+                        "fightingice_log_tail": log_tail(game_log),
+                    },
+                    separators=(",", ":"),
+                ),
+                file=sys.stderr,
+                flush=True,
+            )
         hold_observable(args.post_fight_seconds, lambda: stopping)
     except Exception as exc:
-        state.finish(1, f"{type(exc).__name__}: {exc}")
+        message = f"{type(exc).__name__}: {exc}"
+        state.finish(1, message)
         code = 1
+        log_handle.flush()
+        print(
+            json.dumps(
+                {
+                    "kind": "arena-runtime-error",
+                    "error": message,
+                    "fightingice_log_tail": log_tail(game_log),
+                },
+                separators=(",", ":"),
+            ),
+            file=sys.stderr,
+            flush=True,
+        )
         hold_observable(args.post_fight_seconds, lambda: stopping)
     finally:
         stop.set()
