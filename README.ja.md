@@ -1,68 +1,107 @@
 # Connectome Fighter
 
-このプロジェクトは、FightingICE を対戦環境として使い、**実際に公開された Drosophila CNS connectome を神経基盤として**キャラクターを制御し、対戦時にどの神経構造が使われたかを後から解析できるようにする研究・実装基盤です。
+FightingICEを対戦環境として、**MaleCNS v1.0 の実Drosophila connectome**をpinned Shiu LIFで動かし、実body IDの神経活動を記録しながらクラウド上で継続実験する研究・実装基盤です。
 
-## Canonical substrate
+[MaleCNS Arena](https://unjuno.github.io/connectome-fighter/) · [Roadmap](ROADMAP.md) · [Status](docs/STATUS.md) · [English](README.md)
 
-現在の canonical target は次です。
+## Canonical control path
 
-- anatomy: **MaleCNS v1.0** (`male-cns:v1.0`)
-  - FlyEM / HHMI Janelia + Cambridge + MRC LMB + Google Research
-  - brain + optic lobes + ventral nerve cord
-  - official: https://male-cns.janelia.org/
-- dynamics: **Shiu et al. 2024 の公開 leaky integrate-and-fire (LIF) model**
-  - DOI: `10.1038/s41586-024-07763-9`
-  - reference code: https://github.com/philshiu/Drosophila_brain_model
+```text
+FightingICE数値観測
+      ↓
+version管理されたsensory-body Poisson interface
+      ↓
+MaleCNS v1.0 実配線
+      ↓
+pinned Shiu et al. LIF dynamics
+      ↓
+実output bodyのspike count
+      ↓
+version管理されたaction groups
+      ↓
+FightingICE操作
+```
 
-重要: MaleCNS は解剖学的connectomeであり、Google公式の膜電位シミュレータではありません。したがって、**構造はMaleCNS、時間発展は公開済みLIF model、ゲームI/Oは本プロジェクト固有interface**として明確に分離します。
+Canonical経路では、MLP/RNN/GRU/PPO policy/custom sigmoid networkを「ハエ脳本体」の代用品として使いません。旧FlyWire/custom-network系は工学的legacy evidenceとしてのみ残します。
 
-詳細: [`docs/SUBSTRATE_CONTRACT.ja.md`](docs/SUBSTRATE_CONTRACT.ja.md)
+## 現在PASSしているもの
 
-## NNを脳の代用品にしない
+- MaleCNS v1.0 provenance/import
+- pinned Shiu LIF reference/runtime
+- 現canonical runtime: 156,675 neurons / 6,025,920 recurrent synapses
+- MaleCNSで実FightingICE 1 round以上を制御
+- GARNET / ZEN / LUD / NEZ の独立神経状態
+- 全6キャラpairを8 roundずつ、**48 round/chunk**で継続baseline
+- 6時間ごとのGitHub Actions自動実験
+- chunkごとに別の決定論的Poisson seed blockを使用
+- 実body-ID spike/event log
+- FightingICE公式headless rendererの960×640 `ScreenData`を別spectator socketでH.264動画化
+- GitHub Pages自動deploy
+- body IDを`superclass / class / type / somaNeuromere / side`へjoinした構造活性表示
 
-Canonical control path では、MLP/RNN/GRU/GNN/custom sigmoid recurrent network を「ハエ脳本体」として使いません。PyTorch等を高速計算器として使うことはあり得ますが、学習可能な人工NNでconnectomeを置換しません。
+最新の統合証拠は [`docs/STATUS.md`](docs/STATUS.md) にあります。
 
-## キャラごとの別個体
+## Pagesで見えるもの
 
-FightingICE の GARNET / ZEN / LUD / NEZ は、それぞれ独立したsimulation state / RNG / checkpoint / plasticity stateを持ちます。immutableなMaleCNS anatomy assetをメモリ節約のため共有しても、神経状態は共有しません。
+[Connectome Fighter Arena](https://unjuno.github.io/connectome-fighter/)
 
-## 後解析を第一級要件にする
+上段の動画はFightingICE本体が描画した実ゲーム画面です。policyにはpixelを渡しておらず、`policy_pixel_access=false`を記録しています。
 
-各decision windowで、少なくとも次を保存します。
+下段には解析用として、
 
-- game observation / action
-- 刺激した MaleCNS body IDs
-- spikeした body IDs と spike count
-- membrane-potential summary
-- neuron type / superclass / side / soma neuromere
-- neurotransmitter identity + confidence
-- motor/descending output contribution
-- dataset/dynamics/interface hash
+- HP / position / action telemetry
+- action-group spike counts
+- top active MaleCNS body IDs
+- cell class / type / soma neuromereなどの構造annotation
+- experiment history
 
-これにより、対戦後に「どの神経型・経路・階層が、どの局面と行動で使われたか」を解析できます。
+を表示します。
 
-## Legacy pipeline
+四角形のcanvasはtelemetry schematicであり、ゲームrendererではありません。
 
-旧実装の以下は、FightingICE bridgeやloggingの工学的検証としては残しますが、canonicalなハエ脳の結果として扱いません。
+## 現在の実験phase
 
-- FlyWire v783 substrate
-- `brain.py` の custom sigmoid recurrent core
-- PPO readout checkpoint
-- Release tag `training-state`
+**学習はまだOFFです。**
 
-旧 continuous-training workflow は自動実行を停止しています。
+報酬設計を先にoffline評価しています。比較中も以下は固定します。
 
-## 再開gate
+- stochasticity: observation-driven Poisson sensory spikes
+- action readout: spike-count argmax
+- epsilon-greedy/random action injection: なし
+- anatomy / LIF / sensory mapping / action groups: 固定
 
-MaleCNS版のscheduled learningは、次を確認してから有効化します。
+初回48-round baselineではterminal `+1/0/-1` のdecision-level非ゼロ率が0.2083%しかなく、報酬の大きさより「ほぼ接触しない」ことが主問題でした。
 
-1. official MaleCNS filesのprovenance/hash確認
-2. body ID / connection weight / neurotransmitter join検証
-3. published LIF equationsのreference一致
-4. MaleCNS -> LIF -> FightingICE の1 round完走
-5. replayで実MaleCNS body ID/activityを可視化
-6. 4キャラの神経状態独立性を確認
+現在はR0/R1/R2aに加え、特定actionを褒めずにno-damage drawだけへ小さい負signalを与えるR2bも同じtrajectoryでoffline比較しています。
+
+詳細: [`docs/REWARD_DESIGN.ja.md`](docs/REWARD_DESIGN.ja.md)
+
+## 次のGate
+
+1. 独立Poisson seed chunkを2つ以上取得する。
+2. 同一trajectory上でR0/R1/R2a/R2bのreward density/scale/sign biasを比較する。
+3. 最初のreward configをfreezeする。
+4. 1キャラ・1matchだけKC→MBON plasticityを有効化し、変更edgeと符号/topology不変を監査する。
+5. 別Actions runでcheckpoint resumeを実証する。
+6. その後だけcontinuous canonical learningを有効化する。
+
+## 後解析
+
+各decision/windowでgame stateとMaleCNS body-ID spikeを保存するため、後から以下を調べられます。
+
+- action別に使われたbody/type/superclass
+- reward/damage event直前のrecruitment
+- soma-neuromere別の活動変化
+- KC→MBON plasticity変化
+- キャラlineage間の回路分化
+- 反復して利用される候補経路
+
+ただしactivity correlationだけでは因果回路とは言えません。因果主張にはablation/interventionが必要です。
+
+## 解釈境界
+
+MaleCNS anatomy、Shiu LIF、ゲームI/O、game reward、project-defined plasticityは別レイヤです。FightingICEで強くなったとしても、ハエがin vivoで同じreward signalを使うことを意味しません。
 
 ## ライセンス
 
-本リポジトリの新規コードはMIT Licenseです。MaleCNS、FightingICE、Shiu model等の外部成果物にはそれぞれのライセンスが適用されます。
+本リポジトリの新規コードはMIT Licenseです。MaleCNS、FightingICE、Shiu model等の外部成果物にはそれぞれのライセンス/利用条件が適用されます。詳細は [`THIRD_PARTY.md`](THIRD_PARTY.md) を参照してください。
