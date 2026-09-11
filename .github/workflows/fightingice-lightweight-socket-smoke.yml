@@ -38,7 +38,7 @@ jobs:
           java-version: '21'
 
       - name: Install pyftg client for full-round verification
-        run: python -m pip install 'pyftg==2.3'
+        run: python -m pip install 'numpy==2.3.5' 'pyftg==2.3'
 
       - name: Download verified FightingICE v7.1 runtime
         run: |
@@ -63,7 +63,8 @@ jobs:
           bash deploy/arena-runtime/build-jre21.sh \
             "$JAVA_HOME" runs/jre21
 
-          test ! -d runs/packaged-fightingice/data/ai
+          test -d runs/packaged-fightingice/data/ai
+          test -z "$(find runs/packaged-fightingice/data/ai -mindepth 1 -print -quit)"
           test ! -d runs/packaged-fightingice/lib/lwjgl/natives
           game_bytes="$(du -sb runs/packaged-fightingice | awk '{print $1}')"
           jre_bytes="$(du -sb runs/jre21 | awk '{print $1}')"
