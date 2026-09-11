@@ -63,7 +63,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: data/processed/shiu783
-          key: shiu783-${{ env.SHIU_COMMIT }}-${{ env.ANNOT_COMMIT }}-routing-v1
+          key: shiu783-${{ env.SHIU_COMMIT }}-${{ env.ANNOT_COMMIT }}-routing-v2-coordinates
 
       - name: Build verified connectome and routing on cache miss
         if: steps.graph-cache.outputs.cache-hit != 'true'
@@ -85,6 +85,7 @@ jobs:
             --nodes data/processed/shiu783/nodes.csv \
             --annotations external/annotations/neurons.tsv \
             --out data/processed/shiu783/routing.json \
+            --metadata-out data/processed/shiu783/node_metadata.npz \
             --seed 20260911 \
             --neurons-per-polarity-per-feature 32 \
             --input-scale 0.25 \
@@ -98,13 +99,17 @@ jobs:
           test -s data/processed/shiu783/edges.npz
           test -s data/processed/shiu783/manifest.json
           test -s data/processed/shiu783/routing.json
+          test -s data/processed/shiu783/node_metadata.npz
           PYTHONPATH=src python - <<'PY'
-          import json
+          import json, numpy as np
           from connectome_fighter.graph import load_graph
           from connectome_fighter.routing import validate_routing
           g=load_graph('data/processed/shiu783', require_biological=True)
           r=json.load(open('data/processed/shiu783/routing.json'))
           validate_routing(g,r)
+          with np.load('data/processed/shiu783/node_metadata.npz', allow_pickle=False) as m:
+              assert m['positions'].shape == (g.n_nodes, 3)
+              assert int(m['has_position'].sum()) > 0
           print(g.n_nodes,g.n_edges,g.fingerprint(),r['routing_sha256'])
           PY
 
@@ -169,7 +174,6 @@ jobs:
               gh release download training-state --dir release-state --pattern "slot-${ACTIVE_SLOT}-*"
               python scripts/restore_training_state.py --download-dir release-state --state-dir state
             else
-              # One-time migration from the first rolling-checkpoint implementation.
               gh release download training-state --dir state --pattern 'brain-*.pt' || true
               gh release download training-state --dir state --pattern 'brain-*.pt.sha256' || true
               gh release download training-state --dir state --pattern 'league-state.json' || true
@@ -215,8 +219,6 @@ jobs:
           print(json.load(open('publish-state/state-pointer.json'))['active_slot'])
           PY
           )"
-          # Write the inactive slot completely first. The pointer remains on the
-          # previous known-good slot if any upload before the final command fails.
           gh release upload training-state publish-state/slot-${ACTIVE_SLOT}-brain-*.pt --clobber
           gh release upload training-state publish-state/slot-${ACTIVE_SLOT}-league-state.json --clobber
           gh release upload training-state publish-state/slot-${ACTIVE_SLOT}-manifest.json --clobber
