@@ -22,13 +22,16 @@
     .metric { font-size:1.45rem; font-weight:800; }
     .label { color:#91a0b5; font-size:.8rem; margin-bottom:4px; }
     .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
-    .bar-row { display:grid; grid-template-columns:95px 1fr 70px; gap:10px; align-items:center; margin:7px 0; font-size:.86rem; }
+    .bar-row { display:grid; grid-template-columns:95px 1fr 78px; gap:10px; align-items:center; margin:7px 0; font-size:.86rem; }
     .bar { height:10px; border-radius:999px; background:#223044; overflow:hidden; }
     .bar > span { display:block; height:100%; background:#8ecbff; }
     .brain-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:14px; }
-    .brain-row { display:grid; grid-template-columns:minmax(120px,1fr) 4fr 58px; gap:8px; align-items:center; font-size:.78rem; margin:6px 0; }
+    .brain-row { display:grid; grid-template-columns:minmax(170px,1.4fr) 3fr 58px; gap:8px; align-items:center; font-size:.78rem; margin:6px 0; }
     .brain-grid .panel:nth-child(2) .bar > span { background:#ff9f8e; }
     .brain-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#b8c4d4; }
+    .structure-map { display:grid; grid-template-columns:repeat(auto-fit,minmax(88px,1fr)); gap:7px; margin:12px 0 16px; }
+    .structure-cell { min-height:54px; border:1px solid #344359; border-radius:9px; padding:8px; font-size:.72rem; display:flex; flex-direction:column; justify-content:space-between; }
+    .structure-cell strong { font-size:.82rem; }
     button,select { background:#172231; color:#e7edf5; border:1px solid #39506b; border-radius:8px; padding:8px 11px; }
     canvas,video { width:100%; display:block; border-radius:10px; background:#05080c; }
     #fight-video { max-height:720px; }
@@ -46,8 +49,8 @@
 <main>
   <span class="badge">MaleCNS v1.0 + pinned Shiu LIF · canonical</span>
   <h1>Connectome Fighter Arena</h1>
-  <p class="lead">GitHub Actions上でFightingICEを継続実行し、実MaleCNS body IDのspikeから操作を決めています。現在は報酬設計を評価するための<strong>学習前baseline</strong>です。Poisson入力のランダム性とspike-count argmax readoutは固定しています。</p>
-  <div class="notice"><strong>現在の学習状態:</strong> <span id="phase">loading…</span>。weight更新はまだ無効です。生のspike/eventログはActions artifactに保存し、このページには集計と最新リプレイだけを出します。</div>
+  <p class="lead">GitHub Actions上でFightingICEを継続実行し、MaleCNSの実body IDを使ったShiu LIF活動から操作を決めています。現在は学習前baselineで、Poisson入力のランダム性とspike-count argmax readoutを固定しています。</p>
+  <div class="notice"><strong>現在の学習状態:</strong> <span id="phase">loading…</span>。weight更新はまだ無効です。生のspike/eventログはActions artifactへ保存し、ここには観戦映像・集計・解析用telemetryを表示します。</div>
 
   <div class="grid">
     <div class="card"><div class="label">independent rounds</div><div id="independent-rounds" class="metric">—</div></div>
@@ -59,19 +62,19 @@
 
   <h2>Rendered FightingICE fight</h2>
   <div class="panel">
-    <p class="muted">これはFightingICE本体をGUIモードで描画して録画した映像です。下の四角い表示はゲーム映像ではなく、解析用telemetry schematicです。</p>
+    <p class="muted">FightingICE本体のheadless rendererが生成した公式960×640 ScreenDataを、policyとは別のspectator socketで録画しています。MaleCNS policyにはpixel情報を渡していません。</p>
     <video id="fight-video" controls muted playsinline preload="metadata">
       <source src="./data/latest-fight.mp4" type="video/mp4" />
       Your browser cannot play the FightingICE recording.
     </video>
-    <p id="video-note" class="muted">最新の実レンダリング動画を読み込みます。未生成の場合は次のrender workflow完了後に表示されます。</p>
+    <p id="video-note" class="muted">動画metadataを読み込み中…</p>
   </div>
 
   <h2>Character results</h2>
   <div class="panel"><table><thead><tr><th>Character</th><th>Rounds</th><th>Win</th><th>Loss</th><th>Draw</th><th>Decisions</th></tr></thead><tbody id="character-table"></tbody></table></div>
 
   <h2>Action distribution</h2>
-  <div class="panel"><div id="action-bars"></div><p class="muted">NEUTRALを含め、脳出力から実際に要求された操作を集計。現在は外部ε-greedy等を入れていません。</p></div>
+  <div class="panel"><div id="action-bars"></div><p class="muted">NEUTRALを含め、脳出力から実際に要求された操作を集計。外部ε-greedy等はまだ入れていません。</p></div>
 
   <h2>Telemetry replay (not the game renderer)</h2>
   <div class="panel">
@@ -82,20 +85,30 @@
   </div>
 
   <h2>MaleCNS activity</h2>
-  <p class="muted">各decision windowでの実body ID spike数を表示します。全spike parquetはActions artifact側に保持します。</p>
+  <p class="muted">各decision windowの上位発火bodyを表示します。「構造活性」はsomaNeuromere等の公式カテゴリを集計したもので、ニューロンのXY座標やsynapse位置ではありません。全spike parquetはActions artifactに保持します。</p>
   <div class="brain-grid">
-    <div class="panel"><strong id="brain-p1-title">P1 brain</strong><div id="brain-p1-summary" class="muted"></div><div id="brain-p1-groups"></div><div id="brain-p1"></div></div>
-    <div class="panel"><strong id="brain-p2-title">P2 brain</strong><div id="brain-p2-summary" class="muted"></div><div id="brain-p2-groups"></div><div id="brain-p2"></div></div>
+    <div class="panel">
+      <strong id="brain-p1-title">P1 brain</strong><div id="brain-p1-summary" class="muted"></div>
+      <div class="label">active soma neuromeres / structural groups</div><div id="brain-p1-structure" class="structure-map"></div>
+      <div class="label">action readout groups</div><div id="brain-p1-groups"></div>
+      <div class="label">top active body IDs</div><div id="brain-p1"></div>
+    </div>
+    <div class="panel">
+      <strong id="brain-p2-title">P2 brain</strong><div id="brain-p2-summary" class="muted"></div>
+      <div class="label">active soma neuromeres / structural groups</div><div id="brain-p2-structure" class="structure-map"></div>
+      <div class="label">action readout groups</div><div id="brain-p2-groups"></div>
+      <div class="label">top active body IDs</div><div id="brain-p2"></div>
+    </div>
   </div>
 
   <h2>Experiment history</h2>
   <div class="panel"><canvas id="history"></canvas></div>
   <p class="muted">青: 非0報酬ラウンド率。橙: B action率。継続runごとの変化を表示します。</p>
 
-  <h2>Reward design</h2>
+  <h2>Reward</h2>
   <div class="panel">
-    <p><strong>R0（現在）:</strong> ラウンド終了時に残HPが高ければ +1、同値0、低ければ -1。現在はこのrewardで<strong>ログだけ取得し、plasticityは無効</strong>です。</p>
-    <p class="muted">次候補: R1 = 終端±1 + HP差、R2 = damage dealt − damage taken の時間差分 + 終端bonus。どれを採用してもaction randomness/readoutは別条件として固定して比較します。</p>
+    <p><strong>R0 baseline:</strong> ラウンド終了時の残HP比較だけで +1 / 0 / -1。現在はログ取得のみでplasticityは無効です。</p>
+    <p class="muted">報酬設計の変更は、観戦・ログ・構造可視化パイプラインを固定した後に比較条件として導入します。</p>
   </div>
 
   <p id="error" class="muted"></p>
