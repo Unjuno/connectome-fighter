@@ -1,0 +1,85 @@
+name: fightingice-lightweight-socket-smoke
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/run_live_arena_server.py'
+      - '.github/workflows/fightingice-lightweight-socket-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fightingice-lightweight-socket-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GAME_URL: https://github.com/TeamFightingICE/FightingICE/releases/download/v7.1/DareFightingICE-7.1.zip
+  GAME_SHA256: 510752a69a097b767677d3911b1407d6a08a721dad4faf2cb5b7a19b988f1c62
+  RESOURCE_URL: https://github.com/TeamFightingICE/FightingICE/releases/download/v7.1/resource-7.1.zip
+  RESOURCE_SHA256: 386fd713f901db00583054528ccfbce315953c157dc16231c4367416d86dce53
+
+jobs:
+  socket:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Download verified FightingICE v7.1 runtime
+        run: |
+          set -euo pipefail
+          mkdir -p external/v71 external/downloads
+          curl -fL --retry 4 --retry-all-errors -o external/downloads/game.zip "$GAME_URL"
+          curl -fL --retry 4 --retry-all-errors -o external/downloads/resource.zip "$RESOURCE_URL"
+          echo "$GAME_SHA256  external/downloads/game.zip" | sha256sum -c -
+          echo "$RESOURCE_SHA256  external/downloads/resource.zip" | sha256sum -c -
+          unzip -q external/downloads/game.zip -d external/v71
+          GAME_JAR="$(find external/v71 -type f -name FightingICE.jar -print -quit)"
+          test -n "$GAME_JAR"
+          unzip -q -o external/downloads/resource.zip -d "$(dirname "$GAME_JAR")"
+
+      - name: Require lightweight pyftg socket startup
+        run: |
+          set -euo pipefail
+          mkdir -p runs/lightweight-socket
+          GAME_JAR="$(find external/v71 -type f -name FightingICE.jar -print -quit)"
+          GAME_DIR="$(dirname "$GAME_JAR")"
+          (
+            cd "$GAME_DIR"
+            java -cp 'FightingICE.jar:./lib/*' Main \
+              --lightweight-mode --pyftg-mode --input-sync \
+              --limithp 400 400 --port 31415 -r 1 -f 600 \
+              > "$GITHUB_WORKSPACE/runs/lightweight-socket/fightingice.log" 2>&1 &
+            echo $! > "$GITHUB_WORKSPACE/runs/lightweight-socket/fightingice.pid"
+          )
+          ready=0
+          for i in $(seq 1 45); do
+            if grep -q 'Socket server is started' runs/lightweight-socket/fightingice.log 2>/dev/null; then
+              ready=1
+              break
+            fi
+            if ! kill -0 "$(cat runs/lightweight-socket/fightingice.pid)" 2>/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          cat runs/lightweight-socket/fightingice.log || true
+          kill "$(cat runs/lightweight-socket/fightingice.pid)" 2>/dev/null || true
+          test "$ready" -eq 1
+
+      - name: Verify live arena defaults to lightweight mode
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          text=Path('scripts/run_live_arena_server.py').read_text(encoding='utf-8')
+          assert 'choices=["lightweight", "headless"]' in text
+          assert 'default="lightweight"' in text
+          assert 'processing_flag = "--lightweight-mode"' in text
+          print('live arena FightingICE mode contract: lightweight')
+          PY
