@@ -16,7 +16,7 @@ def _finite_number(value) -> bool:
     return not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(value)
 
 
-def _read(path: Path, side: int) -> dict:
+def _read(path: Path, side: int, expected_trainable: bool | None) -> dict:
     rounds = {}
     if not path.is_file():
         _fail(f"Missing P{side+1} trace: {path}")
@@ -31,8 +31,11 @@ def _read(path: Path, side: int) -> dict:
                 _fail("Player-side mismatch")
             if item.get("terminated") is not True or item.get("truncated") is not False:
                 _fail("Invalid termination flags")
-            if item.get("trainable") is not True:
-                _fail("Round without usable observations is not an integration pass")
+            if type(item.get("trainable")) is not bool:
+                _fail("Missing trainable/evaluation trace flag")
+            if expected_trainable is not None and item["trainable"] is not expected_trainable:
+                mode = "trainable" if expected_trainable else "frozen evaluation"
+                _fail(f"Round does not match expected {mode} trace mode")
             identity = (item.get("match_id"), item.get("round_id"))
             if not isinstance(identity[0], str) or not identity[0] or type(identity[1]) is not int:
                 _fail("Invalid round identity")
@@ -86,8 +89,23 @@ def _read(path: Path, side: int) -> dict:
     return rounds
 
 
-def audit_pair(p1: Path, p2: Path, expected_rounds: int | None = None) -> dict:
-    left, right = _read(p1, 0), _read(p2, 1)
+def audit_pair(
+    p1: Path,
+    p2: Path,
+    expected_rounds: int | None = None,
+    *,
+    expected_trainable: bool | None = True,
+) -> dict:
+    """Audit two-sided traces.
+
+    `expected_trainable=True` preserves the original integration-training gate.
+    Frozen canonical evaluation/smoke matches must explicitly pass False; None
+    accepts either mode but still requires both sides to agree.
+    """
+    left, right = (
+        _read(p1, 0, expected_trainable),
+        _read(p2, 1, expected_trainable),
+    )
     if left.keys() != right.keys():
         _fail("P1/P2 round identities differ")
     if expected_rounds is not None and len(left) != expected_rounds:
@@ -95,6 +113,8 @@ def audit_pair(p1: Path, p2: Path, expected_rounds: int | None = None) -> dict:
     summary = []
     for identity, a in left.items():
         b = right[identity]
+        if a["trainable"] is not b["trainable"]:
+            _fail("P1/P2 disagree on trainable/evaluation mode")
         for name in ("remaining_hps", "elapsed_frame"):
             if a[name] != b[name]:
                 _fail(f"P1/P2 disagree on {name}")
@@ -108,12 +128,17 @@ def audit_pair(p1: Path, p2: Path, expected_rounds: int | None = None) -> dict:
             "match_id": identity[0], "round_id": identity[1], "remaining_hps": a["remaining_hps"],
             "rewards": [a["outcome_reward"], b["outcome_reward"]], "elapsed_frame": a["elapsed_frame"],
             "decisions": [len(a["transitions"]), len(b["transitions"])],
+            "trainable": a["trainable"],
         })
     histogram = []
     for group in (left, right):
         counts = Counter(str(step["action"]) for item in group.values() for step in item["transitions"])
         histogram.append(dict(sorted(counts.items())))
-    return {"status": "VALID_LOG_CONTRACT", "rounds": summary,
-            "completed_rounds_per_agent": [len(left), len(right)], "action_histograms": histogram,
-            "learning_performed": False,
-            "note": "Log validation is not independent evidence of engine identity or applied-key timing."}
+    return {
+        "status": "VALID_LOG_CONTRACT",
+        "rounds": summary,
+        "completed_rounds_per_agent": [len(left), len(right)],
+        "action_histograms": histogram,
+        "learning_performed": bool(summary and summary[0]["trainable"]),
+        "note": "Log validation is not independent evidence of engine identity or applied-key timing.",
+    }
