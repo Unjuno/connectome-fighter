@@ -80,7 +80,7 @@ jobs:
           print(json.dumps(manifest,indent=2,sort_keys=True))
           PY
           tar -C runs/checkpoint -czf runs/garnet-g1.tar.gz .
-          sha256sum runs/garnet-g1.tar.gz | tee runs/garnet-g1.tar.gz.sha256
+          (cd runs && sha256sum garnet-g1.tar.gz | tee garnet-g1.tar.gz.sha256)
 
       - name: Publish prerelease checkpoint assets
         env:
