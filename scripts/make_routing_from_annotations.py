@@ -1,4 +1,4 @@
-"""Build a reproducible game<->FlyWire routing recipe from external annotations.
+"""Build reproducible game<->FlyWire routing and aligned node coordinates.
 
 The biological boundary is restricted to annotated FlyWire `sensory` neurons
 for input and `descending` neurons for output. Assignment of the 18 game
@@ -10,8 +10,9 @@ neurons, each feature is split into positive/negative half-wave channels:
   polarity +1 -> max(x, 0)
   polarity -1 -> max(-x, 0)
 
-The script expects a normalized graph produced by import_shiu_flywire.py and an
-external FlyWire annotation TSV. It writes a deterministic routing JSON.
+When ``--metadata-out`` is supplied, the script also writes coordinate arrays
+aligned exactly to ``nodes.csv``. Coordinates are copied from the pinned
+FlyWire annotation table; no anatomical location is inferred for missing rows.
 """
 from __future__ import annotations
 
@@ -21,6 +22,8 @@ import hashlib
 import json
 from pathlib import Path
 import random
+
+import numpy as np
 
 OBS_DIM = 18
 
@@ -42,11 +45,20 @@ def load_node_ids(path: Path) -> list[str]:
     return ids
 
 
+def _finite_float(value: str) -> float:
+    try:
+        parsed = float(str(value).strip())
+    except (TypeError, ValueError):
+        return float("nan")
+    return parsed if np.isfinite(parsed) else float("nan")
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--nodes", type=Path, required=True)
     p.add_argument("--annotations", type=Path, required=True)
     p.add_argument("--out", type=Path, required=True)
+    p.add_argument("--metadata-out", type=Path)
     p.add_argument("--seed", type=int, default=20260911)
     p.add_argument("--neurons-per-polarity-per-feature", type=int, default=32)
     p.add_argument("--input-scale", type=float, default=0.25)
@@ -60,6 +72,8 @@ def main() -> int:
 
     node_ids = load_node_ids(args.nodes)
     node_index = {root_id: i for i, root_id in enumerate(node_ids)}
+    positions = np.full((len(node_ids), 3), np.nan, dtype=np.float32)
+    has_position = np.zeros(len(node_ids), dtype=np.bool_)
 
     sensory: set[str] = set()
     descending: set[str] = set()
@@ -68,15 +82,22 @@ def main() -> int:
         required = {"root_id", "super_class"}
         if reader.fieldnames is None or not required.issubset(reader.fieldnames):
             raise ValueError(f"Annotation TSV must contain {sorted(required)}")
+        has_xyz = {"pos_x", "pos_y", "pos_z"}.issubset(reader.fieldnames)
         for row in reader:
             root = str(row["root_id"]).strip()
-            superclass = str(row["super_class"]).strip().lower()
-            if root not in node_index:
+            idx = node_index.get(root)
+            if idx is None:
                 continue
+            superclass = str(row["super_class"]).strip().lower()
             if superclass == "sensory":
                 sensory.add(root)
             elif superclass == "descending":
                 descending.add(root)
+            if has_xyz:
+                xyz = [_finite_float(row.get(k, "")) for k in ("pos_x", "pos_y", "pos_z")]
+                if all(np.isfinite(v) for v in xyz):
+                    positions[idx] = np.asarray(xyz, dtype=np.float32)
+                    has_position[idx] = True
 
     sensory_ids = sorted(sensory, key=lambda x: (len(x), x))
     output_ids = sorted(descending, key=lambda x: (len(x), x))
@@ -86,8 +107,6 @@ def main() -> int:
     if not output_ids:
         raise ValueError("No descending neurons overlap the normalized graph")
 
-    # Deterministic pseudorandom assignment. For A/B topology tests the exact
-    # routing JSON must be reused; routing seed is a nuisance factor, not hidden.
     rng = random.Random(args.seed)
     selected = sensory_ids.copy()
     rng.shuffle(selected)
@@ -137,6 +156,32 @@ def main() -> int:
     payload["routing_sha256"] = hashlib.sha256(encoded).hexdigest()
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+
+    metadata_summary = None
+    if args.metadata_out is not None:
+        args.metadata_out.parent.mkdir(parents=True, exist_ok=True)
+        if has_position.any():
+            valid = positions[has_position]
+            bounds_min = valid.min(axis=0).astype(np.float32)
+            bounds_max = valid.max(axis=0).astype(np.float32)
+        else:
+            bounds_min = np.full(3, np.nan, dtype=np.float32)
+            bounds_max = np.full(3, np.nan, dtype=np.float32)
+        np.savez_compressed(
+            args.metadata_out,
+            positions=positions,
+            has_position=has_position,
+            bounds_min=bounds_min,
+            bounds_max=bounds_max,
+            coordinate_space=np.asarray(["FlyWire annotation voxel coordinates (4x4x40 nm voxels)"]),
+            annotation_version=np.asarray([args.annotation_version]),
+        )
+        metadata_summary = {
+            "file": str(args.metadata_out),
+            "positioned_nodes": int(has_position.sum()),
+            "sha256": sha256_file(args.metadata_out),
+        }
+
     print(json.dumps({
         "status": "routing_created",
         "sensory_candidates": len(sensory_ids),
@@ -144,6 +189,7 @@ def main() -> int:
         "descending_outputs": len(output_nodes),
         "routing_sha256": payload["routing_sha256"],
         "artificial_mapping": True,
+        "node_metadata": metadata_summary,
     }, indent=2))
     return 0
 
