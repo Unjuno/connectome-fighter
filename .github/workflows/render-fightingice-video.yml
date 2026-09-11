@@ -158,7 +158,7 @@ jobs:
             --decision-interval 60 \
             --games 1 --expected-rounds 1 --timeout 900 \
             --spectator-video site/data/latest-fight.mp4 \
-            --spectator-fps 60 \
+            --spectator-fps 10 \
             --run-id rendered-garnet-zen \
             --out runs/rendered
           test -s site/data/latest-fight.mp4
@@ -172,7 +172,7 @@ jobs:
           size=int(p['format']['size'])
           assert s['codec_name']=='h264', s
           assert int(s['width'])==960 and int(s['height'])==640, s
-          assert duration > 2.0, duration
+          assert 5.0 < duration < 20.0, duration
           assert size > 10000, size
           print('official ScreenData video OK', duration, size)
           PY
