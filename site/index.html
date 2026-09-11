@@ -11,13 +11,14 @@
     h1{font-size:clamp(2rem,5vw,3.6rem);margin:.2em 0}.muted{color:var(--muted);line-height:1.6}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     .pill{border:1px solid #39506b;border-radius:999px;padding:5px 9px;font-size:.76rem}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:22px 0}.card,.panel{border:1px solid var(--line);background:var(--surface);border-radius:14px}.card{padding:14px}.panel{padding:16px;margin-top:18px}.value{font-size:1.5rem;font-weight:800}.label{font-size:.75rem;color:var(--muted);margin-bottom:5px}
     table{width:100%;border-collapse:collapse;font-size:.84rem}th,td{padding:9px 7px;border-bottom:1px solid var(--line);text-align:right}th:first-child,td:first-child{text-align:left}th{color:var(--muted)}
-    details{border-top:1px solid var(--line);padding:11px 0}summary{cursor:pointer}.files{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}.files a{border:1px solid var(--line);border-radius:10px;padding:11px;text-decoration:none}.files a:hover{background:#142033}
+    details{border-top:1px solid var(--line);padding:11px 0}summary{cursor:pointer}.files{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}.files a{border:1px solid var(--line);border-radius:10px;padding:11px;text-decoration:none}.files a:hover{background:#142033}.cta{display:inline-block;margin-top:8px;padding:11px 15px;border:1px solid #4f78a1;border-radius:11px;background:#10233a;text-decoration:none;font-weight:800}
   </style>
 </head>
 <body><main>
   <div class="row"><span class="pill">MaleCNS v1.0 + pinned Shiu LIF</span><span class="pill">data/log source</span></div>
   <h1>Connectome Fighter Logs</h1>
-  <p class="muted">このGitHub Pagesは表示アプリではなく、正規化した対戦データの公開・確認用です。観戦UIはVercel側へ分離しています。raw spike / membrane / server logはGitHub Actions artifactに保持します。</p>
+  <p class="muted">正規化した対戦ログと公開メタデータの確認用ページです。実FightingICE動画、最新＋過去2件のキュー、次回更新カウントダウン、4キャラ勝率、両者のMaleCNS活動表示は観戦ページにまとめています。raw spike / membrane / server logはGitHub Actions artifactに保持します。</p>
+  <a class="cta" href="./live/">Open queued live spectator →</a>
 
   <div class="grid">
     <div class="card"><div class="label">stored matches</div><div id="match-count" class="value">—</div></div>
@@ -40,6 +41,7 @@
     <div class="files">
       <a href="./data/matches.json"><strong>matches.json</strong><br><span class="muted">rolling normalized match ledger</span></a>
       <a href="./data/status.json"><strong>status.json</strong><br><span class="muted">current aggregate status</span></a>
+      <a href="./data/queue.json"><strong>queue.json</strong><br><span class="muted">latest + two historical spectator clips and brain activity timeline</span></a>
       <a href="./data/replay-latest.json"><strong>replay-latest.json</strong><br><span class="muted">analysis replay payload</span></a>
       <a href="./data/video.json"><strong>video.json</strong><br><span class="muted">latest spectator metadata</span></a>
       <a href="https://github.com/Unjuno/connectome-fighter/actions"><strong>GitHub Actions</strong><br><span class="muted">raw artifacts and provenance</span></a>
