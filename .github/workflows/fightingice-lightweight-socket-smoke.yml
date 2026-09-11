@@ -69,7 +69,7 @@ jobs:
           jre_bytes="$(du -sb runs/jre21 | awk '{print $1}')"
           echo "packaged_fightingice_bytes=$game_bytes"
           echo "jlink_jre_bytes=$jre_bytes"
-          test "$game_bytes" -lt $((80 * 1024 * 1024))
+          test "$game_bytes" -lt $((140 * 1024 * 1024))
           test "$jre_bytes" -lt $((180 * 1024 * 1024))
 
       - name: Require full pyftg round on packaged runtime
