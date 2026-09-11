@@ -114,6 +114,24 @@ fi
 command -v java >/dev/null
 command -v curl >/dev/null
 
+ensure_font_runtime() {
+  if command -v fc-list >/dev/null 2>&1 && fc-list 2>/dev/null | grep -q .; then
+    return 0
+  fi
+  write_status "installing-font-runtime"
+  if command -v sudo >/dev/null 2>&1; then
+    sudo apt-get update -qq
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fontconfig fonts-dejavu-core
+  else
+    apt-get update -qq
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fontconfig fonts-dejavu-core
+  fi
+  command -v fc-list >/dev/null
+  fc-cache -f >/dev/null 2>&1 || true
+  fc-list 2>/dev/null | grep -q .
+}
+ensure_font_runtime
+
 REF_WRAPPER="$WORK/reference-python"
 cat > "$REF_WRAPPER" <<EOF
 #!/usr/bin/env bash
