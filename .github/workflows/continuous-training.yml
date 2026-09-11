@@ -1,53 +1,38 @@
 name: canonical-continuous-training
 
-# Canonical sequential trainer.
-# Exactly one training run is allowed at a time. A successful run dispatches
-# the next run, so training continues without parallel MaleCNS jobs.
-# Set repository variable CANONICAL_TRAINING_ENABLED=false to stop the chain.
+# Canonical sequential trainer control surface.
+# This workflow is intentionally NOT parallel. It is a dispatcher/guard for
+# one-at-a-time MaleCNS training. The actual continuous trainer is introduced
+# separately after its latest-checkpoint contract is verified.
+#
+# IMPORTANT: the legacy FlyWire/custom-RNN trainer remains retired.
 
 on:
   workflow_dispatch:
-    inputs:
-      matches_per_run:
-        description: Sequential matches to execute before checkpointing
-        required: false
-        default: '3'
-      character:
-        description: Character lineage to train (currently GARNET is the proven resume lineage)
-        required: false
-        default: 'GARNET'
 
 permissions:
-  contents: write
-  actions: write
+  contents: read
 
 concurrency:
   group: canonical-continuous-training
   cancel-in-progress: false
 
 jobs:
-  train:
-    if: ${{ vars.CANONICAL_TRAINING_ENABLED != 'false' }}
-    uses: ./.github/workflows/canonical-checkpoint-resume.yml
-    with:
-      continuous_mode: true
-      matches_per_run: ${{ inputs.matches_per_run || '3' }}
-      character: ${{ inputs.character || 'GARNET' }}
-    secrets: inherit
-
-  continue:
-    needs: train
-    if: ${{ needs.train.result == 'success' && vars.CANONICAL_TRAINING_ENABLED != 'false' }}
+  guard:
     runs-on: ubuntu-latest
     steps:
-      - name: Dispatch next sequential training run
-        env:
-          GH_TOKEN: ${{ github.token }}
-          MATCHES_PER_RUN: ${{ inputs.matches_per_run || '3' }}
-          CHARACTER: ${{ inputs.character || 'GARNET' }}
+      - name: Explain current continuous-training gate
         run: |
-          gh workflow run continuous-training.yml \
-            --repo "$GITHUB_REPOSITORY" \
-            --ref main \
-            -f matches_per_run="$MATCHES_PER_RUN" \
-            -f character="$CHARACTER"
+          cat <<'EOF'
+          Sequential canonical training is being migrated to a latest-checkpoint
+          chain. Do not reuse canonical-checkpoint-resume.yml as a loop: it is a
+          fixed G1 -> G2 resume proof, not a generic trainer.
+
+          Required continuous contract:
+            1. exactly one runner at a time
+            2. restore latest verified canonical checkpoint
+            3. run one bounded training unit
+            4. atomically publish generation N+1
+            5. dispatch the next run only after successful publication
+            6. stop cleanly via repository control flag
+          EOF
