@@ -17,7 +17,10 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from brian2 import Hz, Network, PoissonGroup, Synapses, mV, ms, seed as brian_seed, start_scope
+from brian2 import (
+    Hz, Network, PoissonGroup, Synapses, mV, ms, prefs,
+    seed as brian_seed, start_scope,
+)
 
 ACTIVE_ACTIONS = ["FORWARD", "BACKWARD", "UP", "DOWN", "A", "B", "C"]
 
@@ -48,8 +51,10 @@ def main() -> int:
     p.add_argument("--interface", type=Path, required=True)
     p.add_argument("--seed", type=int, required=True)
     p.add_argument("--character", required=True)
+    p.add_argument("--codegen-target", choices=["cython", "numpy"], default="cython")
     args = p.parse_args()
 
+    prefs.codegen.target = args.codegen_target
     interface = json.loads(args.interface.read_text(encoding="utf-8"))
     structural = json.loads((args.adapter_dir / "manifest.json").read_text(encoding="utf-8"))
     completeness = pd.read_csv(args.adapter_dir / "completeness.csv", index_col=0)
@@ -93,15 +98,17 @@ def main() -> int:
     if len(neu) != len(body_ids):
         raise ValueError("Reference model neuron count mismatch")
 
-    # Equivalent event amplitude to Shiu's `poi()` helper. Only the event rate
-    # varies with the game observation; the recurrent LIF equations and
-    # recurrent synaptic weights are untouched.
+    # Match Shiu `poi()` semantics for stimulated targets: target refractory is
+    # disabled and each Poisson event changes v by w_syn*f_poi. Only event rate
+    # is generalized here from fixed 150 Hz to an observation-driven [0,150] Hz.
+    input_index_array = np.asarray(input_indices, dtype=np.int64)
+    neu.rfc[input_index_array] = 0 * ms
     n_inputs = len(input_indices)
     poisson = PoissonGroup(n_inputs, rates=np.zeros(n_inputs) * Hz, name="game_poisson_input")
     input_syn = Synapses(
         poisson, neu, model="w : volt", on_pre="v_post += w", name="game_poisson_synapses"
     )
-    input_syn.connect(i=np.arange(n_inputs), j=np.asarray(input_indices, dtype=np.int64))
+    input_syn.connect(i=np.arange(n_inputs), j=input_index_array)
     input_syn.w = params["w_syn"] * params["f_poi"]
 
     net = Network(neu, recurrent_syn, spike_monitor, poisson, input_syn)
@@ -126,6 +133,8 @@ def main() -> int:
         "t_dly_ms": float(params["t_dly"] / ms),
         "w_syn_mV": float(params["w_syn"] / mV),
         "f_poi": int(params["f_poi"]),
+        "stimulated_target_rfc_ms": 0.0,
+        "codegen_target": str(prefs.codegen.target),
     }
     initial_identity = {
         "dataset": structural["dataset"],
