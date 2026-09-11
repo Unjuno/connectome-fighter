@@ -1,0 +1,70 @@
+name: malecns-plasticity-candidates
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/build_malecns_plasticity_candidates.py'
+      - '.github/workflows/malecns-plasticity-candidates.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: malecns-plasticity-candidates
+  cancel-in-progress: true
+
+env:
+  ADAPTER_CACHE_KEY: malecns-v1.0-shiu-strict-minw5-2a83ad611cd9768f8c9723fc613ed27761a5feb5-adapter-v1
+
+jobs:
+  candidate-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'numpy>=1.26,<3' 'pandas>=2.2,<3' 'pyarrow>=16,<24'
+
+      - name: Restore canonical MaleCNS adapter cache
+        uses: actions/cache@v4
+        with:
+          path: data/processed/malecns-shiu-strict-v1
+          key: ${{ env.ADAPTER_CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: Extract anatomically existing KC-to-MBON edges
+        run: |
+          rm -rf data/processed/malecns-plasticity-v1
+          python scripts/build_malecns_plasticity_candidates.py \
+            --metadata data/processed/malecns-shiu-strict-v1/neuron_metadata.parquet \
+            --connectivity data/processed/malecns-shiu-strict-v1/connectivity.parquet \
+            --adapter-manifest data/processed/malecns-shiu-strict-v1/manifest.json \
+            --out-dir data/processed/malecns-plasticity-v1
+
+      - name: Validate no topology/sign invention
+        run: |
+          python - <<'PY'
+          import json, pandas as pd
+          root='data/processed/malecns-plasticity-v1'
+          m=json.load(open(f'{root}/manifest.json'))
+          c=pd.read_parquet(f'{root}/kc_mbon_candidates.parquet')
+          assert m['invariants']['topology_changes_allowed'] is False
+          assert m['invariants']['sign_changes_allowed'] is False
+          assert len(c)==m['counts']['kc_to_mbon_edges'] > 0
+          assert (c['sign']==1).all()
+          assert c['synapse_index'].is_unique
+          print(json.dumps(m['counts'], indent=2))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: malecns-plasticity-candidates-v1
+          path: |
+            data/processed/malecns-plasticity-v1/manifest.json
+            data/processed/malecns-plasticity-v1/kc_mbon_candidates.parquet
+          if-no-files-found: error
+          retention-days: 30
