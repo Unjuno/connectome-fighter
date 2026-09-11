@@ -168,9 +168,14 @@ def main() -> int:
                 ))
             status["checkpoints"] = checkpoint_meta
             status["immutable_core_shared_between_agents"] = True
+
+        # FightingICE keeps AI registrations for the lifetime of the Java
+        # process. Reusing the same registration names in a later match can
+        # leave a new client bound to stale registrations. Include the run_id so
+        # every match, including evaluation rematches, registers fresh AI names.
         agents = [
             FighterAI(
-                f"ConnectomeFighter-{characters[i]}-P{i+1}",
+                f"ConnectomeFighter-{characters[i]}-P{i+1}-{run_id}",
                 policy,
                 JsonlSink(out/f"p{i+1}.jsonl"),
                 run_id,
