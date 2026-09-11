@@ -16,7 +16,7 @@ function num(value, digits = 2) {
 function dateLabel(value) {
   if (!value) return '—';
   const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? value : d.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+  return Number.isNaN(d.getTime()) ? value : d.toLocaleString('en-US', { timeZone: 'UTC', dateStyle: 'medium', timeStyle: 'medium' });
 }
 
 function renderCharacters(stats = {}) {
@@ -34,7 +34,7 @@ function renderMatches(matches = []) {
   const root = $('matches');
   root.innerHTML = '';
   if (!matches.length) {
-    root.textContent = 'まだ正規化された対戦ログがありません。';
+    root.textContent = 'No normalized match records are available yet.';
     return;
   }
   for (const match of [...matches].reverse().slice(0, 36)) {
