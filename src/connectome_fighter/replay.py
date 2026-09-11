@@ -40,6 +40,7 @@ def _activity(t: dict[str, Any] | None) -> dict[str, Any] | None:
         "top_global": activation.get("top_global", []),
         "top_change": activation.get("top_change", []),
         "top_descending": activation.get("top_descending", []),
+        "brain_space": activation.get("brain_space"),
     }
 
 
@@ -65,6 +66,7 @@ def export_replay(
     last1: dict[str, Any] | None = None
     last2: dict[str, Any] | None = None
     last_display: dict[str, Any] | None = None
+    brain_space: dict[str, Any] | None = None
     for frame in frames:
         if frame in m1:
             last1 = m1[frame]
@@ -75,6 +77,9 @@ def export_replay(
             last_display = display
         if last_display is None:
             continue
+        a1, a2 = _activity(last1), _activity(last2)
+        if brain_space is None:
+            brain_space = (a1 or {}).get("brain_space") or (a2 or {}).get("brain_space")
         p1d, p2d = last_display.get("p1", {}), last_display.get("p2", {})
         rendered.append({
             "frame": int(frame),
@@ -82,21 +87,22 @@ def export_replay(
                 "hp": p1d.get("hp"), "energy": p1d.get("energy"),
                 "x": p1d.get("x"), "y": p1d.get("y"),
                 "action": Action(int(last1["action"])).name if last1 else "NEUTRAL",
-                "activity": _activity(last1),
+                "activity": a1,
             },
             "p2": {
                 "hp": p2d.get("hp"), "energy": p2d.get("energy"),
                 "x": p2d.get("x"), "y": p2d.get("y"),
                 "action": Action(int(last2["action"])).name if last2 else "NEUTRAL",
-                "activity": _activity(last2),
+                "activity": a2,
             },
         })
     reward = float(r1.get("outcome_reward", 0.0))
     winner = p1_character if reward > 0 else p2_character if reward < 0 else "DRAW"
     replay = {
-        "schema_version": 1,
+        "schema_version": 2,
         "match_id": r1["match_id"],
         "round_id": r1["round_id"],
+        "brain_space": brain_space,
         "p1": {
             "character": p1_character,
             "label": p1_character,
