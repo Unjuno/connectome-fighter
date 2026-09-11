@@ -11,6 +11,7 @@ on:
       - 'scripts/build_spectator_queue.py'
       - 'scripts/build_malecns_skeleton_projection.py'
       - 'scripts/enrich_spectator_queue_morphology.py'
+      - 'scripts/validate_spectator_bundle.py'
 
 permissions:
   contents: write
@@ -261,6 +262,13 @@ jobs:
           python scripts/enrich_spectator_queue_morphology.py \
             --queue runs/rendered/queue.json \
             --morphology runs/rendered/morphology.json
+
+      - name: Validate frozen spectator contract
+        run: |
+          python scripts/validate_spectator_bundle.py \
+            --queue runs/rendered/queue.json \
+            --video-meta runs/rendered/video.json \
+            --require-three-clips
 
       - name: Publish rolling release assets
         env:
