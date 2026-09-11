@@ -4,48 +4,91 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="dark" />
-  <title>Connectome Fighter Data</title>
+  <title>Connectome Fighter Research Ledger</title>
   <style>
-    :root{font-family:ui-sans-serif,system-ui,sans-serif;color-scheme:dark;--bg:#080b10;--surface:#101720;--line:#253246;--text:#eef3fa;--muted:#8d9bad;--accent:#8ecbff}
-    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text)}main{max-width:1050px;margin:auto;padding:32px 18px 70px}a{color:var(--accent)}
-    h1{font-size:clamp(2rem,5vw,3.6rem);margin:.2em 0}.muted{color:var(--muted);line-height:1.6}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .pill{border:1px solid #39506b;border-radius:999px;padding:5px 9px;font-size:.76rem}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:22px 0}.card,.panel{border:1px solid var(--line);background:var(--surface);border-radius:14px}.card{padding:14px}.panel{padding:16px;margin-top:18px}.value{font-size:1.5rem;font-weight:800}.label{font-size:.75rem;color:var(--muted);margin-bottom:5px}
-    table{width:100%;border-collapse:collapse;font-size:.84rem}th,td{padding:9px 7px;border-bottom:1px solid var(--line);text-align:right}th:first-child,td:first-child{text-align:left}th{color:var(--muted)}
-    details{border-top:1px solid var(--line);padding:11px 0}summary{cursor:pointer}.files{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}.files a{border:1px solid var(--line);border-radius:10px;padding:11px;text-decoration:none}.files a:hover{background:#142033}.cta{display:inline-block;margin-top:8px;padding:11px 15px;border:1px solid #4f78a1;border-radius:11px;background:#10233a;text-decoration:none;font-weight:800}
+    :root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:dark;--bg:#05080d;--surface:#0b1119;--surface2:#0f1722;--line:#1e2b3a;--text:#edf4fb;--muted:#7f8da0;--cyan:#80e7ff;--amber:#ffc979;--rose:#ff9ab0}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(circle at 20% 0,#0b1c27 0,transparent 28rem),var(--bg);color:var(--text)}a{color:inherit}.shell{max-width:1160px;margin:auto;padding:34px 18px 80px}
+    .eyebrow{font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:#5f7186}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.pill{border:1px solid #294052;background:#09131d;border-radius:999px;padding:6px 10px;font-size:.72rem;color:#9fb3c9}
+    h1{font-size:clamp(2.4rem,6vw,5rem);letter-spacing:-.055em;line-height:.96;margin:.22em 0}.lead{max-width:800px;color:var(--muted);line-height:1.75;font-size:1rem}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}.btn{display:inline-block;border:1px solid #31465a;border-radius:12px;padding:11px 15px;text-decoration:none;font-size:.85rem;font-weight:750}.btn.primary{background:#e8f5ff;color:#071019;border-color:#e8f5ff}.btn:hover{transform:translateY(-1px)}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:24px 0}.card,.panel{border:1px solid var(--line);background:linear-gradient(180deg,rgba(15,23,34,.94),rgba(8,13,20,.96));border-radius:18px}.card{padding:16px}.panel{padding:20px;margin-top:16px}.label{font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:#64748b}.value{margin-top:7px;font-size:1.4rem;font-weight:800;letter-spacing:-.02em}.value.small{font-size:1rem;line-height:1.45}.section-title{display:flex;align-items:end;justify-content:space-between;gap:16px;margin-bottom:16px}.section-title h2{margin:0;font-size:1.35rem}.muted{color:var(--muted);line-height:1.65}.notice{border:1px solid #5c4929;background:#1a1409;border-radius:14px;padding:13px 14px;color:#e8c887;font-size:.84rem;line-height:1.6}
+    .reward-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px}.reward{border:1px solid #223243;background:#09121b;border-radius:14px;padding:14px}.reward .n{font-size:1.6rem;font-weight:850;margin-top:6px}.formula{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#05090e;border:1px solid #192534;border-radius:12px;padding:12px;overflow:auto;color:#b7c7d9;font-size:.78rem;line-height:1.6}.two{display:grid;grid-template-columns:1fr;gap:12px}@media(min-width:850px){.two{grid-template-columns:1fr 1fr}}
+    table{width:100%;border-collapse:collapse;font-size:.82rem}th,td{padding:9px 7px;border-bottom:1px solid var(--line);text-align:right}th:first-child,td:first-child{text-align:left}th{color:var(--muted);font-weight:650}.files{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px}.files a{border:1px solid var(--line);border-radius:12px;padding:12px;text-decoration:none;background:#091019}.files a:hover{background:#101b28}.files strong{font-size:.86rem}.files span{font-size:.75rem}.statusline{display:inline-flex;align-items:center;gap:7px}.dot{width:7px;height:7px;border-radius:50%;background:#f5c46b;box-shadow:0 0 12px rgba(245,196,107,.5)}
+    details{border-top:1px solid var(--line);padding:11px 0}summary{cursor:pointer}.boundary{font-size:.8rem;line-height:1.65;color:#9aa9ba;border-left:2px solid #35485d;padding-left:12px}.foot{margin-top:30px;padding-top:18px;border-top:1px solid var(--line);font-size:.75rem;color:#617083;line-height:1.6}
   </style>
 </head>
-<body><main>
-  <div class="row"><span class="pill">MaleCNS v1.0 + pinned Shiu LIF</span><span class="pill">data/log source</span></div>
-  <h1>Connectome Fighter Logs</h1>
-  <p class="muted">正規化した対戦ログと公開メタデータの確認用ページです。実FightingICE動画、最新＋過去2件のキュー、次回更新カウントダウン、4キャラ勝率、両者のMaleCNS活動表示は観戦ページにまとめています。raw spike / membrane / server logはGitHub Actions artifactに保持します。</p>
-  <a class="cta" href="./live/">Open queued live spectator →</a>
-
-  <div class="grid">
-    <div class="card"><div class="label">stored matches</div><div id="match-count" class="value">—</div></div>
-    <div class="card"><div class="label">updated</div><div id="updated" class="value" style="font-size:1rem">—</div></div>
-    <div class="card"><div class="label">latest phase</div><div id="phase" class="value" style="font-size:1rem">—</div></div>
+<body><main class="shell">
+  <div class="row"><span class="pill">MaleCNS v1.0</span><span class="pill">pinned Shiu LIF</span><span class="pill">research / provenance surface</span></div>
+  <h1>Connectome Fighter<br>Research Ledger</h1>
+  <p class="lead">ここは学習・報酬・plasticity・checkpoint lineage・実験証跡を公開する研究面です。観戦用Vercelは「見せる」ことに限定し、長期の実験履歴や報酬設計はこのGitHub Pages側に集約します。</p>
+  <div class="actions">
+    <a class="btn primary" href="https://liveunjuno.vercel.app/connectome">Open public arena →</a>
+    <a class="btn" href="https://github.com/Unjuno/connectome-fighter/actions">GitHub Actions evidence ↗</a>
+    <a class="btn" href="https://github.com/Unjuno/connectome-fighter">Repository ↗</a>
   </div>
 
+  <div class="grid">
+    <div class="card"><div class="label">canonical substrate</div><div class="value small">MaleCNS v1.0 + Shiu LIF</div></div>
+    <div class="card"><div class="label">current public phase</div><div id="phase" class="value small">—</div></div>
+    <div class="card"><div class="label">stored normalized matches</div><div id="match-count" class="value">—</div></div>
+    <div class="card"><div class="label">reward contract</div><div id="reward-id" class="value small">—</div></div>
+  </div>
+
+  <div class="notice"><span class="statusline"><span class="dot"></span><strong>重要:</strong></span> 現在公開されている報酬・plasticity設定は監査済みsmoke/候補契約です。continuous canonical learningを有効化したと偽って表示しません。実際にproduction lineageへ昇格した時点で、このページのstatusとcheckpoint provenanceを同時に更新します。</div>
+
+  <section class="panel" id="reward">
+    <div class="section-title"><div><div class="eyebrow">reinforcement contract</div><h2>報酬をどう与えるか</h2></div><a class="muted" href="./research-data/reward.json">raw JSON ↗</a></div>
+    <div class="reward-grid">
+      <div class="reward"><div class="label">win</div><div id="reward-win" class="n">—</div></div>
+      <div class="reward"><div class="label">loss</div><div id="reward-loss" class="n">—</div></div>
+      <div class="reward"><div class="label">ordinary draw</div><div id="reward-draw" class="n">—</div></div>
+      <div class="reward"><div class="label">no-damage draw</div><div id="reward-nodamage" class="n">—</div></div>
+    </div>
+    <div class="two" style="margin-top:12px">
+      <div><div class="label" style="margin-bottom:7px">damage component</div><div id="damage-formula" class="formula">loading…</div></div>
+      <div><div class="label" style="margin-bottom:7px">engagement potential</div><div id="engagement-formula" class="formula">loading…</div></div>
+    </div>
+    <p id="reward-boundary" class="boundary">loading…</p>
+  </section>
+
+  <section class="panel" id="plasticity">
+    <div class="section-title"><div><div class="eyebrow">plasticity contract</div><h2>報酬を重みにどう反映するか</h2></div><a class="muted" href="./research-data/plasticity.json">raw JSON ↗</a></div>
+    <div class="grid" style="margin:0">
+      <div class="card"><div class="label">model</div><div id="plasticity-id" class="value small">—</div></div>
+      <div class="card"><div class="label">status</div><div id="plasticity-status" class="value small">—</div></div>
+      <div class="card"><div class="label">learning rate</div><div id="plasticity-lr" class="value">—</div></div>
+      <div class="card"><div class="label">eligibility decay</div><div id="plasticity-decay" class="value">—</div></div>
+    </div>
+    <div id="plasticity-detail" class="formula" style="margin-top:12px">loading…</div>
+    <p id="plasticity-boundary" class="boundary">loading…</p>
+  </section>
+
   <section class="panel">
-    <h2>Character summary</h2>
+    <div class="section-title"><div><div class="eyebrow">fixed controls</div><h2>比較時に固定するもの</h2></div></div>
+    <div id="fixed-controls" class="files"></div>
+  </section>
+
+  <section class="panel">
+    <div class="section-title"><div><div class="eyebrow">observed baseline</div><h2>Character summary</h2></div><div id="updated" class="muted">—</div></div>
     <table><thead><tr><th>Character</th><th>Rounds</th><th>W</th><th>L</th><th>D</th><th>Win rate</th></tr></thead><tbody id="characters"></tbody></table>
   </section>
 
   <section class="panel">
-    <h2>Recent normalized matches</h2>
+    <div class="section-title"><div><div class="eyebrow">normalized evidence</div><h2>Recent matches</h2></div></div>
     <div id="matches" class="muted">loading…</div>
   </section>
 
   <section class="panel">
-    <h2>Data endpoints</h2>
+    <div class="section-title"><div><div class="eyebrow">provenance</div><h2>Evidence & data endpoints</h2></div></div>
     <div class="files">
-      <a href="./data/matches.json"><strong>matches.json</strong><br><span class="muted">rolling normalized match ledger</span></a>
-      <a href="./data/status.json"><strong>status.json</strong><br><span class="muted">current aggregate status</span></a>
-      <a href="./data/queue.json"><strong>queue.json</strong><br><span class="muted">latest + two historical spectator clips and brain activity timeline</span></a>
-      <a href="./data/replay-latest.json"><strong>replay-latest.json</strong><br><span class="muted">analysis replay payload</span></a>
-      <a href="./data/video.json"><strong>video.json</strong><br><span class="muted">latest spectator metadata</span></a>
-      <a href="https://github.com/Unjuno/connectome-fighter/actions"><strong>GitHub Actions</strong><br><span class="muted">raw artifacts and provenance</span></a>
+      <a href="./data/matches.json"><strong>matches.json</strong><br><span class="muted">normalized match ledger</span></a>
+      <a href="./data/status.json"><strong>status.json</strong><br><span class="muted">current aggregate phase and stats</span></a>
+      <a href="./research-data/reward.json"><strong>reward.json</strong><br><span class="muted">deployed reward contract copied from configs/</span></a>
+      <a href="./research-data/plasticity.json"><strong>plasticity.json</strong><br><span class="muted">deployed plasticity contract copied from configs/</span></a>
+      <a href="https://github.com/Unjuno/connectome-fighter/releases/tag/canonical-state-smoke-v1"><strong>checkpoint smoke release</strong><br><span class="muted">durable generation resume evidence</span></a>
+      <a href="https://github.com/Unjuno/connectome-fighter/actions"><strong>GitHub Actions</strong><br><span class="muted">raw artifacts, checksums, logs, provenance</span></a>
     </div>
   </section>
+
+  <div class="foot">Public-surface split: Vercel = short-lived spectator display. GitHub Pages/Actions = research method, reward/plasticity contract, checkpoint lineage, and evidence. Screen pixels and morphology visualization remain outside the policy input.</div>
   <p id="error" class="muted"></p>
 </main><script src="./app.js"></script></body></html>
