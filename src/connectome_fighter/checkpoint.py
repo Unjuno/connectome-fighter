@@ -31,6 +31,14 @@ def checkpoint_id(character: str, generation: int) -> str:
     return f"{validate_character(character).lower()}-g{int(generation):06d}"
 
 
+def _assert_finite_module(module: torch.nn.Module, name: str) -> None:
+    for parameter_name, tensor in module.state_dict().items():
+        if not torch.is_floating_point(tensor):
+            continue
+        if not bool(torch.isfinite(tensor).all()):
+            raise ValueError(f"Refusing non-finite {name} parameter: {parameter_name}")
+
+
 def save_checkpoint(
     path: str | Path,
     *,
@@ -51,6 +59,8 @@ def save_checkpoint(
         raise ValueError("Checkpoint counters must be non-negative")
     if not graph_hash or not routing_hash:
         raise ValueError("Graph and routing hashes are required")
+    _assert_finite_module(actor, "actor")
+    _assert_finite_module(critic, "critic")
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     metadata = {
@@ -121,6 +131,10 @@ def load_checkpoint(
         raise ValueError("Checkpoint routing hash mismatch")
     if metadata.get("lineage_id") != lineage_id(character):
         raise ValueError("Checkpoint lineage mismatch")
+    for state_name in ("actor_state", "critic_state"):
+        for parameter_name, tensor in payload.get(state_name, {}).items():
+            if torch.is_floating_point(tensor) and not bool(torch.isfinite(tensor).all()):
+                raise ValueError(f"Non-finite tensor in checkpoint {state_name}.{parameter_name}")
     return payload
 
 
