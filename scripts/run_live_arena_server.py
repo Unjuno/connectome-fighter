@@ -200,11 +200,21 @@ def make_handler(state: ArenaState):
     return Handler
 
 
+def log_tail(path: Path, max_chars: int = 2400) -> str:
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    return text[-max_chars:]
+
+
 def wait_for_fightingice(log_path: Path, proc: subprocess.Popen, timeout: float = 90.0) -> None:
     deadline = time.time() + timeout
     while time.time() < deadline:
         if proc.poll() is not None:
-            raise RuntimeError(f"FightingICE exited before socket startup (rc={proc.returncode})")
+            tail = log_tail(log_path)
+            suffix = f"; log_tail={tail}" if tail else ""
+            raise RuntimeError(f"FightingICE exited before socket startup (rc={proc.returncode}){suffix}")
         if log_path.exists() and "Socket server is started" in log_path.read_text(encoding="utf-8", errors="replace"):
             return
         time.sleep(0.5)
@@ -216,14 +226,6 @@ def hold_observable(seconds: float, stopping: callable) -> None:
     deadline = time.time() + max(0.0, float(seconds))
     while time.time() < deadline and not stopping():
         time.sleep(0.2)
-
-
-def log_tail(path: Path, max_chars: int = 2400) -> str:
-    try:
-        text = path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return ""
-    return text[-max_chars:]
 
 
 def main() -> int:
@@ -246,6 +248,7 @@ def main() -> int:
     p.add_argument("--interface", type=Path, required=True)
     p.add_argument("--out", type=Path, default=Path("/tmp/connectome-arena"))
     p.add_argument("--post-fight-seconds", type=float, default=30.0)
+    p.add_argument("--fightingice-mode", choices=["lightweight", "headless"], default="lightweight")
     args = p.parse_args()
 
     args.out.mkdir(parents=True, exist_ok=True)
@@ -261,12 +264,18 @@ def main() -> int:
     server_thread.start()
 
     game_dir = args.game_jar.resolve().parent
-    classpath = "FightingICE.jar:./lib/*:./lib/lwjgl/*:./lib/lwjgl/natives/linux/amd64/*:./lib/grpc/*"
+    if args.fightingice_mode == "lightweight":
+        classpath = "FightingICE.jar:./lib/*"
+        processing_flag = "--lightweight-mode"
+    else:
+        classpath = "FightingICE.jar:./lib/*:./lib/lwjgl/*:./lib/lwjgl/natives/linux/amd64/*:./lib/grpc/*"
+        processing_flag = "--headless-mode"
+
     log_handle = game_log.open("w", encoding="utf-8")
     fightingice = subprocess.Popen(
         [
             "java", "-cp", classpath, "Main",
-            "--headless-mode", "--pyftg-mode", "--input-sync",
+            processing_flag, "--pyftg-mode", "--input-sync",
             "--limithp", str(args.max_hp), str(args.max_hp),
             "--port", str(args.game_port), "-r", "1", "-f", "600",
         ],
