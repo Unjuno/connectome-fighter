@@ -1,5 +1,6 @@
 name: vercel-live-arena-smoke
 
+# Current-definition smoke trigger for the prebuilt runtime v2 contract.
 on:
   workflow_dispatch:
   workflow_run:
@@ -29,10 +30,12 @@ jobs:
         run: |
           set -euo pipefail
           body="$(curl -fsS "$BASE/api/connectome/session")"
-          echo "$body" | jq '{mode, ready, runtime_bundle_ready, auth_configured, build_commit, runtime_manifest, learning_enabled, policy_pixel_access}'
+          echo "$body" | jq '{mode, ready, runtime_bundle_ready, runtime_schema_version, runtime_prebuilt, auth_configured, build_commit, runtime_manifest, learning_enabled, policy_pixel_access}'
           test "$(echo "$body" | jq -r '.mode')" = 'per-viewer-live-sandbox'
           test "$(echo "$body" | jq -r '.ready')" = 'true'
           test "$(echo "$body" | jq -r '.runtime_bundle_ready')" = 'true'
+          test "$(echo "$body" | jq -r '.runtime_schema_version')" -ge 2
+          test "$(echo "$body" | jq -r '.runtime_prebuilt')" = 'true'
           test "$(echo "$body" | jq -r '.auth_configured')" = 'true'
           test "$(echo "$body" | jq -r '.learning_enabled')" = 'false'
           test "$(echo "$body" | jq -r '.policy_pixel_access')" = 'false'
