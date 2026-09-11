@@ -5,6 +5,10 @@ on:
   workflow_run:
     workflows: [canonical-checkpoint-seed]
     types: [completed]
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/canonical-checkpoint-resume.yml'
 
 permissions:
   contents: write
