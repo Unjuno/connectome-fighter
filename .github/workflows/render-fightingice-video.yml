@@ -34,7 +34,7 @@ jobs:
   render:
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 45
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -168,7 +168,7 @@ jobs:
             cd "$GAME_DIR"
             nohup java -cp 'FightingICE.jar:./lib/*:./lib/lwjgl/*:./lib/lwjgl/natives/linux/amd64/*:./lib/grpc/*' \
               Main --headless-mode --pyftg-mode --input-sync --limithp 400 400 \
-              --port 31415 -r 1 -f 600 \
+              --port 31415 -r 6 -f 600 \
               > "$GITHUB_WORKSPACE/runs/rendered/fightingice.log" 2>&1 &
             echo $! > "$GITHUB_WORKSPACE/runs/rendered/fightingice.pid"
           )
@@ -180,7 +180,7 @@ jobs:
           done
           test "$ready" -eq 1
 
-      - name: Run canonical fight and capture official ScreenData
+      - name: Run six canonical rounds and capture official ScreenData
         run: |
           PYTHONPATH=src python scripts/run_game_malecns_lif.py \
             --host 127.0.0.1 --port 31415 \
@@ -191,7 +191,7 @@ jobs:
             --adapter-dir data/processed/malecns-shiu-strict-v1 \
             --interface data/processed/malecns-interface-v1/interface.json \
             --decision-interval 60 \
-            --games 1 --expected-rounds 1 --timeout 900 \
+            --games 1 --expected-rounds 6 --timeout 1800 \
             --spectator-video site/data/latest-fight.mp4 \
             --spectator-fps 10 \
             --run-id "$SPECTATOR_RUN_ID" \
@@ -207,16 +207,17 @@ jobs:
           size=int(probe['format']['size'])
           assert stream['codec_name']=='h264', stream
           assert int(stream['width'])==960 and int(stream['height'])==640, stream
-          assert 5.0 < duration < 20.0, duration
+          assert 45.0 < duration < 100.0, duration
           assert size > 10000, size
           spectator=json.load(open(f"runs/rendered/{os.environ['SPECTATOR_RUN_ID']}/spectator.json"))
           video={
-              'schema_version': 1,
+              'schema_version': 2,
               'mode': 'official-fightingice-screendata-spectator',
               'p1': {'character': os.environ['SPECTATOR_P1'], 'seed': int(os.environ['SPECTATOR_SEED1'])},
               'p2': {'character': os.environ['SPECTATOR_P2'], 'seed': int(os.environ['SPECTATOR_SEED2'])},
+              'rounds': 6,
               'telemetry_reference': {'run_id': os.environ['TELEMETRY_RUN_ID'], 'round_ordinal': int(os.environ['TELEMETRY_ROUND'])},
-              'relationship': 'Same character pairing and character-specific seeds as the selected telemetry replay; this is a fresh one-round spectator render and is not claimed to be the identical trajectory.',
+              'relationship': 'Same character pairing and character-specific seeds as the selected telemetry replay; this is a fresh six-round spectator render and is not claimed to be the identical trajectory.',
               'policy_pixel_access': False,
               'width': int(stream['width']), 'height': int(stream['height']),
               'fps': int(spectator['fps']), 'frames': int(spectator['frames']),
@@ -226,7 +227,7 @@ jobs:
           json.dump(video, open('site/data/video.json','w'), indent=2, sort_keys=True)
           print(json.dumps(video, indent=2))
           PY
-          ffmpeg -y -loglevel error -ss 1 -i site/data/latest-fight.mp4 -frames:v 1 runs/rendered/sample-frame.png
+          ffmpeg -y -loglevel error -ss 5 -i site/data/latest-fight.mp4 -frames:v 1 runs/rendered/sample-frame.png
           test -s runs/rendered/sample-frame.png
 
       - name: Stop FightingICE
@@ -258,6 +259,6 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
-      - name: Deploy dashboard with real FightingICE video
+      - name: Deploy dashboard with one-minute FightingICE video
         id: deployment
         uses: actions/deploy-pages@v4
