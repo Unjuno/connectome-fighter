@@ -46,7 +46,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
@@ -241,15 +241,17 @@ jobs:
         uses: actions/deploy-pages@v4
 
       - name: Upload minimal run evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: continuous-training-summary-${{ github.run_number }}
           path: |
             runs/continuous/chunk-summary.json
+            runs/continuous/progress.json
             runs/continuous/site-data/status.json
             runs/continuous/site-data/latest-replay.json
             runs/continuous/fightingice.log
             publish-state/state-pointer.json
             publish-state/slot-*-manifest.json
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
