@@ -21,7 +21,7 @@ function renderCharacterTable(characters={}) {
   for (const name of ['GARNET','ZEN','LUD','NEZ']) {
     const c = characters[name] || {rounds:0,wins:0,losses:0,draws:0,decisions:0};
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${name}</td><td>${fmt(c.rounds,0)}</td><td>${fmt(c.wins,0)}</td><td>${fmt(c.losses,0)}</td><td>${fmt(c.draws,0)}</td><td>${fmt(c.decisions,0)}</td>`;
+    tr.innerHTML=`<td><strong>${name}</strong></td><td>${fmt(c.rounds,0)}</td><td>${fmt(c.wins,0)}</td><td>${fmt(c.losses,0)}</td><td>${fmt(c.draws,0)}</td><td>${fmt(c.decisions,0)}</td>`;
     root.appendChild(tr);
   }
 }
@@ -52,7 +52,7 @@ function drawHistory(history=experimentHistory) {
     ctx.strokeStyle=s.color; ctx.lineWidth=2; ctx.beginPath();
     s.vals.forEach((v,i)=>{ const xx=x(i), yy=y(v); if(i===0) ctx.moveTo(xx,yy); else ctx.lineTo(xx,yy); }); ctx.stroke();
   }
-  ctx.font='12px system-ui'; ctx.fillStyle='#8ecbff'; ctx.fillText('non-zero reward',pad+4,17); ctx.fillStyle='#f0b65b'; ctx.fillText('B action',pad+120,17);
+  ctx.font='12px system-ui'; ctx.fillStyle='#8ecbff'; ctx.fillText('non-zero reward',pad+4,17); ctx.fillStyle='#f0b65b'; ctx.fillText('B action',pad+125,17);
   ctx.fillStyle='#91a0b5'; ctx.fillText('0%',2,h-pad+4); ctx.fillText('100%',2,pad+4);
 }
 
@@ -144,8 +144,15 @@ async function loadVideoMetadata(){
     const video=$('fight-video');
     const source=video.querySelector('source');
     if(source && v.source_actions_run){ source.src=`./data/latest-fight.mp4?v=${encodeURIComponent(v.source_actions_run)}`; video.load(); }
+    $('video-p1').textContent=fmt(v.p1?.character);
+    $('video-p2').textContent=fmt(v.p2?.character);
+    $('video-duration').textContent=`${Number(v.duration_seconds||0).toFixed(1)} sec`;
+    $('video-rounds').textContent=fmt(v.rounds,1);
+    $('pixel-access').textContent=v.policy_pixel_access?'YES':'NO';
     const ref=v.telemetry_reference||{};
-    $('video-note').textContent=`${v.p1?.character} vs ${v.p2?.character} · ${Number(v.duration_seconds||0).toFixed(1)} s · ${fmt(v.frames,0)} ScreenData frames · pixels→policy: ${v.policy_pixel_access?'YES':'NO'} · telemetry ref ${fmt(ref.run_id)} round ${fmt(ref.round_ordinal)}。同じキャラ/seed条件のfresh spectator runで、同一trajectoryとは断定していません。`;
+    $('video-note').textContent=`${fmt(v.frames,0)} ScreenData frames · ${fmt(v.width)}×${fmt(v.height)} · ${fmt(v.fps)} fps。telemetry ref ${fmt(ref.run_id)} round ${fmt(ref.round_ordinal)} と同じキャラ/seed条件のfresh spectator runで、同一trajectoryとは断定していません。`;
+    const videoRun=$('video-run');
+    if(v.source_actions_run){ videoRun.href=`https://github.com/Unjuno/connectome-fighter/actions/runs/${encodeURIComponent(v.source_actions_run)}`; }
   } catch(err){ $('video-note').textContent=`Video metadata unavailable: ${err.message}`; }
 }
 
@@ -153,12 +160,12 @@ async function main(){
   try{
     const status=await fetch('./data/status.json',{cache:'no-store'}).then(r=>{if(!r.ok) throw new Error(`HTTP ${r.status}`); return r.json();});
     const m=status.metrics||{}; experimentHistory=status.history||[];
-    $('phase').textContent=fmt(status.phase); $('updated').textContent=fmt(status.updated_at);
+    $('phase').textContent=fmt(status.phase); $('phase-pill').textContent=String(status.phase||'baseline').replace('canonical-','').replaceAll('-',' '); $('updated').textContent=fmt(status.updated_at);
     $('independent-rounds').textContent=fmt(m.independent_rounds,0); $('raw-rounds').textContent=fmt(m.raw_rounds,0); $('reward-rate').textContent=`${fmt(m.independent_nonzero_reward_rounds,0)} / ${fmt(m.independent_rounds,0)} (${pct(m.independent_nonzero_reward_rate)})`; $('decisions').textContent=fmt(m.total_decisions,0);
     renderCharacterTable(m.characters||{}); renderActionBars(m.action_counts||{},m.action_rates||{}); drawHistory();
-    const src=$('source-run'); if(status.source_run_url){ src.href=status.source_run_url; src.style.display='inline'; } else { src.style.display='none'; }
+    const src=$('source-run'); if(status.source_run_url){ src.href=status.source_run_url; } else { src.href='https://github.com/Unjuno/connectome-fighter/actions'; }
     await Promise.all([loadReplay(status.latest_match?.replay_url||null), loadVideoMetadata()]);
-  } catch(err){ $('phase').textContent='status load failed'; $('error').textContent=err.message; await loadVideoMetadata(); }
+  } catch(err){ $('phase').textContent='status load failed'; $('phase-pill').textContent='status error'; $('error').textContent=err.message; await loadVideoMetadata(); }
 }
 
 $('replay-slider').addEventListener('input',e=>{stopReplay(); renderReplayIndex(e.target.value);});
