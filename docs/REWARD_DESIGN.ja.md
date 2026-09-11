@@ -1,78 +1,236 @@
 # Reward design for canonical MaleCNS training
 
+## 目的
+
+この文書は、MaleCNS + pinned Shiu LIF の**行動生成を変えず**、FightingICEから与える外部modulatory signalだけを比較するための仕様である。
+
+現時点では学習を有効化しない。既存trajectoryをofflineで再採点し、reward density / scale / timingを先に固定する。
+
 ## 固定条件
 
-報酬比較の間は、現在の行動生成を変更しない。
+reward比較中は次を固定する。
 
 - anatomy: MaleCNS v1.0
 - dynamics: pinned Shiu LIF
-- sensory randomness: observation-driven Poisson spikes
+- sensory stochasticity: observation-driven Poisson spikes
 - action readout: output-group spike-count argmax
-- action exploration: 外部 epsilon-greedy / random action injection なし
-- character brains: GARNET / ZEN / LUD / NEZ を別個体として扱う
+- external epsilon-greedy / random action injection: なし
+- decision interval: 60 FightingICE frames
+- action mapping: 固定interface hashで管理
+- GARNET / ZEN / LUD / NEZ: 別個体として扱う
+- 比較するreward候補は同一trajectoryを再採点する
 
-これにより、reward designを変更したときの差をaction exploration変更と混同しない。
+scheduled baselineではPoisson mechanism自体は固定したまま、workflow chunkごとに決定論的に別seed blockを使う。これにより6時間ごとのrunが同じ乱数列を繰り返すことを避ける。
 
-## R0 — terminal HP sign（現在のbaseline）
+---
 
-ラウンド終了時だけ、残HPが相手より高ければ +1、同値なら 0、低ければ -1。
+## 初回offline比較の実測
 
-利点:
-- FightingICEの目的と直接一致する。
-- 最も単純で比較基準として残しやすい。
+対象: canonical four-character baseline Actions run `34620984683`
 
-問題:
-- 報酬が非常に疎い。
-- 1回の有効打をラウンド全体の神経活動へ帰属しやすく、credit assignmentが粗い。
+- 6 character pairings
+- 48 game rounds
+- 96 brain-rounds（各試合をP1/P2それぞれの報酬系列として数える）
+- 960 decision windows
+- 学習/weight更新: **なし**
 
-現在はR0でtraceだけ取得し、weight更新は無効にしている。
+Actions run `34629201168` でR0/R1/R2をoffline再採点し、PASSした。
 
-## R1 — terminal outcome + terminal HP margin
+### 観測された疎さ
 
-勝敗の +1 / 0 / -1 を主信号として残し、最終HP差を小さい補助信号として加える。
+- R0 terminal signが非0: 2 / 960 decisions = **0.2083%**
+- 非0 terminal outcome: 2 / 96 brain-rounds = **2.0833%**
+- damage差が非0のdecision: 4 / 960 = **0.4167%**
+- damage signalが存在したbrain-round: 2 / 96
+- 最大final HP margin: 20 HP
 
-狙い:
-- 勝敗の目的を維持したまま、同じ勝ちでも圧勝と僅差を区別する。
-- 行動そのもの（前進、攻撃、ジャンプ等）へ人為的な好みを与えない。
+このchunkで実際にdamageが生じたのはZEN–NEZの1試合だけだった。damage eventは2 windowあり、双方から見た正負を含めると4 local damage signalsになる。
 
-注意:
-- ダメージが一度も発生しないラウンドは依然として無信号。
-- temporal credit assignmentは改善しない。
+したがって、現在の主問題は `+1` の絶対値ではなく、**game interactionそのものが少なくreward eventがほぼ発生しないこと**である。
 
-## R2 — damage timing + terminal outcome（第一候補）
+---
 
-各decision windowで「相手に与えたdamage」と「自分が受けたdamage」の差を即時のmodulatory signalとして記録し、ラウンド終了時にはR0の勝敗signalも加える。
+## R0 — terminal HP sign（control）
 
-狙い:
-- どの神経活動の直後に有効打が起きたかを短い時間幅で帰属できる。
-- 「前へ進め」「攻撃しろ」のような手作業の行動rewardを入れず、ゲーム目的だけからsignalを作れる。
-- 現在のspike/body-ID logからoffline再計算できるため、R0と同じtrajectoryを使って比較可能。
+最終HP差だけを使う。
 
-注意:
-- hit tradingを単純なdamage差として扱うため、terminal outcomeとの併用が必要。
-- signal timingをKC→MBON eligibility traceの時間スケールへどう写像するかは別パラメータとして固定する必要がある。
+```text
+win   +1
+ draw   0
+loss  -1
+```
 
-## R3 — valence-specific DAN gating（生物学的比較条件）
+長所:
 
-正と負のgame outcomeを同じKC→MBON集合へ単純に逆符号で掛けるのではなく、MaleCNS annotation上のDAN / MBON compartmentを用いてpositive / negative valenceを別経路へ入力する。
+- FightingICEの最終目的に最も近い。
+- 単純でcontrolとして維持しやすい。
 
-背景:
-- Drosophila mushroom bodyでは、dopaminergic neuronsがcompartment-specificにKC→MBON plasticityを調節する。
-- rewardとpunishmentは単純に同一synapse集合の強化/弱化として表現されるとは限らず、異なるDAN/MBON compartmentsが関与する。
+実測上の問題:
 
-これはR2より実装と生物学的解釈が難しいため、R0/R1/R2のengineering comparison後に行う。
+- decision-level nonzero rate = 0.2083%。
+- 47/48試合が無damageまたは同HPのdrawだったため、ほぼ全trajectoryが無更新になる。
 
-## 採用順序
+**結論:** controlとして保存するが、最初のlearning rewardとして単独使用する根拠は弱い。
 
-1. R0を継続baselineとして保存する。
-2. 現在のtrajectoryからR1/R2をoffline再計算し、signal densityとcredit timingを比較する。
-3. action randomness/readoutを変えずにR2だけを有効化したlineageを作る。
-4. R0とR2を同一seed/pairingで比較する。
-5. その後にR3のcompartment-specific DAN mappingを実装する。
+---
 
-## 変更しないもの
+## R1 — terminal sign + normalized final HP margin
 
-reward experiment中は次をrewardにしない。
+最終decisionだけで、勝敗signに最終HP差を加える。
+
+```text
+R1_terminal = sign(HP_self - HP_opp)
+              + (HP_self - HP_opp) / 400
+```
+
+初回baselineでは最大marginが20 HPだったため、非0試合では絶対値が `1.00 → 1.05` になっただけだった。
+
+重要なのは、**R1のsignal densityはR0と完全に同じ**だったことである。
+
+- decision-level nonzero rate: 0.2083%
+- brain-round nonzero rate: 2.0833%
+
+**結論:** 勝利marginの情報は増えるが、現在の最大問題であるsparsityは解決しない。
+
+---
+
+## R2a — local damage differential + terminal outcome
+
+各decision windowで、次のdecisionまでに変化したHPから局所signalを作る。
+
+```text
+damage_component_t = (damage_dealt_t - damage_taken_t) / 10 HP
+reward_t = w_damage * damage_component_t
+```
+
+最終decisionではさらに terminal win/loss bonus を加える。
+
+```text
+reward_T += w_terminal * sign(final HP margin)
+```
+
+10 HPを1 damage unitとして、offlineでは以下をgrid searchした。
+
+- `w_damage`: 0.05 / 0.10 / 0.25 / 0.50 / 1.00
+- `w_terminal`: 0.25 / 0.50 / 1.00
+
+signal timingはR0より改善したが、初回baselineではdamage自体が2 windowしかなかったため、代表的なR2a系列でもdecision-level nonzero rateは **0.625%** 程度だった。
+
+R0の約3倍だが、依然として非常に疎い。
+
+また、この2 damage windowで選択されていたactionはいずれもBだった。現在のnaive policyはもともとBに強く偏っているため、R2aだけをすぐ有効化すると初期偶然を固定する可能性を否定できない。
+
+**結論:** temporal credit assignment改善には有用だが、単独ではno-contact drawを解決しない。
+
+---
+
+## R2b — R2a + no-damage draw penalty（現在の第一候補、未確定）
+
+R2aに加えて、**ラウンド全体で双方のHPが一度も減らず、最終HPも同じだった場合だけ**、最後のdecisionへ小さい負signalを与える。
+
+これは「前進」「攻撃」「接近」など特定のactionを褒めるものではない。何もゲーム上の結果が起きなかったtimeoutをengineering上の失敗として扱う。
+
+```text
+if win/loss:
+    terminal = +1 / -1
+elif draw and total_damage_exchanged == 0:
+    terminal = -δ_stalemate
+else:
+    terminal = 0
+
+reward_t += w_damage * damage_component_t
+```
+
+Actions run `34629518296` でoffline比較し、PASSした。
+
+初回baselineではno-damage drawが94/96 brain-rounds = **97.92%** だった。
+
+R2bではδが0より大きい限り、同じtrajectory上で:
+
+- decision-level nonzero rate: **100 / 960 = 10.4167%**
+- brain-round nonzero rate: **96 / 96 = 100%**
+
+となる。
+
+ただし100 nonzero decisionsのうち97が負signalになるため、δを大きくすると全体を負側へ強く偏らせる。
+
+### 現在の暫定scale候補
+
+最初に試すなら次の階層を候補とする。
+
+```text
+terminal win/loss : ±1.00
+10 HP damage      : ±0.10
+no-damage draw    : -0.02 ～ -0.05
+```
+
+`δ=0.02` のoffline統計:
+
+- decision nonzero: 10.4167%
+- mean |decision reward|: 0.00446
+- max |decision reward|: 1.0
+- 全brain-roundに非0signal
+
+`δ=0.05`:
+
+- decision nonzero: 10.4167%
+- mean |decision reward|: 0.00740
+- max |decision reward|: 1.0
+- 全brain-roundに非0signal
+
+**現時点の判断:** `w_damage=0.10, w_terminal=1.0, δ_stalemate=0.02～0.05` を最初のlearning experiment候補に残す。ただし次の独立Poisson seed chunkでもno-contact率とdamage頻度を再測定してからfreezeする。
+
+### 注意
+
+R2bはzero-sum rewardではない。no-damage drawでは両個体が同時に負signalを受ける。これは生物学的事実ではなく、探索を開始させるための明示的engineering shaping conditionである。
+
+---
+
+## R3 — valence/compartment-specific DAN gating（後段の生物学的比較条件）
+
+R0/R1/R2ではgame outcomeを外部scalar signalとして扱う。一方、Drosophila mushroom bodyではdopaminergic modulationはcompartment-specificであり、KC→MBON plasticityは単一の全MB scalar updateとして理解すべきではない。
+
+後段ではMaleCNS annotation上のDAN / MBON compartmentを利用し、positive / negative valenceを別経路へmappingする比較条件を作る。
+
+これはgame outcome→DAN mapping自体が人工interfaceであるため、解剖学的配線と混同せずversion管理する。
+
+---
+
+## Plasticity ruleとの分離
+
+現在の `reward_plasticity.py` はproject extensionとして:
+
+- real KC→MBON candidate edgeのみ変更可能
+- topology固定
+- transmitter sign固定
+- terminal reward `-1/0/+1` 専用
+- positive rewardでeligible KC→MBON magnitudeをdepress
+- negative rewardでstrengthen
+
+というanti-Hebbian型を実装している。
+
+R2a/R2bを採用する場合、rewardはtime-localかつ連続値になるため、**reward definitionをfreezeした後にplasticity APIを時系列modulatory signalへ拡張する必要がある**。
+
+rewardの選択とplasticity direction/learning rateの選択を同時に変更してはいけない。
+
+---
+
+## 採用Gate
+
+最初のcanonical learning rewardをfreezeする条件:
+
+1. 少なくとも2つ以上の独立Poisson seed chunksでR0/R1/R2a/R2bをoffline採点する。
+2. reward density / mean absolute signal / max signal / sign imbalanceを比較する。
+3. action randomness、readout、anatomy、LIF、game interfaceは変更しない。
+4. 採用rewardの係数をversioned configへ固定する。
+5. その後、1キャラ・1matchだけplasticityを有効化してweight変化を監査する。
+6. 連続学習はさらにcheckpoint resumeを別Actions runで実証してから有効化する。
+
+---
+
+## rewardにしないもの
+
+少なくとも最初の比較では次を直接rewardにしない。
 
 - 前進したこと
 - 攻撃ボタンを押したこと
@@ -80,14 +238,17 @@ reward experiment中は次をrewardにしない。
 - action diversityそのもの
 - NEUTRALを避けたこと
 
-これらを直接rewardすると、「ゲームに勝つ回路」を見ているのか「設計者が指定した行動を出す回路」を見ているのか分離しにくくなる。
+これらを直接rewardすると、「ゲーム結果を改善した回路」と「設計者指定actionを出す回路」を分離しにくくなる。
+
+---
 
 ## 関連一次文献
 
-- Hige T, Aso Y, Rubin GM, Turner GC. Plasticity-driven individualization of olfactory coding in mushroom body output neurons. Nature 526, 258–262 (2015). DOI: 10.1038/nature15396.
-- Yamada D et al. Cyclic nucleotide-induced bidirectional long-term synaptic plasticity in Drosophila mushroom body. Journal of Physiology (2024). DOI: 10.1113/JP285745.
-- Felsenberg J et al. Dopaminergic mechanism underlying reward-encoding of punishment omission during reversal learning in Drosophila. Nature Communications 12, 1115 (2021). DOI: 10.1038/s41467-021-21388-w.
+- Hige T, Aso Y, Rubin GM, Turner GC. *Plasticity-driven individualization of olfactory coding in mushroom body output neurons.* Nature 526, 258–262 (2015). DOI: `10.1038/nature15396`.
+- Felsenberg J et al. *Re-evaluation of learned information in Drosophila.* Nature 544, 240–244 (2017). DOI: `10.1038/nature21716`.
+- Felsenberg J et al. *Dopaminergic mechanism underlying reward-encoding of punishment omission during reversal learning in Drosophila.* Nature Communications 12, 1115 (2021). DOI: `10.1038/s41467-021-21388-w`.
+- *Dopamine-mediated interactions between short- and long-term memory dynamics.* Nature (2024). DOI: `10.1038/s41586-024-07819-w`. The study/model explicitly examines compartmental DAN/MBON interactions and bidirectional anti-Hebbian KC→MBON plasticity.
 
 ## Interpretation boundary
 
-R0/R1/R2のgame rewardは外部から与えるengineering signalであり、FightingICEの勝敗がハエでそのまま内因性dopamine signalとして表現される、という主張ではない。R3でもMaleCNS anatomyを利用するが、game outcomeからDANへのmapping自体は実験上の人工interfaceとしてversion管理する。
+R0/R1/R2 game rewardは外部engineering signalであり、FightingICEの勝敗・damage・stalemateがハエの内因性dopamine signalそのものである、という主張ではない。R3でもMaleCNS anatomyを利用するが、game outcomeからDANへのmappingは人工interfaceである。
