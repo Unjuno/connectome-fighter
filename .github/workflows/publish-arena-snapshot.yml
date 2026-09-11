@@ -50,22 +50,27 @@ jobs:
           mkdir -p runs/unpack runs/arena
           tar -C runs/unpack -xzf runs/source/garnet-g2.tar.gz
           cp runs/unpack/state/GARNET.npz runs/arena/GARNET.npz
+          cp runs/unpack/state/GARNET.npz.json runs/arena/GARNET.npz.json
           python - <<'PY'
           import hashlib, json, pathlib
 
           state = pathlib.Path('runs/arena/GARNET.npz')
+          state_meta_path = pathlib.Path('runs/arena/GARNET.npz.json')
           source_manifest = json.load(open('runs/source/checkpoint-manifest.json'))
-          source_meta = json.load(open('runs/unpack/state/GARNET.npz.json'))
+          source_meta = json.load(open(state_meta_path))
           sha = hashlib.sha256(state.read_bytes()).hexdigest()
+          meta_sha = hashlib.sha256(state_meta_path.read_bytes()).hexdigest()
 
           assert source_manifest['character'] == 'GARNET'
           assert source_manifest['generation'] == 2
           assert source_meta['state_sha256'] == sha
           assert source_manifest['state_sha256'] == sha
           assert source_manifest['model'] == source_meta['model']
+          assert source_meta['character'] == 'GARNET'
+          assert source_meta['generation'] == 2
 
           manifest = {
-              'schema_version': 1,
+              'schema_version': 2,
               'kind': 'connectome-fighter-arena-inference-snapshot',
               'canonical_model': 'MaleCNS v1.0 + pinned Shiu LIF',
               'mutability': 'read-only-inference',
@@ -76,9 +81,11 @@ jobs:
                       'generation': int(source_manifest['generation']),
                       'state_file': 'GARNET.npz',
                       'state_sha256': sha,
+                      'runtime_state_meta_file': 'GARNET.npz.json',
+                      'runtime_state_meta_sha256': meta_sha,
                   }
               },
-              'note': 'Minimal runtime handoff only. Reward formulas, plasticity rationale, optimizer/research history and match ledger remain on GitHub research surfaces.',
+              'note': 'Minimal runtime handoff only. The state sidecar is required to validate identity and checksum before materialization. Reward formulas, plasticity rationale, optimizer/research history and match ledger remain on GitHub research surfaces.',
           }
           pathlib.Path('runs/arena/manifest.json').write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
           print(json.dumps(manifest, indent=2, sort_keys=True))
@@ -97,6 +104,7 @@ jobs:
           gh release upload "$TARGET_TAG" \
             runs/arena/manifest.json \
             runs/arena/GARNET.npz \
+            runs/arena/GARNET.npz.json \
             --clobber
 
       - uses: actions/upload-artifact@v4
