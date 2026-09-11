@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 import signal
 import subprocess
+import sys
 import threading
 import time
 from typing import Any
@@ -185,7 +186,7 @@ def make_handler(state: ArenaState):
                             if state.sequence == last:
                                 state.lock.wait(timeout=10.0)
                             last = state.sequence
-                            payload = state.payload()
+                        payload = state.payload()
                         data = json.dumps(payload, separators=(",", ":"), allow_nan=False)
                         self.wfile.write(f"data: {data}\n\n".encode())
                         self.wfile.flush()
@@ -283,7 +284,7 @@ def main() -> int:
         wait_for_fightingice(game_log, fightingice)
         run_root = args.out / "runs"
         command = [
-            args.reference_python,
+            sys.executable,
             str(Path(__file__).with_name("run_game_malecns_lif.py")),
             "--host", "127.0.0.1", "--port", str(args.game_port),
             "--character-p1", args.p1, "--character-p2", args.p2,
