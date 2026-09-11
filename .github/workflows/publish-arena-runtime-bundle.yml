@@ -34,6 +34,7 @@ env:
   GAME_SHA256: 510752a69a097b767677d3911b1407d6a08a721dad4faf2cb5b7a19b988f1c62
   RESOURCE_URL: https://github.com/TeamFightingICE/FightingICE/releases/download/v7.1/resource-7.1.zip
   RESOURCE_SHA256: 386fd713f901db00583054528ccfbce315953c157dc16231c4367416d86dce53
+  UV_VERSION: 0.12.12
 
 jobs:
   publish:
@@ -46,10 +47,17 @@ jobs:
         with:
           python-version: '3.11'
 
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
       - name: Install deterministic bundle-build dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install 'numpy==2.3.5' 'pandas==2.3.3' 'pyarrow==23.0.1'
+          python -m pip install 'numpy==2.3.5' 'pandas==2.3.3' 'pyarrow==23.0.1' "uv==$UV_VERSION"
+          uv --version
+          java -version
 
       - name: Restore immutable MaleCNS source cache
         id: source-cache
@@ -183,14 +191,15 @@ jobs:
           set -euo pipefail
           ROOT=runs/arena-runtime
           rm -rf "$ROOT"
-          mkdir -p "$ROOT/repo" "$ROOT/data" "$ROOT/shiu" "$ROOT/fightingice" "$ROOT/bin"
+          mkdir -p "$ROOT/repo" "$ROOT/data" "$ROOT/shiu" "$ROOT/fightingice" "$ROOT/bin" "$ROOT/runtime"
           cp -a src scripts configs "$ROOT/repo/"
           cp -a data/processed/malecns-shiu-strict-v1 "$ROOT/data/"
           cp -a data/processed/malecns-valence-v1 "$ROOT/data/"
           cp runs/interface/interface.json "$ROOT/data/interface.json"
           cp runs/shiu/model.py "$ROOT/shiu/model.py"
           cp deploy/arena-runtime/start-session.sh "$ROOT/bin/start-session"
-          chmod +x "$ROOT/bin/start-session"
+          cp deploy/arena-runtime/bootstrap-proxy.mjs "$ROOT/bin/bootstrap-proxy.mjs"
+          chmod +x "$ROOT/bin/start-session" "$ROOT/bin/bootstrap-proxy.mjs"
           GAME_JAR="$(find external/v71 -type f -name FightingICE.jar -print -quit)"
           test -n "$GAME_JAR"
           cp -a "$(dirname "$GAME_JAR")/." "$ROOT/fightingice/"
@@ -199,17 +208,80 @@ jobs:
           test -s "$ROOT/data/malecns-valence-v1/kc_mbon_valence_candidates.parquet"
           test -x "$ROOT/bin/start-session"
 
+      - name: Prebuild portable Python runtimes and pinned packages
+        run: |
+          set -euo pipefail
+          ROOT="$(realpath runs/arena-runtime)"
+          export UV_PYTHON_INSTALL_DIR="$ROOT/runtime/pythons"
+          export UV_CACHE_DIR="$RUNNER_TEMP/uv-arena-cache"
+          mkdir -p "$ROOT/runtime/site310" "$ROOT/runtime/site311"
+          uv python install 3.10 3.11
+          P310="$(uv python find 3.10)"
+          P311="$(uv python find 3.11)"
+          test -x "$P310"
+          test -x "$P311"
+
+          uv pip install --python "$P310" --target "$ROOT/runtime/site310" --no-python-downloads \
+            'numpy==1.24.0' 'pandas==1.5.3' 'pyarrow==10.0.1' \
+            'joblib==1.2.0' 'Cython==0.29.36' 'brian2==2.5.1'
+          uv pip install --python "$P311" --target "$ROOT/runtime/site311" --no-python-downloads \
+            'numpy==2.3.5' 'pandas==2.3.3' 'pyarrow==23.0.1' 'pyftg==2.3'
+
+          python - "$ROOT" "$P310" "$P311" <<'PY'
+          import pathlib, sys
+          root=pathlib.Path(sys.argv[1]).resolve()
+          for label, raw in [('python310',sys.argv[2]),('python311',sys.argv[3])]:
+              path=pathlib.Path(raw).resolve()
+              rel=path.relative_to(root)
+              (root/'runtime'/f'{label}.path').write_text(str(rel)+'\n',encoding='utf-8')
+              print(label, rel)
+          PY
+
+          PYTHONPATH="$ROOT/runtime/site310" "$P310" - <<'PY'
+          import brian2, numpy, pandas, pyarrow
+          print({'python':'3.10','brian2':brian2.__version__,'numpy':numpy.__version__,'pandas':pandas.__version__,'pyarrow':pyarrow.__version__})
+          PY
+          PYTHONPATH="$ROOT/repo/src:$ROOT/runtime/site311" "$P311" - <<'PY'
+          import numpy, pandas, pyarrow, pyftg
+          print({'python':'3.11','numpy':numpy.__version__,'pandas':pandas.__version__,'pyarrow':pyarrow.__version__,'pyftg':getattr(pyftg,'__version__','installed')})
+          PY
+
+      - name: Prepackage Java 21 runtime
+        run: |
+          set -euo pipefail
+          ROOT="$(realpath runs/arena-runtime)"
+          mkdir -p "$ROOT/runtime/jre21"
+          cp -aL "$JAVA_HOME/." "$ROOT/runtime/jre21/"
+          test -x "$ROOT/runtime/jre21/bin/java"
+          "$ROOT/runtime/jre21/bin/java" -version
+
+      - name: Validate fast bootstrap assets
+        run: |
+          set -euo pipefail
+          ROOT="$(realpath runs/arena-runtime)"
+          bash -n "$ROOT/bin/start-session"
+          node --check "$ROOT/bin/bootstrap-proxy.mjs"
+          REF="$ROOT/$(cat "$ROOT/runtime/python310.path")"
+          BRIDGE="$ROOT/$(cat "$ROOT/runtime/python311.path")"
+          test -x "$REF"
+          test -x "$BRIDGE"
+          test -d "$ROOT/runtime/site310/brian2"
+          test -d "$ROOT/runtime/site311/pyftg"
+          test -x "$ROOT/runtime/jre21/bin/java"
+
       - name: Build runtime manifest and archive
         run: |
           set -euo pipefail
           python - <<'PY'
-          import hashlib, json, pathlib
+          import hashlib, json, pathlib, subprocess
           root=pathlib.Path('runs/arena-runtime')
           def sha(path): return hashlib.sha256(path.read_bytes()).hexdigest()
           adapter=json.load(open(root/'data/malecns-shiu-strict-v1/manifest.json'))
           interface=json.load(open(root/'data/interface.json'))
+          p310=root/(root/'runtime/python310.path').read_text().strip()
+          p311=root/(root/'runtime/python311.path').read_text().strip()
           manifest={
-            'schema_version':1,
+            'schema_version':2,
             'kind':'connectome-fighter-arena-runtime-bundle',
             'canonical_model':'MaleCNS v1.0 + pinned Shiu LIF',
             'mutability':'immutable-runtime-read-only-inference',
@@ -226,8 +298,13 @@ jobs:
             'fightingice_version':'7.1',
             'fightingice_jar_sha256':sha(root/'fightingice/FightingICE.jar'),
             'session_entrypoint':'bin/start-session',
+            'bootstrap_proxy':'bin/bootstrap-proxy.mjs',
+            'runtime_prebuilt':True,
+            'python_310_version':subprocess.check_output([str(p310),'--version'],text=True).strip(),
+            'python_311_version':subprocess.check_output([str(p311),'--version'],text=True).strip(),
+            'java_runtime':'Temurin 21 copied from actions/setup-java',
             'checkpoint_handoff_tag':'arena-inference-latest',
-            'note':'Runtime assets only. Approved mutable character state is downloaded separately by hash from the inference snapshot release.'
+            'note':'Runtime assets and pinned interpreter dependencies are prebuilt. Approved mutable character state is downloaded separately by hash from the inference snapshot release.'
           }
           (root/'manifest.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n',encoding='utf-8')
           print(json.dumps(manifest,indent=2,sort_keys=True))
@@ -241,12 +318,19 @@ jobs:
           set -euo pipefail
           mkdir -p runs/verify
           tar -C runs/verify -xzf runs/arena-runtime.tar.gz
-          test -x runs/verify/arena-runtime/bin/start-session
-          test -s runs/verify/arena-runtime/fightingice/FightingICE.jar
-          test -s runs/verify/arena-runtime/shiu/model.py
-          test -s runs/verify/arena-runtime/data/interface.json
-          test -s runs/verify/arena-runtime/data/malecns-shiu-strict-v1/connectivity.parquet
-          test -s runs/verify/arena-runtime/data/malecns-valence-v1/kc_mbon_valence_candidates.parquet
+          ROOT=runs/verify/arena-runtime
+          test -x "$ROOT/bin/start-session"
+          test -x "$ROOT/bin/bootstrap-proxy.mjs"
+          test -s "$ROOT/fightingice/FightingICE.jar"
+          test -s "$ROOT/shiu/model.py"
+          test -s "$ROOT/data/interface.json"
+          test -s "$ROOT/data/malecns-shiu-strict-v1/connectivity.parquet"
+          test -s "$ROOT/data/malecns-valence-v1/kc_mbon_valence_candidates.parquet"
+          test -s "$ROOT/runtime/python310.path"
+          test -s "$ROOT/runtime/python311.path"
+          test -d "$ROOT/runtime/site310/brian2"
+          test -d "$ROOT/runtime/site311/pyftg"
+          test -x "$ROOT/runtime/jre21/bin/java"
           python - <<'PY'
           import json
           m=json.load(open('runs/verify/arena-runtime/manifest.json'))
@@ -255,6 +339,7 @@ jobs:
           assert m['learning_enabled'] is False
           assert m['policy_pixel_access'] is False
           assert m['session_entrypoint']=='bin/start-session'
+          assert m['runtime_prebuilt'] is True
           print(json.dumps(m,indent=2,sort_keys=True))
           PY
 

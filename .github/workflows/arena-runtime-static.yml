@@ -1,0 +1,63 @@
+name: arena-runtime-static
+
+on:
+  pull_request:
+    paths:
+      - 'deploy/arena-runtime/**'
+      - '.github/workflows/arena-runtime-static.yml'
+      - '.github/workflows/publish-arena-runtime-bundle.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/arena-runtime/**'
+      - '.github/workflows/arena-runtime-static.yml'
+      - '.github/workflows/publish-arena-runtime-bundle.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Static syntax checks
+        run: |
+          set -euo pipefail
+          bash -n deploy/arena-runtime/start-session.sh
+          node --check deploy/arena-runtime/bootstrap-proxy.mjs
+
+      - name: Verify immediate boot and error telemetry
+        run: |
+          set -euo pipefail
+          STATUS="$RUNNER_TEMP/arena-bootstrap.json"
+          printf '{"phase":"verifying-prebuilt-runtime"}\n' > "$STATUS"
+          node deploy/arena-runtime/bootstrap-proxy.mjs \
+            --listen 19080 --upstream 19081 \
+            --status-file "$STATUS" \
+            --session-id test-session --p1 GARNET --p2 ZEN &
+          PROXY=$!
+          trap 'kill "$PROXY" >/dev/null 2>&1 || true' EXIT
+
+          for i in $(seq 1 20); do
+            if body="$(curl -fsS http://127.0.0.1:19080/state 2>/dev/null)"; then
+              break
+            fi
+            sleep 0.1
+          done
+          echo "$body" | jq .
+          test "$(echo "$body" | jq -r '.status')" = 'booting'
+          test "$(echo "$body" | jq -r '.frame')" = '0'
+          test "$(echo "$body" | jq -r '.p1.character')" = 'GARNET'
+          test "$(echo "$body" | jq -r '.p2.character')" = 'ZEN'
+          test "$(echo "$body" | jq -r '.learning_enabled')" = 'false'
+          test "$(echo "$body" | jq -r '.policy_pixel_access')" = 'false'
+          test "$(echo "$body" | jq -r '.bootstrap.phase')" = 'verifying-prebuilt-runtime'
+
+          printf '{"phase":"error","exit_code":17,"line":42,"error":"arena bootstrap failed"}\n' > "$STATUS"
+          body="$(curl -fsS http://127.0.0.1:19080/state)"
+          echo "$body" | jq .
+          test "$(echo "$body" | jq -r '.status')" = 'error'
+          test "$(echo "$body" | jq -r '.bootstrap.exit_code')" = '17'
+          test "$(echo "$body" | jq -r '.bootstrap.line')" = '42'
