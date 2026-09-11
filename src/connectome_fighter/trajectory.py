@@ -8,6 +8,7 @@ import numbers
 import threading
 from .contracts import Decision, Observation, player_index, action_keys
 
+
 def round_reward(remaining_hps: list[int], player: bool) -> float:
     idx = player_index(player)
     if len(remaining_hps) != 2:
@@ -16,6 +17,7 @@ def round_reward(remaining_hps: list[int], player: bool) -> float:
         raise ValueError("HP values must be integers")
     hp = [max(0, int(x)) for x in remaining_hps]
     return float((hp[idx] > hp[1-idx]) - (hp[idx] < hp[1-idx]))
+
 
 class JsonlSink:
     def __init__(self, path: str | Path):
@@ -28,9 +30,11 @@ class JsonlSink:
         with self._lock, self.path.open("a", encoding="utf-8") as f:
             f.write(line + "\n")
 
+
 class RoundLedger:
-    def __init__(self, sink: Callable[[dict[str, Any]], None]):
+    def __init__(self, sink: Callable[[dict[str, Any]], None], *, trainable: bool = True):
         self.sink = sink
+        self.trainable = bool(trainable)
         self.records: list[dict[str, Any]] = []
         self.round_id: int | None = None
         self.player: bool | None = None
@@ -50,18 +54,25 @@ class RoundLedger:
         self.match_id, self.round_id, self.player = match_id, round_id, player
         self.opponent_version, self.records = opponent_version, []
 
-    def append(self, obs: Observation, choice: Decision) -> None:
+    def append(self, obs: Observation, choice: Decision, *,
+               brain: dict[str, Any] | None = None,
+               display: dict[str, Any] | None = None) -> None:
         if self.round_id != obs.round_id:
             raise RuntimeError("Observation belongs to another round")
         if self.records and obs.frame <= self.records[-1]["frame"]:
             raise ValueError("Frames must strictly increase within a round")
         if self.records and choice.policy_version != self.records[0]["policy_version"]:
             raise RuntimeError("Updating the policy during a round is prohibited")
-        self.records.append({"frame": obs.frame, "observation": obs.vector.tolist(),
-                             "action": int(choice.action), "log_prob": choice.log_prob,
-                             "value": choice.value, "policy_version": choice.policy_version,
-                             "reward": 0.0, "facing_right": bool(obs.facing_right),
-                             "requested_keys": action_keys(choice.action, obs.facing_right)})
+        record = {"frame": obs.frame, "observation": obs.vector.tolist(),
+                  "action": int(choice.action), "log_prob": choice.log_prob,
+                  "value": choice.value, "policy_version": choice.policy_version,
+                  "reward": 0.0, "facing_right": bool(obs.facing_right),
+                  "requested_keys": action_keys(choice.action, obs.facing_right)}
+        if brain is not None:
+            record["brain"] = brain
+        if display is not None:
+            record["display"] = display
+        self.records.append(record)
 
     def finish(self, match_id: str, round_id: int, player: bool,
                remaining_hps: list[int], elapsed_frame: int) -> bool:
@@ -80,7 +91,7 @@ class RoundLedger:
                    "player_index": player_index(player), "opponent_version": self.opponent_version,
                    "remaining_hps": list(map(int, remaining_hps)), "elapsed_frame": elapsed_frame,
                    "outcome_reward": reward, "terminated": True, "truncated": False,
-                   "trainable": bool(self.records), "transitions": self.records}
+                   "trainable": bool(self.trainable and self.records), "transitions": self.records}
         self.sink(payload)
         self._finished.add(key)
         self.completed += 1
@@ -95,6 +106,7 @@ class RoundLedger:
                    "trainable": False, "outcome_reward": None,
                    "n_decisions": len(self.records)})
         self.round_id, self.records = None, []
+
 
 def terminal_returns(rewards: list[float], gamma: float = 1.0) -> list[float]:
     if not 0 < gamma <= 1 or any(not math.isfinite(x) for x in rewards):
