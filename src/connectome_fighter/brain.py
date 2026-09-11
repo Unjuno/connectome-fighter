@@ -156,10 +156,17 @@ class NeuralPolicy:
         self.state = self.model.core.base.new_zeros((1, self.model.core.n_nodes))
         self._last_telemetry = None
 
+    def _node_item(self, idx: int, value: float) -> dict:
+        item = {"node_index": int(idx), "value": float(value)}
+        if self.node_ids is not None:
+            item["node_id"] = self.node_ids[idx]
+        return item
+
     @torch.no_grad()
     def act(self, observation: np.ndarray) -> Decision:
         x = torch.tensor(np.array(observation, copy=True), dtype=torch.float32,
                          device=self.state.device).unsqueeze(0)
+        previous_state = self.state
         logits, value, self.state = self.model(x, self.state)
         log_probs = torch.log_softmax(logits, dim=-1)
         action = int(torch.multinomial(log_probs.exp(), 1, generator=self.generator).item())
@@ -167,22 +174,25 @@ class NeuralPolicy:
         readout = self.state[0, self.model.output_nodes]
         k = min(self.activity_top_k, self.state.shape[-1])
         top_values, top_indices = torch.topk(self.state[0], k=k)
-        top = []
-        for idx, val in zip(top_indices.tolist(), top_values.tolist()):
-            item = {"node_index": int(idx), "value": float(val)}
-            if self.node_ids is not None:
-                item["node_id"] = self.node_ids[idx]
-            top.append(item)
+        top = [self._node_item(idx, val) for idx, val in zip(top_indices.tolist(), top_values.tolist())]
+
+        # Positive state change is a clearer spectator signal than absolute state
+        # alone: it highlights neurons most activated by this decision interval.
+        delta = self.state[0] - previous_state[0]
+        delta_values, delta_indices = torch.topk(delta, k=k)
+        top_change = [
+            self._node_item(idx, val)
+            for idx, val in zip(delta_indices.tolist(), delta_values.tolist())
+            if val > 0
+        ]
+
         dk = min(self.activity_top_k, readout.numel())
         desc_values, desc_local = torch.topk(readout, k=dk)
-        descending = []
         output_nodes = self.model.output_nodes.tolist()
-        for local_idx, val in zip(desc_local.tolist(), desc_values.tolist()):
-            global_idx = int(output_nodes[local_idx])
-            item = {"node_index": global_idx, "value": float(val)}
-            if self.node_ids is not None:
-                item["node_id"] = self.node_ids[global_idx]
-            descending.append(item)
+        descending = [
+            self._node_item(int(output_nodes[local_idx]), val)
+            for local_idx, val in zip(desc_local.tolist(), desc_values.tolist())
+        ]
         self._last_telemetry = {
             # These fixed-connectome features are the sufficient input for the
             # trainable actor/critic heads in PPO-readout-v1.
@@ -192,6 +202,7 @@ class NeuralPolicy:
                 "max": float(self.state.max()),
                 "fraction_gt_0_75": float((self.state > 0.75).float().mean()),
                 "top_global": top,
+                "top_change": top_change,
                 "top_descending": descending,
             },
         }
