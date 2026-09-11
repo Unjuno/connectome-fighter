@@ -1,0 +1,72 @@
+name: malecns-game-interface
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/build_malecns_game_interface.py'
+      - '.github/workflows/malecns-game-interface.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: malecns-game-interface
+  cancel-in-progress: true
+
+env:
+  ADAPTER_CACHE_KEY: malecns-v1.0-shiu-strict-minw5-2a83ad611cd9768f8c9723fc613ed27761a5feb5-adapter-v1
+
+jobs:
+  build-interface:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'pandas>=2.2,<3' 'pyarrow>=16,<24'
+
+      - name: Restore canonical MaleCNS adapter cache
+        uses: actions/cache@v4
+        with:
+          path: data/processed/malecns-shiu-strict-v1
+          key: ${{ env.ADAPTER_CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: Build fixed interface manifest
+        run: |
+          mkdir -p data/processed/malecns-interface-v1
+          python scripts/build_malecns_game_interface.py \
+            --metadata data/processed/malecns-shiu-strict-v1/neuron_metadata.parquet \
+            --manifest data/processed/malecns-shiu-strict-v1/manifest.json \
+            --out data/processed/malecns-interface-v1/interface.json \
+            --seed 20260911 \
+            --input-bodies-per-polarity-feature 16 \
+            --max-poisson-rate-hz 150 \
+            --decision-window-ms 20 \
+            --neutral-min-spikes 1
+
+      - name: Validate interface has real body IDs and no trainable mapping
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('data/processed/malecns-interface-v1/interface.json'))
+          assert p['interface_id']=='fightingice-malecns-poisson-spike-v1'
+          assert len(p['observation_features'])==18
+          ids=[x for c in p['input']['channels'] for x in c['body_ids']]
+          assert len(ids)==18*2*16 and len(ids)==len(set(ids))
+          assert set(p['decision']['active_actions'])=={'FORWARD','BACKWARD','UP','DOWN','A','B','C'}
+          assert 'train' not in p['decision']['rule'].lower()
+          assert all(g['body_ids'] for g in p['output']['groups'].values())
+          print(p['interface_sha256'])
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: malecns-game-interface-v1
+          path: data/processed/malecns-interface-v1/interface.json
+          if-no-files-found: error
+          retention-days: 30
