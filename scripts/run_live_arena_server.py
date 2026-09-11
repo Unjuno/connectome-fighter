@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 import signal
 import subprocess
+import sys
 import threading
 import time
 from typing import Any
