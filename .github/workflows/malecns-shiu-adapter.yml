@@ -1,0 +1,107 @@
+name: malecns-shiu-adapter
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/build_malecns_shiu_tables.py'
+      - 'docs/SUBSTRATE_CONTRACT.ja.md'
+      - '.github/workflows/malecns-shiu-adapter.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: malecns-shiu-adapter
+  cancel-in-progress: true
+
+env:
+  BASE_URL: https://storage.googleapis.com/flyem-male-cns/v1.0/connectome-data/flat-connectome
+  ANNOTATIONS_FILE: body-annotations-male-cns-v1.0-minconf-0.5.feather
+  NT_FILE: body-neurotransmitters-male-cns-v1.0.feather
+  CONNECTIVITY_FILE: connectome-weights-male-cns-v1.0-minconf-0.5.feather
+  SHIU_COMMIT: 2a83ad611cd9768f8c9723fc613ed27761a5feb5
+
+jobs:
+  build-adapter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install converter dependencies
+        run: python -m pip install 'numpy>=1.26,<3' 'pandas>=2.2,<3' 'pyarrow>=16,<24'
+
+      - name: Restore immutable MaleCNS source cache
+        id: source-cache
+        uses: actions/cache@v4
+        with:
+          path: external/malecns-v1.0
+          key: malecns-v1.0-flat-connectome-official-20260608
+
+      - name: Download official MaleCNS v1.0 files on cache miss
+        if: steps.source-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p external/malecns-v1.0
+          for f in "$ANNOTATIONS_FILE" "$NT_FILE" "$CONNECTIVITY_FILE"; do
+            curl -fL --retry 5 --retry-all-errors \
+              -o "external/malecns-v1.0/$f" "$BASE_URL/$f"
+            test -s "external/malecns-v1.0/$f"
+          done
+
+      - name: Restore canonical converted-table cache
+        id: adapter-cache
+        uses: actions/cache@v4
+        with:
+          path: data/processed/malecns-shiu-strict-v1
+          key: malecns-v1.0-shiu-strict-minw5-${{ env.SHIU_COMMIT }}-adapter-v1
+
+      - name: Convert official structure to Shiu reference input schema
+        if: steps.adapter-cache.outputs.cache-hit != 'true'
+        run: |
+          rm -rf data/processed/malecns-shiu-strict-v1
+          python scripts/build_malecns_shiu_tables.py \
+            --annotations "external/malecns-v1.0/$ANNOTATIONS_FILE" \
+            --neurotransmitters "external/malecns-v1.0/$NT_FILE" \
+            --connectivity "external/malecns-v1.0/$CONNECTIVITY_FILE" \
+            --out data/processed/malecns-shiu-strict-v1 \
+            --min-weight 5 \
+            --histamine-mode strict-shiu \
+            --shiu-reference-commit "$SHIU_COMMIT"
+
+      - name: Validate converted tables
+        run: |
+          test -s data/processed/malecns-shiu-strict-v1/completeness.csv
+          test -s data/processed/malecns-shiu-strict-v1/neuron_metadata.parquet
+          test -s data/processed/malecns-shiu-strict-v1/connectivity.parquet
+          test -s data/processed/malecns-shiu-strict-v1/manifest.json
+          python - <<'PY'
+          import json
+          import pandas as pd
+          import pyarrow.parquet as pq
+          root='data/processed/malecns-shiu-strict-v1'
+          m=json.load(open(f'{root}/manifest.json'))
+          assert m['dataset']=='male-cns:v1.0'
+          assert m['histamine_mode']=='strict-shiu'
+          assert m['min_connection_weight']==5
+          assert m['counts']['included_neurons'] > 150_000
+          assert m['counts']['runtime_edges'] > 1_000_000
+          c=pd.read_csv(f'{root}/completeness.csv', index_col=0)
+          assert len(c)==m['counts']['included_neurons']
+          p=pq.ParquetFile(f'{root}/connectivity.parquet')
+          assert p.metadata.num_rows==m['counts']['runtime_edges']
+          print(json.dumps(m['counts'], indent=2))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: malecns-shiu-strict-v1-manifest
+          path: data/processed/malecns-shiu-strict-v1/manifest.json
+          if-no-files-found: error
+          retention-days: 30
