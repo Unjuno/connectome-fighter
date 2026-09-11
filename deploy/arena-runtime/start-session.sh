@@ -76,6 +76,7 @@ assert m.get('canonical_model') == 'MaleCNS v1.0 + pinned Shiu LIF'
 assert m.get('mutability') == 'read-only-inference'
 assert m.get('research_metadata_embedded') is False
 root = pathlib.Path(out_dir)
+verified = []
 for character, entry in (m.get('characters') or {}).items():
     name = str(entry['state_file'])
     target = root / name
@@ -83,7 +84,25 @@ for character, entry in (m.get('characters') or {}).items():
     sha = hashlib.sha256(target.read_bytes()).hexdigest()
     if sha != str(entry['state_sha256']):
         raise RuntimeError(f'{character} state sha256 mismatch')
-print(json.dumps({'verified_characters': sorted((m.get('characters') or {}).keys())}))
+
+    meta_name = str(entry.get('runtime_state_meta_file') or '')
+    meta_expected_sha = str(entry.get('runtime_state_meta_sha256') or '')
+    if not meta_name or not meta_expected_sha:
+        raise RuntimeError(f'{character} runtime state metadata missing from inference manifest')
+    meta_target = root / meta_name
+    subprocess.run(['curl','-fL','--retry','4','--retry-all-errors','-o',str(meta_target),f'{base_url}/{meta_name}'], check=True)
+    meta_sha = hashlib.sha256(meta_target.read_bytes()).hexdigest()
+    if meta_sha != meta_expected_sha:
+        raise RuntimeError(f'{character} runtime state metadata sha256 mismatch')
+    meta = json.load(open(meta_target, encoding='utf-8'))
+    if meta.get('state_sha256') != sha:
+        raise RuntimeError(f'{character} runtime metadata does not bind the downloaded state')
+    if meta.get('character') != character:
+        raise RuntimeError(f'{character} runtime metadata character mismatch')
+    if int(meta.get('generation', -1)) != int(entry.get('generation', -2)):
+        raise RuntimeError(f'{character} runtime metadata generation mismatch')
+    verified.append(character)
+print(json.dumps({'verified_characters': sorted(verified)}))
 PY
 
 BASE_ADAPTER="$ROOT/data/malecns-shiu-strict-v1"
