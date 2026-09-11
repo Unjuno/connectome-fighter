@@ -6,12 +6,12 @@ OUT_DIR="${2:?usage: stage-fightingice-lightweight.sh SOURCE_DIR OUT_DIR}"
 
 SOURCE_DIR="$(cd "$SOURCE_DIR" && pwd)"
 rm -rf "$OUT_DIR"
-mkdir -p "$OUT_DIR/lib/lwjgl" "$OUT_DIR/data/characters"
+mkdir -p "$OUT_DIR/lib/lwjgl" "$OUT_DIR/data/ai" "$OUT_DIR/data/characters"
 
-# Pyftg mode supplies both agents over gRPC. FightingICE's data/ai directory is
-# only needed for built-in/round-robin AI discovery, so it is intentionally not
-# shipped. Lightweight mode also does not need LWJGL native render libraries or
-# screen/image assets. Keep only Java dependencies and character logic tables.
+# Pyftg mode supplies both agents over gRPC. GameService still enumerates
+# ./data/ai unconditionally, so the directory must exist, but no built-in AI
+# jars are required. Lightweight mode also avoids LWJGL native render payloads
+# and screen/image assets. Keep only Java dependencies and character tables.
 test -s "$SOURCE_DIR/FightingICE.jar"
 cp "$SOURCE_DIR/FightingICE.jar" "$OUT_DIR/FightingICE.jar"
 
@@ -36,8 +36,11 @@ for character in GARNET ZEN LUD NEZ; do
   done
 done
 
-# Fail closed if non-policy runtime payloads accidentally re-enter the bundle.
-test ! -d "$OUT_DIR/data/ai"
+# The pyftg runtime needs the directory identity, not bundled built-in AIs.
+test -d "$OUT_DIR/data/ai"
+test -z "$(find "$OUT_DIR/data/ai" -mindepth 1 -print -quit)"
+
+# Fail closed if render-native payloads accidentally re-enter the bundle.
 if find "$OUT_DIR" -path '*/natives/*' -type f -print -quit | grep -q .; then
   echo "native render libraries must not be staged for lightweight mode" >&2
   exit 1
