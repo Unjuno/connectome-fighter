@@ -10,7 +10,7 @@ from .trajectory import RoundLedger
 try:
     from pyftg import AIInterface, Key
 except ImportError as exc:
-    raise ImportError("Live bridge requires pyftg==2.3. Install .[game] in Python 3.11 first.") from exc
+    raise ImportError("Live bridge requires pyftg==2.3.") from exc
 
 
 def _display_frame(frame_data) -> dict[str, Any] | None:
@@ -47,6 +47,7 @@ class FighterAI(AIInterface):
         self.frame_data = None
         self.key = Key()
         self.inference_ns: list[int] = []
+        self._closed = False
 
     def name(self) -> str:
         return self.agent_name
@@ -101,5 +102,11 @@ class FighterAI(AIInterface):
             self.session.close("game_end_without_round_result")
 
     def close(self):
+        if self._closed:
+            return
         if self.session:
             self.session.close()
+        close_fn = getattr(self.policy, "close", None)
+        if callable(close_fn):
+            close_fn()
+        self._closed = True
