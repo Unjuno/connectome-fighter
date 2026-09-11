@@ -10,6 +10,7 @@ on:
     paths:
       - '.github/workflows/render-fightingice-video.yml'
       - 'site/index.html'
+      - 'site/app.js'
 
 permissions:
   contents: read
@@ -43,6 +44,26 @@ jobs:
 
       - name: Fast-forward to latest dashboard data
         run: git pull --ff-only origin main
+
+      - name: Resolve spectator matchup from public replay
+        run: |
+          python - <<'PY'
+          import json, os, re
+          replay=json.load(open('site/data/replay-latest.json'))
+          values={
+              'SPECTATOR_P1': replay['p1']['character'],
+              'SPECTATOR_P2': replay['p2']['character'],
+              'SPECTATOR_SEED1': int(replay['p1']['seed']),
+              'SPECTATOR_SEED2': int(replay['p2']['seed']),
+              'TELEMETRY_RUN_ID': replay['run_id'],
+              'TELEMETRY_ROUND': int(replay['round_ordinal']),
+          }
+          safe='rendered-'+re.sub(r'[^a-z0-9_-]+','-',f"{values['SPECTATOR_P1']}-{values['SPECTATOR_P2']}".lower()).strip('-')
+          values['SPECTATOR_RUN_ID']=safe[:64]
+          with open(os.environ['GITHUB_ENV'],'a') as f:
+              for k,v in values.items(): f.write(f'{k}={v}\n')
+          print(json.dumps(values, indent=2))
+          PY
 
       - name: Set up reference Python 3.10
         uses: actions/setup-python@v5
@@ -142,15 +163,14 @@ jobs:
             if ! kill -0 "$(cat runs/rendered/fightingice.pid)" 2>/dev/null; then break; fi
             sleep 1
           done
-          cat runs/rendered/fightingice.log || true
           test "$ready" -eq 1
 
       - name: Run canonical fight and capture official ScreenData
         run: |
           PYTHONPATH=src python scripts/run_game_malecns_lif.py \
             --host 127.0.0.1 --port 31415 \
-            --character-p1 GARNET --character-p2 ZEN \
-            --seed-p1 10101 --seed-p2 20202 \
+            --character-p1 "$SPECTATOR_P1" --character-p2 "$SPECTATOR_P2" \
+            --seed-p1 "$SPECTATOR_SEED1" --seed-p2 "$SPECTATOR_SEED2" \
             --reference-python "$PY310" \
             --reference-model external/shiu-reference/model.py \
             --adapter-dir data/processed/malecns-shiu-strict-v1 \
@@ -159,22 +179,37 @@ jobs:
             --games 1 --expected-rounds 1 --timeout 900 \
             --spectator-video site/data/latest-fight.mp4 \
             --spectator-fps 10 \
-            --run-id rendered-garnet-zen \
+            --run-id "$SPECTATOR_RUN_ID" \
             --out runs/rendered
           test -s site/data/latest-fight.mp4
           ffprobe -v error -show_entries format=duration,size -show_entries stream=width,height,codec_name \
             -of json site/data/latest-fight.mp4 | tee runs/rendered/video-probe.json
           python - <<'PY'
-          import json
-          p=json.load(open('runs/rendered/video-probe.json'))
-          s=p['streams'][0]
-          duration=float(p['format']['duration'])
-          size=int(p['format']['size'])
-          assert s['codec_name']=='h264', s
-          assert int(s['width'])==960 and int(s['height'])==640, s
+          import json, os
+          probe=json.load(open('runs/rendered/video-probe.json'))
+          stream=probe['streams'][0]
+          duration=float(probe['format']['duration'])
+          size=int(probe['format']['size'])
+          assert stream['codec_name']=='h264', stream
+          assert int(stream['width'])==960 and int(stream['height'])==640, stream
           assert 5.0 < duration < 20.0, duration
           assert size > 10000, size
-          print('official ScreenData video OK', duration, size)
+          spectator=json.load(open(f"runs/rendered/{os.environ['SPECTATOR_RUN_ID']}/spectator.json"))
+          video={
+              'schema_version': 1,
+              'mode': 'official-fightingice-screendata-spectator',
+              'p1': {'character': os.environ['SPECTATOR_P1'], 'seed': int(os.environ['SPECTATOR_SEED1'])},
+              'p2': {'character': os.environ['SPECTATOR_P2'], 'seed': int(os.environ['SPECTATOR_SEED2'])},
+              'telemetry_reference': {'run_id': os.environ['TELEMETRY_RUN_ID'], 'round_ordinal': int(os.environ['TELEMETRY_ROUND'])},
+              'relationship': 'Same character pairing and character-specific seeds as the selected telemetry replay; this is a fresh one-round spectator render and is not claimed to be the identical trajectory.',
+              'policy_pixel_access': False,
+              'width': int(stream['width']), 'height': int(stream['height']),
+              'fps': int(spectator['fps']), 'frames': int(spectator['frames']),
+              'duration_seconds': duration, 'bytes': size,
+              'source_actions_run': os.environ.get('GITHUB_RUN_ID'),
+          }
+          json.dump(video, open('site/data/video.json','w'), indent=2, sort_keys=True)
+          print(json.dumps(video, indent=2))
           PY
           ffmpeg -y -loglevel error -ss 1 -i site/data/latest-fight.mp4 -frames:v 1 runs/rendered/sample-frame.png
           test -s runs/rendered/sample-frame.png
@@ -193,11 +228,12 @@ jobs:
           name: rendered-fightingice-spectator
           path: |
             site/data/latest-fight.mp4
+            site/data/video.json
             runs/rendered/video-probe.json
             runs/rendered/sample-frame.png
             runs/rendered/fightingice.log
-            runs/rendered/rendered-garnet-zen/status.json
-            runs/rendered/rendered-garnet-zen/spectator.json
+            runs/rendered/*/status.json
+            runs/rendered/*/spectator.json
           if-no-files-found: warn
           retention-days: 14
 
