@@ -1,92 +1,94 @@
 <!doctype html>
-<html lang="en">
+<html lang="ja">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Connectome Fighter · MaleCNS migration</title>
+  <title>Connectome Fighter · MaleCNS Arena</title>
   <style>
     :root { color-scheme:dark; font-family:ui-sans-serif,system-ui,sans-serif; }
     * { box-sizing:border-box; }
     body { margin:0; background:#0b0f14; color:#e7edf5; }
-    main { max-width:1180px; margin:0 auto; padding:36px 20px 72px; }
-    h1 { font-size:clamp(2rem,5vw,4rem); margin:.15em 0; }
+    main { max-width:1180px; margin:0 auto; padding:34px 20px 72px; }
+    h1 { font-size:clamp(2.1rem,5vw,4.2rem); margin:.15em 0; }
     h2 { margin-top:36px; }
-    .lead,.muted { color:#91a0b5; }
-    .lead { max-width:900px; line-height:1.6; }
-    .warning { border:1px solid #8f6a28; background:#251d0e; border-radius:14px; padding:16px 18px; line-height:1.55; margin:18px 0 24px; }
-    .status { display:inline-block; border:1px solid #39506b; border-radius:999px; padding:6px 10px; font-size:.85rem; }
-    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; margin:24px 0; }
+    .lead,.muted { color:#91a0b5; line-height:1.6; }
+    .lead { max-width:920px; }
+    .badge { display:inline-block; border:1px solid #39506b; border-radius:999px; padding:6px 10px; font-size:.84rem; }
+    .notice { border:1px solid #3b5a78; background:#101b27; border-radius:14px; padding:15px 17px; margin:18px 0; line-height:1.55; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin:18px 0; }
     .card,.panel { border:1px solid #273242; border-radius:14px; background:#111822; }
-    .card { padding:16px; }
+    .card { padding:15px; }
     .panel { padding:18px; margin:14px 0; }
-    .metric { font-size:1.35rem; font-weight:750; overflow-wrap:anywhere; }
-    .label { color:#91a0b5; font-size:.82rem; margin-top:7px; }
-    .character-name { font-size:1.35rem; font-weight:800; }
+    .metric { font-size:1.45rem; font-weight:800; }
+    .label { color:#91a0b5; font-size:.8rem; margin-bottom:4px; }
     .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    .bar-row { display:grid; grid-template-columns:95px 1fr 70px; gap:10px; align-items:center; margin:7px 0; font-size:.86rem; }
+    .bar { height:10px; border-radius:999px; background:#223044; overflow:hidden; }
+    .bar > span { display:block; height:100%; background:#8ecbff; }
+    .brain-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:14px; }
+    .brain-row { display:grid; grid-template-columns:minmax(120px,1fr) 4fr 58px; gap:8px; align-items:center; font-size:.78rem; margin:6px 0; }
+    .brain-grid .panel:nth-child(2) .bar > span { background:#ff9f8e; }
+    .brain-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#b8c4d4; }
     button,select { background:#172231; color:#e7edf5; border:1px solid #39506b; border-radius:8px; padding:8px 11px; }
     canvas { width:100%; display:block; border-radius:10px; }
-    #history { height:240px; }
     #replay { height:330px; }
-    .brain-map { height:220px; margin-top:10px; background:#0c121b; }
+    #history { height:220px; }
     #replay-slider { width:100%; margin:12px 0; }
-    .brain-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:14px; }
-    .brain-list { display:grid; gap:6px; margin-top:10px; }
-    .brain-row { display:grid; grid-template-columns:minmax(120px,1fr) 4fr 56px; gap:8px; align-items:center; font-size:.78rem; }
-    .brain-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#b8c4d4; }
-    .bar { height:8px; border-radius:999px; background:#223044; overflow:hidden; }
-    .bar > span { display:block; height:100%; background:#8ecbff; }
-    .brain-grid .panel:nth-child(2) .bar > span { background:#ff9f8e; }
+    table { width:100%; border-collapse:collapse; font-size:.9rem; }
+    th,td { border-bottom:1px solid #273242; padding:9px 7px; text-align:right; }
+    th:first-child,td:first-child { text-align:left; }
     a { color:#8ecbff; }
     code { background:#171f2b; padding:.12em .35em; border-radius:4px; }
   </style>
 </head>
 <body>
 <main>
-  <span class="status">canonical training paused · MaleCNS migration</span>
-  <h1>Connectome Fighter</h1>
-  <div class="warning"><strong>Legacy-data warning.</strong> Any replay or generation shown below was produced by the earlier FlyWire-v783/custom-sigmoid engineering scaffold. It is retained only as integration evidence and is <strong>not</strong> a canonical MaleCNS result. Automatic legacy training has been disabled.</div>
-  <p class="lead">The canonical target is now the Google Research/Janelia/Cambridge/MRC LMB <strong>MaleCNS v1.0</strong> connectome, with neural time dynamics supplied by a separately versioned published Drosophila LIF model. No generic trainable RNN/MLP/GNN is allowed to replace the fly nervous system in the canonical control path.</p>
+  <span class="badge">MaleCNS v1.0 + pinned Shiu LIF · canonical</span>
+  <h1>Connectome Fighter Arena</h1>
+  <p class="lead">GitHub Actions上でFightingICEを継続実行し、実MaleCNS body IDのspikeから操作を決めています。現在は報酬設計を評価するための<strong>学習前baseline</strong>です。Poisson入力のランダム性とspike-count argmax readoutは固定しています。</p>
+  <div class="notice"><strong>現在の学習状態:</strong> <span id="phase">loading…</span>。weight更新はまだ無効です。生のspike/eventログはActions artifactに保存し、このページには集計と最新リプレイだけを出します。</div>
 
-  <h2>Legacy character brains</h2>
-  <div id="characters" class="grid"></div>
+  <div class="grid">
+    <div class="card"><div class="label">independent rounds</div><div id="independent-rounds" class="metric">—</div></div>
+    <div class="card"><div class="label">raw rounds</div><div id="raw-rounds" class="metric">—</div></div>
+    <div class="card"><div class="label">non-zero reward</div><div id="reward-rate" class="metric">—</div></div>
+    <div class="card"><div class="label">decisions</div><div id="decisions" class="metric">—</div></div>
+  </div>
+  <div class="row muted">Updated: <span id="updated">—</span> · <a id="source-run" href="#">source Actions run</a></div>
 
-  <section>
-    <h2>Legacy fight evidence</h2>
-    <div class="panel">
-      <div id="replay-status" class="muted">Loading replay…</div>
-      <canvas id="replay"></canvas>
-      <input id="replay-slider" type="range" min="0" max="0" value="0" />
-      <div class="row">
-        <button id="play">Play</button>
-        <button id="pause">Pause</button>
-        <label class="muted">speed <select id="speed"><option value="240">0.5×</option><option value="120" selected>1×</option><option value="60">2×</option><option value="30">4×</option></select></label>
-        <span id="frame-label" class="muted"></span>
-      </div>
-    </div>
-  </section>
+  <h2>Character results</h2>
+  <div class="panel"><table><thead><tr><th>Character</th><th>Rounds</th><th>Win</th><th>Loss</th><th>Draw</th><th>Decisions</th></tr></thead><tbody id="character-table"></tbody></table></div>
 
-  <section>
-    <h2>Legacy activity telemetry</h2>
-    <p class="muted">Shown only for pipeline debugging. Canonical MaleCNS replays will instead log real MaleCNS body IDs, spike events, neuron annotations, neurotransmitter identity and action contributions.</p>
-    <div class="brain-grid">
-      <div class="panel"><strong id="brain-p1-title">P1</strong><div id="brain-p1-summary" class="muted"></div><canvas id="brain-map-p1" class="brain-map"></canvas><div id="brain-p1" class="brain-list"></div></div>
-      <div class="panel"><strong id="brain-p2-title">P2</strong><div id="brain-p2-summary" class="muted"></div><canvas id="brain-map-p2" class="brain-map"></canvas><div id="brain-p2" class="brain-list"></div></div>
-    </div>
-  </section>
+  <h2>Action distribution</h2>
+  <div class="panel"><div id="action-bars"></div><p class="muted">NEUTRALを含め、脳出力から実際に要求された操作を集計。現在は外部ε-greedy等を入れていません。</p></div>
 
-  <section>
-    <h2>Legacy learning history</h2>
-    <div class="panel"><canvas id="history"></canvas></div>
-    <p class="muted">Legacy operational metric only. Updated: <span id="updated">—</span>.</p>
-  </section>
+  <h2>Latest canonical fight</h2>
+  <div class="panel">
+    <div id="replay-status" class="muted">Loading replay…</div>
+    <canvas id="replay"></canvas>
+    <input id="replay-slider" type="range" min="0" max="0" value="0" />
+    <div class="row"><button id="play">Play</button><button id="pause">Pause</button><label class="muted">speed <select id="speed"><option value="260">0.5×</option><option value="130" selected>1×</option><option value="65">2×</option><option value="32">4×</option></select></label><span id="frame-label" class="muted"></span></div>
+  </div>
 
-  <section>
-    <h2>Canonical gate</h2>
-    <p>Scheduled training remains disabled until official MaleCNS provenance/schema checks, the published-LIF reference check, one complete MaleCNS→LIF→FightingICE round, real-body-ID activity replay, and four-character state isolation all pass.</p>
-  </section>
+  <h2>MaleCNS activity</h2>
+  <p class="muted">各decision windowでの実body ID spike数を表示します。全spike parquetはActions artifact側に保持します。</p>
+  <div class="brain-grid">
+    <div class="panel"><strong id="brain-p1-title">P1 brain</strong><div id="brain-p1-summary" class="muted"></div><div id="brain-p1-groups"></div><div id="brain-p1"></div></div>
+    <div class="panel"><strong id="brain-p2-title">P2 brain</strong><div id="brain-p2-summary" class="muted"></div><div id="brain-p2-groups"></div><div id="brain-p2"></div></div>
+  </div>
+
+  <h2>Experiment history</h2>
+  <div class="panel"><canvas id="history"></canvas></div>
+  <p class="muted">青: 非0報酬ラウンド率。橙: B action率。継続runごとの変化を表示します。</p>
+
+  <h2>Reward design</h2>
+  <div class="panel">
+    <p><strong>R0（現在）:</strong> ラウンド終了時に残HPが高ければ +1、同値0、低ければ -1。現在はこのrewardで<strong>ログだけ取得し、plasticityは無効</strong>です。</p>
+    <p class="muted">次候補: R1 = 終端±1 + HP差、R2 = damage dealt − damage taken の時間差分 + 終端bonus。どれを採用してもaction randomness/readoutは別条件として固定して比較します。</p>
+  </div>
 
   <p id="error" class="muted"></p>
-  <p><a href="https://github.com/Unjuno/connectome-fighter">Repository</a> · <a href="https://github.com/Unjuno/connectome-fighter/blob/main/docs/SUBSTRATE_CONTRACT.ja.md">Substrate contract</a></p>
+  <p><a href="https://github.com/Unjuno/connectome-fighter">Repository</a> · <a href="https://github.com/Unjuno/connectome-fighter/blob/main/docs/SUBSTRATE_CONTRACT.ja.md">Substrate contract</a> · <a href="https://github.com/Unjuno/connectome-fighter/actions">Actions</a></p>
 </main>
 <script src="./app.js"></script>
 </body>
