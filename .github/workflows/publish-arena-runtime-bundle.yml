@@ -191,7 +191,7 @@ jobs:
           set -euo pipefail
           ROOT=runs/arena-runtime
           rm -rf "$ROOT"
-          mkdir -p "$ROOT/repo" "$ROOT/data" "$ROOT/shiu" "$ROOT/fightingice" "$ROOT/bin" "$ROOT/runtime"
+          mkdir -p "$ROOT/repo" "$ROOT/data" "$ROOT/shiu" "$ROOT/bin" "$ROOT/runtime"
           cp -a src scripts configs "$ROOT/repo/"
           cp -a data/processed/malecns-shiu-strict-v1 "$ROOT/data/"
           cp -a data/processed/malecns-valence-v1 "$ROOT/data/"
@@ -200,9 +200,12 @@ jobs:
           cp deploy/arena-runtime/start-session.sh "$ROOT/bin/start-session"
           cp deploy/arena-runtime/bootstrap-proxy.mjs "$ROOT/bin/bootstrap-proxy.mjs"
           chmod +x "$ROOT/bin/start-session" "$ROOT/bin/bootstrap-proxy.mjs"
+
           GAME_JAR="$(find external/v71 -type f -name FightingICE.jar -print -quit)"
           test -n "$GAME_JAR"
-          cp -a "$(dirname "$GAME_JAR")/." "$ROOT/fightingice/"
+          bash deploy/arena-runtime/stage-fightingice-lightweight.sh \
+            "$(dirname "$GAME_JAR")" "$ROOT/fightingice"
+
           test -s "$ROOT/fightingice/FightingICE.jar"
           test -s "$ROOT/data/malecns-shiu-strict-v1/connectivity.parquet"
           test -s "$ROOT/data/malecns-valence-v1/kc_mbon_valence_candidates.parquet"
@@ -246,14 +249,11 @@ jobs:
           print({'python':'3.11','numpy':numpy.__version__,'pandas':pandas.__version__,'pyarrow':pyarrow.__version__,'pyftg':getattr(pyftg,'__version__','installed')})
           PY
 
-      - name: Prepackage Java 21 runtime
+      - name: Prepackage minimal Java 21 runtime
         run: |
           set -euo pipefail
           ROOT="$(realpath runs/arena-runtime)"
-          mkdir -p "$ROOT/runtime/jre21"
-          cp -aL "$JAVA_HOME/." "$ROOT/runtime/jre21/"
-          test -x "$ROOT/runtime/jre21/bin/java"
-          "$ROOT/runtime/jre21/bin/java" -version
+          bash deploy/arena-runtime/build-jre21.sh "$JAVA_HOME" "$ROOT/runtime/jre21"
 
       - name: Validate fast bootstrap assets
         run: |
@@ -268,6 +268,43 @@ jobs:
           test -d "$ROOT/runtime/site310/brian2"
           test -d "$ROOT/runtime/site311/pyftg"
           test -x "$ROOT/runtime/jre21/bin/java"
+          test ! -d "$ROOT/fightingice/lib/lwjgl/natives"
+
+          mkdir -p runs/packaged-socket
+          (
+            cd "$ROOT/fightingice"
+            "$ROOT/runtime/jre21/bin/java" -cp 'FightingICE.jar:./lib/*:./lib/lwjgl/*' Main \
+              --lightweight-mode --pyftg-mode --input-sync \
+              --limithp 400 400 --port 31415 -r 1 -f 600 \
+              > "$GITHUB_WORKSPACE/runs/packaged-socket/fightingice.log" 2>&1 &
+            echo $! > "$GITHUB_WORKSPACE/runs/packaged-socket/fightingice.pid"
+          )
+          ready=0
+          for i in $(seq 1 45); do
+            if grep -q 'Socket server is started' runs/packaged-socket/fightingice.log 2>/dev/null; then
+              ready=1
+              break
+            fi
+            if ! kill -0 "$(cat runs/packaged-socket/fightingice.pid)" 2>/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          cat runs/packaged-socket/fightingice.log || true
+          kill "$(cat runs/packaged-socket/fightingice.pid)" 2>/dev/null || true
+          test "$ready" -eq 1
+
+      - name: Report runtime footprint
+        run: |
+          set -euo pipefail
+          ROOT="$(realpath runs/arena-runtime)"
+          du -sh "$ROOT"
+          du -sh "$ROOT/fightingice" "$ROOT/runtime/jre21" "$ROOT/runtime/pythons" \
+            "$ROOT/runtime/site310" "$ROOT/runtime/site311" "$ROOT/data"
+          game_bytes="$(du -sb "$ROOT/fightingice" | awk '{print $1}')"
+          jre_bytes="$(du -sb "$ROOT/runtime/jre21" | awk '{print $1}')"
+          test "$game_bytes" -lt $((180 * 1024 * 1024))
+          test "$jre_bytes" -lt $((180 * 1024 * 1024))
 
       - name: Build runtime manifest and archive
         run: |
@@ -280,6 +317,7 @@ jobs:
           interface=json.load(open(root/'data/interface.json'))
           p310=root/(root/'runtime/python310.path').read_text().strip()
           p311=root/(root/'runtime/python311.path').read_text().strip()
+          modules=(root/'runtime/jre21/connectome-modules.txt').read_text(encoding='utf-8').strip()
           manifest={
             'schema_version':2,
             'kind':'connectome-fighter-arena-runtime-bundle',
@@ -297,12 +335,15 @@ jobs:
             'valence_candidates_sha256':sha(root/'data/malecns-valence-v1/kc_mbon_valence_candidates.parquet'),
             'fightingice_version':'7.1',
             'fightingice_jar_sha256':sha(root/'fightingice/FightingICE.jar'),
+            'fightingice_mode':'lightweight',
+            'bundle_profile':'minimal-fightingice-jlink-v1',
             'session_entrypoint':'bin/start-session',
             'bootstrap_proxy':'bin/bootstrap-proxy.mjs',
             'runtime_prebuilt':True,
             'python_310_version':subprocess.check_output([str(p310),'--version'],text=True).strip(),
             'python_311_version':subprocess.check_output([str(p311),'--version'],text=True).strip(),
-            'java_runtime':'Temurin 21 copied from actions/setup-java',
+            'java_runtime':'Temurin 21 jlink minimal runtime',
+            'java_modules':modules.split(','),
             'checkpoint_handoff_tag':'arena-inference-latest',
             'note':'Runtime assets and pinned interpreter dependencies are prebuilt. Approved mutable character state is downloaded separately by hash from the inference snapshot release.'
           }
@@ -312,13 +353,21 @@ jobs:
           tar -C runs -czf runs/arena-runtime.tar.gz arena-runtime
           sha256sum runs/arena-runtime.tar.gz | tee runs/arena-runtime.tar.gz.sha256
           test -s runs/arena-runtime.tar.gz
+          python - <<'PY'
+          import json, pathlib
+          archive=pathlib.Path('runs/arena-runtime.tar.gz')
+          payload={'archive_size_bytes':archive.stat().st_size,'bundle_profile':'minimal-fightingice-jlink-v1'}
+          pathlib.Path('runs/arena-runtime-size.json').write_text(json.dumps(payload,indent=2)+'\n',encoding='utf-8')
+          print(json.dumps(payload))
+          PY
 
       - name: Validate packaged runtime contract
         run: |
           set -euo pipefail
+          rm -rf runs/verify
           mkdir -p runs/verify
           tar -C runs/verify -xzf runs/arena-runtime.tar.gz
-          ROOT=runs/verify/arena-runtime
+          ROOT="$(realpath runs/verify/arena-runtime)"
           test -x "$ROOT/bin/start-session"
           test -x "$ROOT/bin/bootstrap-proxy.mjs"
           test -s "$ROOT/fightingice/FightingICE.jar"
@@ -331,6 +380,7 @@ jobs:
           test -d "$ROOT/runtime/site310/brian2"
           test -d "$ROOT/runtime/site311/pyftg"
           test -x "$ROOT/runtime/jre21/bin/java"
+          test ! -d "$ROOT/fightingice/lib/lwjgl/natives"
           python - <<'PY'
           import json
           m=json.load(open('runs/verify/arena-runtime/manifest.json'))
@@ -340,6 +390,8 @@ jobs:
           assert m['policy_pixel_access'] is False
           assert m['session_entrypoint']=='bin/start-session'
           assert m['runtime_prebuilt'] is True
+          assert m['bundle_profile']=='minimal-fightingice-jlink-v1'
+          assert m['fightingice_mode']=='lightweight'
           print(json.dumps(m,indent=2,sort_keys=True))
           PY
 
@@ -356,6 +408,7 @@ jobs:
           gh release upload "$TARGET_TAG" \
             runs/arena-runtime.tar.gz \
             runs/arena-runtime.tar.gz.sha256 \
+            runs/arena-runtime-size.json \
             runs/arena-runtime/manifest.json \
             --clobber
 
@@ -365,5 +418,6 @@ jobs:
           path: |
             runs/arena-runtime/manifest.json
             runs/arena-runtime.tar.gz.sha256
+            runs/arena-runtime-size.json
           if-no-files-found: error
           retention-days: 30
