@@ -5,6 +5,7 @@ let experimentHistory = [];
 
 function fmt(v, fallback='—') { return v === null || v === undefined ? fallback : String(v); }
 function pct(v) { return `${(100*Number(v||0)).toFixed(2)}%`; }
+function esc(v='') { return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 function setupCanvas(canvas, height) {
   const ctx = canvas.getContext('2d');
@@ -43,8 +44,8 @@ function drawHistory(history=experimentHistory) {
   const x=i=>pad+(n===1?0:i/(n-1))*(w-pad*2);
   const y=v=>h-pad-Math.max(0,Math.min(1,Number(v||0)))*(h-pad*2);
   const series=[
-    {label:'non-zero reward', color:'#8ecbff', vals:history.map(x=>x.nonzero_reward_rate||0)},
-    {label:'B action', color:'#f0b65b', vals:history.map(x=>x.action_rates?.B||0)},
+    {color:'#8ecbff', vals:history.map(x=>x.nonzero_reward_rate||0)},
+    {color:'#f0b65b', vals:history.map(x=>x.action_rates?.B||0)},
   ];
   ctx.strokeStyle='#314054'; ctx.beginPath(); ctx.moveTo(pad,pad); ctx.lineTo(pad,h-pad); ctx.lineTo(w-pad,h-pad); ctx.stroke();
   for(const s of series){
@@ -69,12 +70,38 @@ function drawReplayFrame(frame, replay) {
   ctx.fillStyle='#91a0b5'; ctx.fillText(`frame ${fmt(frame?.frame,0)}`,16,20); $('frame-label').textContent=`frame ${fmt(frame?.frame,0)}`;
 }
 
+function renderStructure(prefix, brain) {
+  const root=$(`${prefix}-structure`); root.innerHTML='';
+  const agg=new Map();
+  for(const item of (brain?.top_bodies||[])){
+    const a=item.annotation||{};
+    const key=a.somaNeuromere || a.superclass || 'unresolved';
+    const old=agg.get(key)||{spikes:0,bodies:0,classes:new Set()};
+    old.spikes += Number(item.spikes||0); old.bodies += 1;
+    if(a.superclass) old.classes.add(a.superclass);
+    agg.set(key,old);
+  }
+  const entries=[...agg.entries()].sort((a,b)=>b[1].spikes-a[1].spikes);
+  if(!entries.length){ root.innerHTML='<span class="muted">structural annotation unavailable</span>'; return; }
+  const max=Math.max(1,...entries.map(x=>x[1].spikes));
+  const isP2=prefix.includes('p2');
+  for(const [name,v] of entries.slice(0,10)){
+    const alpha=0.10+0.38*(v.spikes/max);
+    const cell=document.createElement('div'); cell.className='structure-cell';
+    cell.style.background=isP2?`rgba(255,159,142,${alpha})`:`rgba(142,203,255,${alpha})`;
+    const classes=[...v.classes].slice(0,2).join(', ');
+    cell.innerHTML=`<strong>${esc(name)}</strong><span>${v.spikes} spk · ${v.bodies} bodies</span><span class="muted">${esc(classes)}</span>`;
+    root.appendChild(cell);
+  }
+}
+
 function renderBrain(prefix, brain) {
   const summary=$(`${prefix}-summary`), groups=$(`${prefix}-groups`), list=$(prefix);
   groups.innerHTML=''; list.innerHTML='';
-  if(!brain){ summary.textContent='No spike telemetry.'; return; }
+  if(!brain){ summary.textContent='No spike telemetry.'; renderStructure(prefix,null); return; }
   const m=brain.membrane_summary||{};
   summary.textContent=`total spikes ${fmt(brain.total_spikes,0)} · v mean ${Number(m.v_mean_mV||0).toFixed(2)} mV`;
+  renderStructure(prefix,brain);
   const groupCounts=brain.group_spike_counts||{};
   const maxGroup=Math.max(1,...Object.values(groupCounts).map(Number));
   for(const action of ACTION_ORDER.slice(1)){
@@ -82,8 +109,10 @@ function renderBrain(prefix, brain) {
     row.innerHTML=`<div>${action}</div><div class="bar"><span style="width:${(100*n/maxGroup).toFixed(1)}%"></span></div><div>${n}</div>`; groups.appendChild(row);
   }
   for(const item of (brain.top_bodies||[])){
+    const a=item.annotation||{};
+    const detail=[a.somaNeuromere,a.superclass,a.type].filter(Boolean).join(' · ');
     const row=document.createElement('div'); row.className='brain-row';
-    row.innerHTML=`<div class="brain-label">body ${item.body_id}</div><div class="bar"><span style="width:${(100*Number(item.relative||0)).toFixed(1)}%"></span></div><div>${item.spikes} spk</div>`; list.appendChild(row);
+    row.innerHTML=`<div class="brain-label" title="${esc(detail)}">body ${item.body_id}${detail?` · ${esc(detail)}`:''}</div><div class="bar"><span style="width:${(100*Number(item.relative||0)).toFixed(1)}%"></span></div><div>${item.spikes} spk</div>`; list.appendChild(row);
   }
 }
 
@@ -104,9 +133,20 @@ async function loadReplay(url){
     $('brain-p1-title').textContent=`${replay.p1?.character||'P1'} brain`;
     $('brain-p2-title').textContent=`${replay.p2?.character||'P2'} brain`;
     const hp=replay.result?.remaining_hps||[];
-    $('replay-status').textContent=`${replay.p1?.character} vs ${replay.p2?.character} · HP ${fmt(hp[0])}-${fmt(hp[1])} · winner ${fmt(replay.result?.winner)}`;
+    $('replay-status').textContent=`${replay.p1?.character} vs ${replay.p2?.character} · round ${fmt(replay.round_ordinal)} · HP ${fmt(hp[0])}-${fmt(hp[1])} · winner ${fmt(replay.result?.winner)}`;
     renderReplayIndex(0);
   } catch(err){ $('replay-status').textContent=`Replay unavailable: ${err.message}`; }
+}
+
+async function loadVideoMetadata(){
+  try{
+    const v=await fetch('./data/video.json',{cache:'no-store'}).then(r=>{if(!r.ok) throw new Error(`HTTP ${r.status}`); return r.json();});
+    const video=$('fight-video');
+    const source=video.querySelector('source');
+    if(source && v.source_actions_run){ source.src=`./data/latest-fight.mp4?v=${encodeURIComponent(v.source_actions_run)}`; video.load(); }
+    const ref=v.telemetry_reference||{};
+    $('video-note').textContent=`${v.p1?.character} vs ${v.p2?.character} · ${Number(v.duration_seconds||0).toFixed(1)} s · ${fmt(v.frames,0)} ScreenData frames · pixels→policy: ${v.policy_pixel_access?'YES':'NO'} · telemetry ref ${fmt(ref.run_id)} round ${fmt(ref.round_ordinal)}。同じキャラ/seed条件のfresh spectator runで、同一trajectoryとは断定していません。`;
+  } catch(err){ $('video-note').textContent=`Video metadata unavailable: ${err.message}`; }
 }
 
 async function main(){
@@ -117,9 +157,12 @@ async function main(){
     $('independent-rounds').textContent=fmt(m.independent_rounds,0); $('raw-rounds').textContent=fmt(m.raw_rounds,0); $('reward-rate').textContent=`${fmt(m.independent_nonzero_reward_rounds,0)} / ${fmt(m.independent_rounds,0)} (${pct(m.independent_nonzero_reward_rate)})`; $('decisions').textContent=fmt(m.total_decisions,0);
     renderCharacterTable(m.characters||{}); renderActionBars(m.action_counts||{},m.action_rates||{}); drawHistory();
     const src=$('source-run'); if(status.source_run_url){ src.href=status.source_run_url; src.style.display='inline'; } else { src.style.display='none'; }
-    await loadReplay(status.latest_match?.replay_url||null);
-  } catch(err){ $('phase').textContent='status load failed'; $('error').textContent=err.message; }
+    await Promise.all([loadReplay(status.latest_match?.replay_url||null), loadVideoMetadata()]);
+  } catch(err){ $('phase').textContent='status load failed'; $('error').textContent=err.message; await loadVideoMetadata(); }
 }
 
-$('replay-slider').addEventListener('input',e=>{stopReplay(); renderReplayIndex(e.target.value);}); $('play').addEventListener('click',playReplay); $('pause').addEventListener('click',stopReplay); $('speed').addEventListener('change',()=>{if(replayState.timer) playReplay();}); window.addEventListener('resize',()=>{if(replayState.frames.length) renderReplayIndex($('replay-slider').value); drawHistory();});
+$('replay-slider').addEventListener('input',e=>{stopReplay(); renderReplayIndex(e.target.value);});
+$('play').addEventListener('click',playReplay); $('pause').addEventListener('click',stopReplay);
+$('speed').addEventListener('change',()=>{if(replayState.timer) playReplay();});
+window.addEventListener('resize',()=>{if(replayState.frames.length) renderReplayIndex($('replay-slider').value); drawHistory();});
 main();
