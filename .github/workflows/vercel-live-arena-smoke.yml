@@ -54,39 +54,40 @@ jobs:
           test -n "$status_url"
           echo "STATUS_URL=$status_url" >> "$GITHUB_ENV"
 
-      - name: Wait for public telemetry route
+      - name: Wait for boot telemetry route
         run: |
           set -euo pipefail
           for i in $(seq 1 120); do
             body="$(curl -fsS "$BASE$STATUS_URL" || true)"
             if [[ -n "$body" ]]; then
-              echo "$body" | jq '{session_id, status, telemetry_url, bootstrap}'
+              echo "$body" | jq '{session_id, status, diagnostic_telemetry_url, telemetry_url, bootstrap_phase, bootstrap, error}'
               exit_code="$(echo "$body" | jq -r '.bootstrap.exit_code // empty')"
               if [[ -n "$exit_code" && "$exit_code" != '0' ]]; then
-                echo "Sandbox bootstrap failed with exit code $exit_code" >&2
+                echo "Sandbox bootstrap command failed with exit code $exit_code" >&2
                 exit 1
               fi
-              telemetry_url="$(echo "$body" | jq -r '.telemetry_url // empty')"
-              if [[ -n "$telemetry_url" ]]; then
-                echo "TELEMETRY_URL=$telemetry_url" >> "$GITHUB_ENV"
+              diagnostic="$(echo "$body" | jq -r '.diagnostic_telemetry_url // empty')"
+              if [[ -n "$diagnostic" ]]; then
+                echo "TELEMETRY_URL=$diagnostic" >> "$GITHUB_ENV"
                 exit 0
               fi
             fi
-            sleep 5
+            sleep 2
           done
-          echo 'Sandbox never published its telemetry route.' >&2
+          echo 'Sandbox never published its diagnostic telemetry route.' >&2
           exit 1
 
       - name: Require real FightingICE plus MaleCNS decision telemetry
         run: |
           set -euo pipefail
-          for i in $(seq 1 120); do
+          for i in $(seq 1 180); do
             body="$(curl -fsS "$TELEMETRY_URL" || true)"
             if [[ -n "$body" ]]; then
-              echo "$body" | jq '{status, bootstrap, round, frame, p1: {character: .p1.character, hp: .p1.hp, action: .p1.action}, p2: {character: .p2.character, hp: .p2.hp, action: .p2.action}, p1_spikes: .brain.p1.total_spikes, p2_spikes: .brain.p2.total_spikes, learning_enabled, policy_pixel_access, error}'
+              echo "$body" | jq '{status, bootstrap, round, frame, p1: {character: .p1.character, hp: .p1.hp, action: .p1.action}, p2: {character: .p2.character, hp: .p2.hp, action: .p2.action}, p1_spikes: .brain.p1.total_spikes, p2_spikes: .brain.p2.total_spikes, learning_enabled, policy_pixel_access, error, exit_code}'
               test "$(echo "$body" | jq -r '.learning_enabled')" = 'false'
               test "$(echo "$body" | jq -r '.policy_pixel_access')" = 'false'
-              if [[ "$(echo "$body" | jq -r '.status // empty')" == 'error' ]]; then
+              status="$(echo "$body" | jq -r '.status // empty')"
+              if [[ "$status" == 'error' ]]; then
                 echo "$body" | jq . >&2
                 exit 1
               fi
@@ -97,7 +98,7 @@ jobs:
                 exit 0
               fi
             fi
-            sleep 5
+            sleep 2
           done
           echo 'No real decision telemetry arrived before the deadline.' >&2
           exit 1
