@@ -52,7 +52,7 @@ jobs:
           GAME_DIR="$(dirname "$GAME_JAR")"
           (
             cd "$GAME_DIR"
-            java -cp 'FightingICE.jar:./lib/*' Main \
+            java -cp 'FightingICE.jar:./lib/*:./lib/lwjgl/*' Main \
               --lightweight-mode --pyftg-mode --input-sync \
               --limithp 400 400 --port 31415 -r 1 -f 600 \
               > "$GITHUB_WORKSPACE/runs/lightweight-socket/fightingice.log" 2>&1 &
@@ -81,5 +81,6 @@ jobs:
           assert 'choices=["lightweight", "headless"]' in text
           assert 'default="lightweight"' in text
           assert 'processing_flag = "--lightweight-mode"' in text
+          assert 'FightingICE.jar:./lib/*:./lib/lwjgl/*' in text
           print('live arena FightingICE mode contract: lightweight')
           PY
