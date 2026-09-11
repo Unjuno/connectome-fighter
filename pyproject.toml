@@ -14,6 +14,11 @@ test = ["pytest==9.0.2"]
 game = ["pyftg==2.3"]
 data = ["pandas>=2.2,<3", "pyarrow>=16,<24"]
 
+[tool.uv]
+# Brian2 2.5.1 imports legacy pkg_resources at runtime. Keep its transitive
+# setuptools dependency on a version that still provides that API.
+constraint-dependencies = ["setuptools==68.2.2"]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
