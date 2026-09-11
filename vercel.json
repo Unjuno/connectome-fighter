@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "echo 'static spectator build'",
-  "outputDirectory": "site",
+  "outputDirectory": "spectator",
   "rewrites": [
     {
       "source": "/live-data/:path*",
