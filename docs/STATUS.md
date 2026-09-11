@@ -8,7 +8,7 @@ Updated for the canonical MaleCNS pipeline.
 - dynamics: **pinned Shiu et al. 2024 LIF reference code** at commit `2a83ad611cd9768f8c9723fc613ed27761a5feb5`
 - game: **FightingICE v7.1 + pyftg 2.3**
 - canonical runtime adapter: **156,675 neurons / 6,025,920 recurrent synapses** under the current strict-Shiu/min-weight-5 condition
-- artificial game I/O is versioned separately from the biological structure.
+- artificial game I/O, game reward and project plasticity are versioned separately from the biological anatomy/dynamics.
 
 The old FlyWire v783 + custom sigmoid recurrent/PPO path is legacy engineering evidence only and is not canonical biological evidence.
 
@@ -38,16 +38,23 @@ The old FlyWire v783 + custom sigmoid recurrent/PPO path is legacy engineering e
 - ZEN–NEZ
 - LUD–NEZ
 
-Each pair currently runs eight rounds, giving 48 rounds per scheduled chunk. Learning is deliberately **OFF** while the pipeline and reward design are characterized.
+Each pair currently runs eight rounds, giving 48 rounds per scheduled chunk. Baseline learning remains **OFF**.
+
+Scheduled chunks use the same Poisson mechanism but different deterministic seed blocks so the six-hour schedule does not simply replay one random sequence. Within a chunk, the same character uses the same character-specific seed across pairings.
 
 First confirmed four-character chunk: Actions run `34620984683`.
 
 - all six pair jobs: PASS
-- 48 independent rounds
-- 960 decisions
-- 1/48 non-zero terminal rewards in that chunk
-- current randomness: observation-driven Poisson sensory spikes
-- current readout: deterministic spike-count argmax
+- 48 rounds
+- 960 brain decision windows
+- 1/48 non-zero terminal outcomes
+- spike-count argmax strongly B-biased
+
+Independent-seed chunk: Actions run `34629644845`.
+
+- all six pair jobs: PASS
+- 48/48 no-damage draws
+- demonstrates that terminal reward sparsity is not fixed by simply repeating more of the original policy.
 
 ### 4. Real FightingICE spectator video
 
@@ -63,17 +70,6 @@ Validated ScreenData video run: Actions run `34625054830`.
 
 Latest fully integrated render/deploy run: **`34628459203` — PASS**.
 
-That run passed:
-
-1. latest public matchup resolution;
-2. canonical MaleCNS adapter restore;
-3. structural annotation index restore;
-4. active-body structural enrichment;
-5. canonical FightingICE match;
-6. official ScreenData recording;
-7. artifact validation;
-8. GitHub Pages deployment.
-
 Integrated artifact `rendered-fightingice-spectator`:
 
 - artifact ID `10275496675`
@@ -87,7 +83,7 @@ Integrated artifact `rendered-fightingice-spectator`:
 
 ### 5. Structural activity visualization
 
-A spectator-only structural index joins active MaleCNS body IDs to released/canonical metadata such as:
+A spectator-only structural index joins active MaleCNS body IDs to canonical metadata such as:
 
 - `superclass`
 - `class`
@@ -106,26 +102,112 @@ In integrated run `34628459203`:
 - 97/97 resolved
 - 240 top-active-body rows enriched with anatomical categories.
 
-These are **categorical anatomical annotations**, not neuron XY coordinates or synapse locations. The flat MaleCNS body-annotation table used by this project does not expose the previously assumed `pos_x/pos_y/pos_z` fields; the unsupported coordinate attempt was removed rather than inventing coordinates.
+These are **categorical anatomical annotations**, not neuron XY coordinates or synapse locations. The unsupported coordinate assumption was removed rather than inventing geometry.
+
+### 6. Offline reward-design characterization
+
+All reward comparisons below re-score identical logged trajectories; they do not alter actions or weights.
+
+First chunk, run `34620984683`:
+
+- R0 terminal-sign non-zero decisions: **2/960 = 0.2083%**
+- local damage windows: **4/960 = 0.4167%** from the two player perspectives
+- R1 final-margin augmentation: same density as R0
+- R2a local damage + terminal: still very sparse.
+
+Independent-seed chunk, run `34629644845`:
+
+- R0/R1/R2a produced zero signal because all 48 rounds were no-damage draws.
+
+Cross-seed reward comparison: workflow run `34631037696` — PASS.
+
+Conservative engagement/stalemate candidate R2d (`contact=180 px`, potential weight `0.05`, `+0.1/10HP`, terminal `±1`, no-damage draw `-0.01`):
+
+- chunk A non-zero decision rate: **17.5%** (71 positive / 97 negative)
+- chunk B: **13.33%** (32 positive / 96 negative)
+
+However, the no-damage negative signal is not automatically biologically appropriate when coupled to MBON valence plasticity; see below. R2d is therefore an engineering/checkpoint smoke reward, not the currently accepted continuous-learning reward.
+
+R2c removes the no-damage penalty and retains engagement potential + damage + terminal outcome. A paired learning A/B against R2d is currently the next reward-selection gate.
+
+### 7. MBON valence partition for plasticity modeling
+
+Aso et al. 2014 motivates a population-level model partition in which glutamatergic MBON activity is avoidance-associated and GABAergic/cholinergic MBON activity is approach-associated. This is a **project modeling adapter**, not a MaleCNS-supplied fixed-valence annotation for every MBON.
+
+Valence partition workflow run `34630909774`: PASS.
+
+Real KC→MBON candidate edges: **33,496**.
+
+- approach-associated: **21,421 edges / 69 MBONs**
+  - acetylcholine: 11,854 edges
+  - GABA: 9,567 edges
+- avoidance-associated: **12,075 edges / 22 MBONs**
+  - glutamate: 12,075 edges
+- unresolved: 0
+
+No topology, weight or transmitter sign was changed while constructing the partition.
+
+### 8. Single-match valence-gated plasticity smoke
+
+Workflow run `34631587091`: **PASS**.
+
+GARNET was updated for one real canonical FightingICE match while ZEN remained unchanged.
+
+R2d-v0 smoke result:
+
+- 10 decision windows
+- 5 positive / 4 negative non-zero signals
+- 9,121/33,496 KC→MBON multipliers depressed
+  - 5,960 approach-associated edges
+  - 3,161 avoidance-associated edges
+- potentiated edges: **0**
+- multiplier range after the match: `[0.9999, 1.0]`
+- GARNET generation advanced 0 → 1
+- generation-1 GARNET adapter completed another audited FightingICE round against unchanged ZEN.
+
+This demonstrates the update mechanism/invariants, not behavioral improvement.
+
+### 9. Durable checkpoint resume across separate Actions runs
+
+Generation-1 state was promoted to prerelease `canonical-state-smoke-v1`, then restored by a **separate** workflow run.
+
+Seed/promotion workflow: `canonical-checkpoint-seed`.
+
+Resume workflow run `34632209463`: **PASS**.
+
+Exact-restore gate:
+
+- release manifest, packed manifest, state metadata and restored state SHA-256 agreed;
+- restored GARNET generation: 1;
+- restored state was materialized into the canonical Shiu input ordering;
+- a new audited FightingICE match completed;
+- post-match state advanced generation 1 → 2;
+- generation-2 state SHA-256: `509ba9a8025e511c4785d13481fa6d1d68f500eb507a10ab64dfd3845961f119`;
+- generation-2 update depressed 5,883 approach-associated edges, potentiated 0.
+
+The generation-2 match had only the R2d no-damage penalty (`-0.01`), which is direct evidence for the concern that treating stalemate as negative valence may push the model toward avoidance. This state is therefore smoke evidence only, not the production training lineage.
 
 ## Current reward / learning state
 
-Current public experiment phase: `canonical-baseline-no-weight-updates`.
+Baseline public experiment phase remains `canonical-baseline-no-weight-updates`.
 
-Reward baseline R0 is logged but not applied to plasticity:
+Continuous canonical learning is **still disabled**.
 
-- win / higher remaining HP: `+1`
-- draw / equal remaining HP: `0`
-- loss / lower remaining HP: `-1`
+Current work is a paired short learning experiment:
 
-Character-specific KC→MBON plasticity-state infrastructure exists, but automatic canonical learning is **not enabled yet**. Reward design is the next experimental decision after the spectator/logging pipeline.
+- control: no plasticity
+- R2c: engagement potential + damage + terminal outcome, no no-damage penalty
+- R2d: same plus no-damage draw `-0.01`
+
+Both learning conditions use the same valence-gated depression rule and paired seeds. The purpose is to determine whether the extra stalemate penalty makes engagement better or worse before any long-running lineage is enabled.
 
 ## Not yet demonstrated
 
-- reward-driven improvement of a MaleCNS fighter;
-- durable canonical plasticity checkpoints advancing across scheduled jobs;
-- character-specific learned divergence across GARNET / ZEN / LUD / NEZ;
+- reproducible behavioral improvement from reward-driven MaleCNS plasticity;
+- stable superiority of R2c or R2d;
+- four durable learned character lineages advancing continuously;
 - league/champion learning;
-- biological-structure advantage over a matched null/control.
+- biological-structure advantage over a matched null/control;
+- causal circuit mechanism from activity logs alone.
 
 Those claims remain explicitly unproven.
