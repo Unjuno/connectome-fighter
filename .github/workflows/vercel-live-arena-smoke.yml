@@ -111,8 +111,11 @@ jobs:
           test "$(echo "$body" | jq -r '.source_runtime_base')" = "$RUNTIME_BASE"
           source_snapshot="$(echo "$body" | jq -r '.source_runtime_snapshot // empty')"
           test -n "$source_snapshot"
+          session_id="$(echo "$body" | jq -r '.session_id // empty')"
+          test -n "$session_id"
           status_url="$(echo "$body" | jq -r '.status_url // empty')"
           test -n "$status_url"
+          echo "SESSION_ID=$session_id" >> "$GITHUB_ENV"
           echo "STATUS_URL=$status_url" >> "$GITHUB_ENV"
           echo "SOURCE_SNAPSHOT=$source_snapshot" >> "$GITHUB_ENV"
 
@@ -144,6 +147,7 @@ jobs:
           set -euo pipefail
           last_status=''
           last_state=''
+          last_sandbox_diag=''
           for i in $(seq 1 360); do
             body="$(curl -fsS "$TELEMETRY_URL" || true)"
             if [[ -n "$body" ]]; then
@@ -165,6 +169,28 @@ jobs:
             fi
 
             if (( i == 1 || i % 15 == 0 )); then
+              sandbox_diag="$(curl -fsS "$BASE/api/connectome/session-diagnostic?session_id=$SESSION_ID" || true)"
+              if [[ -n "$sandbox_diag" ]]; then
+                last_sandbox_diag="$sandbox_diag"
+                echo "$sandbox_diag" | jq '{session_id, session_status, diagnostic_command_http_status, diagnostic, learning_enabled, policy_pixel_access}'
+                test "$(echo "$sandbox_diag" | jq -r '.learning_enabled')" = 'false'
+                test "$(echo "$sandbox_diag" | jq -r '.policy_pixel_access')" = 'false'
+                entrypoint="$(echo "$sandbox_diag" | jq -r '.diagnostic.entrypoint // empty')"
+                marker="$(echo "$sandbox_diag" | jq -r '.diagnostic.runtime_marker // empty')"
+                if [[ "$entrypoint" == 'false' || ( -n "$marker" && "$marker" != "$RUNTIME_SHA" ) ]]; then
+                  echo 'Viewer fork does not contain the verified runtime snapshot.' >&2
+                  echo "$sandbox_diag" | jq . >&2
+                  exit 1
+                fi
+                phase="$(echo "$sandbox_diag" | jq -r '.diagnostic.status_phase // empty')"
+                status_exit="$(echo "$sandbox_diag" | jq -r '.diagnostic.status_exit // empty')"
+                if [[ "$phase" == 'error' || ( -n "$status_exit" && "$status_exit" != '0' ) ]]; then
+                  echo 'Viewer runtime bootstrap reported an error.' >&2
+                  echo "$sandbox_diag" | jq . >&2
+                  exit 1
+                fi
+              fi
+
               separator='?'
               [[ "$STATUS_URL" == *'?'* ]] && separator='&'
               status_body="$(curl -fsS "$BASE${STATUS_URL}${separator}include_runtime_log=1" || true)"
@@ -197,6 +223,10 @@ jobs:
           if [[ -n "$last_state" ]]; then
             echo '--- last direct sandbox state ---' >&2
             echo "$last_state" | jq . >&2 || true
+          fi
+          if [[ -n "$last_sandbox_diag" ]]; then
+            echo '--- last in-sandbox process diagnostic ---' >&2
+            echo "$last_sandbox_diag" | jq . >&2 || true
           fi
           separator='?'
           [[ "$STATUS_URL" == *'?'* ]] && separator='&'
