@@ -45,7 +45,7 @@ Vercel側を研究ログの保存先にしない。研究上の説明可能性�
 - plasticity contract (`KC-MBON-valence-depression-v0`)
 - 固定比較条件
 - normalized match ledger
-- checkpoint smoke release
+- checkpoint smoke releases
 - GitHub Actions evidence
 - interpretation boundaries
 
@@ -68,7 +68,20 @@ handoff manifestには以下だけを含める。
 
 reward式、plasticity rationale、match ledger、研究履歴はhandoffに埋め込まない。
 
-現時点ではcanonical checkpoint resume smokeが成立しているGARNET generation 2だけを対象にする。4キャラすべてがproduction lineageへ昇格するまでは、arena snapshotをproduction-trained leagueと呼ばない。
+### checkpoint lineage の現在地
+
+- **GARNET generation 2** — `arena-inference-latest` に承認済みのread-only inference state。現行public arenaが利用できる学習済みstateはこれだけ。
+- **ZEN / LUD / NEZ generation 2** — `canonical-missing-lineage-smoke-v1` で、各キャラ独立state・RNG・履歴を持つgeneration 1 seedと、別GitHub Actions runからgeneration 2へresumeするcross-run smokeを実証済み。ただし `R2d-v0` / `KC-MBON-valence-depression-v0` は依然として**candidate smoke contract**であり、これら3キャラはproduction arenaへ未昇格。
+
+したがって「4キャラすべてにcross-run resume可能なcandidate lineageが存在する」とは言えるが、「4キャラproduction-trained leagueが成立した」とはまだ言わない。ZEN/LUD/NEZを `arena-inference-latest` へ入れるには、報酬・plasticity実験の採用判断と明示的なpromotion gateが別途必要。
+
+## Runtime snapshot boundary
+
+Vercel側の実行環境は、GitHub Releaseのruntime bundleをviewerごとに再取得せず、SHA-addressed persistent Sandboxへ一度だけstageし、そのfilesystem snapshotから短命viewer Sandboxをforkする。
+
+runtime baseにはimmutable runtimeだけを置き、character stateは `arena-inference-latest` のmanifest/SHAで別途検証する。viewer sessionでは `learning_enabled=false`、`policy_pixel_access=false` を固定する。
+
+このruntime snapshotは計算環境のcold-start最適化であり、学習checkpointの承認状態を変更しない。
 
 ## Scientific boundary
 
