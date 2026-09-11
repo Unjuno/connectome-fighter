@@ -265,7 +265,7 @@ def main() -> int:
 
     game_dir = args.game_jar.resolve().parent
     if args.fightingice_mode == "lightweight":
-        classpath = "FightingICE.jar:./lib/*"
+        classpath = "FightingICE.jar:./lib/*:./lib/lwjgl/*"
         processing_flag = "--lightweight-mode"
     else:
         classpath = "FightingICE.jar:./lib/*:./lib/lwjgl/*:./lib/lwjgl/natives/linux/amd64/*:./lib/grpc/*"
