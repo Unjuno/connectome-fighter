@@ -7,6 +7,7 @@ MANIFEST_URL="https://github.com/Unjuno/connectome-fighter/releases/download/are
 LISTEN=8080
 UPSTREAM_PORT=18080
 SESSION_ID=""
+FIGHTINGICE_MODE="${CONNECTOME_FIGHTINGICE_MODE:-lightweight}"
 
 while (($#)); do
   case "$1" in
@@ -15,12 +16,14 @@ while (($#)); do
     --manifest-url) MANIFEST_URL="$2"; shift 2 ;;
     --listen) LISTEN="$2"; shift 2 ;;
     --session-id) SESSION_ID="$2"; shift 2 ;;
+    --fightingice-mode) FIGHTINGICE_MODE="$2"; shift 2 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
 
 case "$P1" in GARNET|ZEN|LUD|NEZ) ;; *) echo "invalid P1" >&2; exit 2;; esac
 case "$P2" in GARNET|ZEN|LUD|NEZ) ;; *) echo "invalid P2" >&2; exit 2;; esac
+case "$FIGHTINGICE_MODE" in lightweight|headless) ;; *) echo "invalid FightingICE mode" >&2; exit 2;; esac
 if [[ "$P1" == "$P2" ]]; then echo "fighters must differ" >&2; exit 2; fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -105,10 +108,10 @@ elif ! command -v java >/dev/null 2>&1; then
   write_status "installing-java-fallback"
   if command -v sudo >/dev/null 2>&1; then
     sudo apt-get update -qq
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq openjdk-21-jre-headless ca-certificates curl
+    sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq openjdk-21-jre-headless ca-certificates curl
   else
     apt-get update -qq
-    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq openjdk-21-jre-headless ca-certificates curl
+    env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq openjdk-21-jre-headless ca-certificates curl
   fi
 fi
 command -v java >/dev/null
@@ -121,16 +124,24 @@ ensure_font_runtime() {
   write_status "installing-font-runtime"
   if command -v sudo >/dev/null 2>&1; then
     sudo apt-get update -qq
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fontconfig fonts-dejavu-core
+    sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fontconfig fonts-dejavu-core
   else
     apt-get update -qq
-    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fontconfig fonts-dejavu-core
+    env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fontconfig fonts-dejavu-core
   fi
   command -v fc-list >/dev/null
   fc-cache -f >/dev/null 2>&1 || true
   fc-list 2>/dev/null | grep -q .
 }
-ensure_font_runtime
+
+# FightingICE v7.1 initializes its AWT LetterImage font only in HEADLESS_MODE.
+# The Vercel arena deliberately uses LIGHTWEIGHT_MODE, so requiring apt/fontconfig
+# here would add an irrelevant OS/network dependency before the policy can run.
+if [[ "$FIGHTINGICE_MODE" == "headless" ]]; then
+  ensure_font_runtime
+else
+  write_status "font-runtime-not-required-lightweight"
+fi
 
 REF_WRAPPER="$WORK/reference-python"
 cat > "$REF_WRAPPER" <<EOF
@@ -231,6 +242,7 @@ CMD=(
   --adapter-dir "$BASE_ADAPTER"
   --interface "$ROOT/data/interface.json"
   --game-jar "$ROOT/fightingice/FightingICE.jar"
+  --fightingice-mode "$FIGHTINGICE_MODE"
   --decision-interval 60
   --out "$WORK/live"
 )
