@@ -2,8 +2,8 @@
 
 No artificial neural network is used here. The script imports upstream
 `model.py`, passes converted MaleCNS tables to `create_model()`, and advances the
-Brian2 network briefly to verify that the published LIF equations and the full
-runtime-sized structural adapter are executable together.
+Brian2 network to measure compiled runtime cost without changing the published
+LIF equations.
 """
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ import importlib.util
 import json
 from pathlib import Path
 import resource
+import statistics
 import time
 
 from brian2 import Network, ms, prefs, start_scope
@@ -27,7 +28,6 @@ def load_reference(path: Path):
 
 
 def rss_mib() -> float:
-    # Linux ru_maxrss is KiB.
     return float(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss) / 1024.0
 
 
@@ -36,17 +36,14 @@ def main() -> int:
     p.add_argument("--reference-model", type=Path, required=True)
     p.add_argument("--adapter-dir", type=Path, required=True)
     p.add_argument("--run-ms", type=float, default=20.0)
+    p.add_argument("--repeats", type=int, default=3)
     p.add_argument("--codegen-target", choices=["numpy", "cython"], default="cython")
     p.add_argument("--out", type=Path, required=True)
     args = p.parse_args()
-    if args.run_ms <= 0:
-        p.error("--run-ms must be positive")
+    if args.run_ms <= 0 or args.repeats <= 0:
+        p.error("--run-ms and --repeats must be positive")
 
-    # Backend choice is an engineering/runtime choice only. Neuron equations,
-    # thresholds, synaptic delay and weights remain those in pinned upstream
-    # Shiu model.py. Fail rather than silently falling back to a slower target.
     prefs.codegen.target = args.codegen_target
-
     manifest = json.loads((args.adapter_dir / "manifest.json").read_text(encoding="utf-8"))
     reference = load_reference(args.reference_model)
     start_scope()
@@ -62,15 +59,22 @@ def main() -> int:
 
     expected_neurons = int(manifest["counts"]["included_neurons"])
     expected_edges = int(manifest["counts"]["runtime_edges"])
-    if len(neu) != expected_neurons:
-        raise AssertionError(f"Neuron count mismatch: {len(neu)} != {expected_neurons}")
-    if len(syn) != expected_edges:
-        raise AssertionError(f"Synapse count mismatch: {len(syn)} != {expected_edges}")
+    if len(neu) != expected_neurons or len(syn) != expected_edges:
+        raise AssertionError("MaleCNS adapter count mismatch")
 
     net = Network(neu, syn, spk)
-    t1 = time.perf_counter()
-    net.run(args.run_ms * ms)
-    run_seconds = time.perf_counter() - t1
+    net.store("baseline")
+    compile_t0 = time.perf_counter()
+    net.run(0 * ms)
+    compile_seconds = time.perf_counter() - compile_t0
+    net.restore("baseline")
+
+    windows: list[float] = []
+    for _ in range(args.repeats):
+        t1 = time.perf_counter()
+        net.run(args.run_ms * ms)
+        windows.append(time.perf_counter() - t1)
+
     result = {
         "status": "PASS",
         "dataset": manifest["dataset"],
@@ -82,16 +86,18 @@ def main() -> int:
         "reference_commit": manifest["shiu_reference_commit"],
         "codegen_target": str(prefs.codegen.target),
         "build_seconds": build_seconds,
-        "run_ms": args.run_ms,
-        "run_wall_seconds": run_seconds,
-        "wall_seconds_per_biological_ms": run_seconds / args.run_ms,
+        "compile_zero_run_seconds": compile_seconds,
+        "run_ms_per_window": args.run_ms,
+        "repeats": args.repeats,
+        "window_wall_seconds": windows,
+        "median_window_wall_seconds": statistics.median(windows),
+        "median_wall_seconds_per_biological_ms": statistics.median(windows) / args.run_ms,
         "peak_rss_mib": rss_mib(),
         "rss_after_build_mib": after_build_rss,
         "spikes_during_quiet_smoke": int(spk.num_spikes),
         "interpretation": (
-            "Full strict MaleCNS structural adapter was accepted and advanced by the "
-            "pinned Shiu Brian2 reference dynamics. Codegen target changes execution "
-            "only, not the published model equations. No game input or learning was applied."
+            "Runtime backend changes execution only, not the pinned Shiu equations. "
+            "Zero-duration run isolates code generation; timed windows are steady-state quiet-network cost."
         ),
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
