@@ -62,22 +62,18 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install bridge dependencies
+      - name: Install bridge dependencies and recorder
         run: |
           python -m pip install --upgrade pip
           python -m pip install 'numpy==2.3.5' 'pandas==2.3.3' 'pyarrow==23.0.1' 'pyftg==2.3'
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          ffmpeg -version | head -1
 
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
-
-      - name: Install virtual display and recorder
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y xvfb ffmpeg mesa-utils
-          Xvfb -version 2>&1 | head || true
-          ffmpeg -version | head -1
 
       - name: Restore canonical MaleCNS adapter cache
         uses: actions/cache@v4
@@ -127,24 +123,15 @@ jobs:
           unzip -q -o external/downloads/resource.zip -d "$(dirname "$GAME_JAR")"
           rm -rf external/downloads
 
-      - name: Start Xvfb and graphical FightingICE
+      - name: Start headless FightingICE with official renderer
         run: |
           mkdir -p runs/rendered site/data
-          Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset \
-            > runs/rendered/xvfb.log 2>&1 &
-          echo $! > runs/rendered/xvfb.pid
-          echo 'DISPLAY=:99' >> "$GITHUB_ENV"
-          sleep 2
-          export DISPLAY=:99
-          export LIBGL_ALWAYS_SOFTWARE=1
-          glxinfo -B > runs/rendered/glxinfo.txt 2>&1 || true
           GAME_JAR="$(find external/v71 -type f -name FightingICE.jar -print -quit)"
           GAME_DIR="$(dirname "$GAME_JAR")"
           (
             cd "$GAME_DIR"
-            DISPLAY=:99 LIBGL_ALWAYS_SOFTWARE=1 nohup java \
-              -cp 'FightingICE.jar:./lib/*:./lib/lwjgl/*:./lib/lwjgl/natives/linux/amd64/*:./lib/grpc/*' \
-              Main --pyftg-mode --input-sync --slow --limithp 400 400 \
+            nohup java -cp 'FightingICE.jar:./lib/*:./lib/lwjgl/*:./lib/lwjgl/natives/linux/amd64/*:./lib/grpc/*' \
+              Main --headless-mode --pyftg-mode --input-sync --limithp 400 400 \
               --port 31415 -r 1 -f 600 \
               > "$GITHUB_WORKSPACE/runs/rendered/fightingice.log" 2>&1 &
             echo $! > "$GITHUB_WORKSPACE/runs/rendered/fightingice.pid"
@@ -158,16 +145,8 @@ jobs:
           cat runs/rendered/fightingice.log || true
           test "$ready" -eq 1
 
-      - name: Record real FightingICE window and run one canonical fight
+      - name: Run canonical fight and capture official ScreenData
         run: |
-          export DISPLAY=:99
-          ffmpeg -y -loglevel warning \
-            -f x11grab -draw_mouse 0 -framerate 30 -video_size 1024x768 -i :99.0 \
-            -c:v libx264 -preset veryfast -crf 27 -pix_fmt yuv420p \
-            site/data/latest-fight.mp4 \
-            > runs/rendered/ffmpeg.log 2>&1 &
-          echo $! > runs/rendered/ffmpeg.pid
-          sleep 2
           PYTHONPATH=src python scripts/run_game_malecns_lif.py \
             --host 127.0.0.1 --port 31415 \
             --character-p1 GARNET --character-p2 ZEN \
@@ -177,34 +156,35 @@ jobs:
             --adapter-dir data/processed/malecns-shiu-strict-v1 \
             --interface data/processed/malecns-interface-v1/interface.json \
             --decision-interval 60 \
-            --games 1 --expected-rounds 1 --timeout 1800 \
+            --games 1 --expected-rounds 1 --timeout 900 \
+            --spectator-video site/data/latest-fight.mp4 \
+            --spectator-fps 60 \
             --run-id rendered-garnet-zen \
             --out runs/rendered
-          kill -INT "$(cat runs/rendered/ffmpeg.pid)" 2>/dev/null || true
-          for i in $(seq 1 30); do
-            kill -0 "$(cat runs/rendered/ffmpeg.pid)" 2>/dev/null || break
-            sleep 1
-          done
-          kill "$(cat runs/rendered/ffmpeg.pid)" 2>/dev/null || true
           test -s site/data/latest-fight.mp4
           ffprobe -v error -show_entries format=duration,size -show_entries stream=width,height,codec_name \
             -of json site/data/latest-fight.mp4 | tee runs/rendered/video-probe.json
           python - <<'PY'
           import json
           p=json.load(open('runs/rendered/video-probe.json'))
+          s=p['streams'][0]
           duration=float(p['format']['duration'])
           size=int(p['format']['size'])
+          assert s['codec_name']=='h264', s
+          assert int(s['width'])==960 and int(s['height'])==640, s
           assert duration > 2.0, duration
           assert size > 10000, size
-          print('rendered video OK', duration, size)
+          print('official ScreenData video OK', duration, size)
           PY
+          ffmpeg -y -loglevel error -ss 1 -i site/data/latest-fight.mp4 -frames:v 1 runs/rendered/sample-frame.png
+          test -s runs/rendered/sample-frame.png
 
-      - name: Stop graphical processes
+      - name: Stop FightingICE
         if: always()
         run: |
-          if [ -f runs/rendered/ffmpeg.pid ]; then kill -INT "$(cat runs/rendered/ffmpeg.pid)" 2>/dev/null || true; fi
-          if [ -f runs/rendered/fightingice.pid ]; then kill "$(cat runs/rendered/fightingice.pid)" 2>/dev/null || true; fi
-          if [ -f runs/rendered/xvfb.pid ]; then kill "$(cat runs/rendered/xvfb.pid)" 2>/dev/null || true; fi
+          if [ -f runs/rendered/fightingice.pid ]; then
+            kill "$(cat runs/rendered/fightingice.pid)" 2>/dev/null || true
+          fi
 
       - name: Upload rendered evidence
         if: always()
@@ -214,10 +194,10 @@ jobs:
           path: |
             site/data/latest-fight.mp4
             runs/rendered/video-probe.json
+            runs/rendered/sample-frame.png
             runs/rendered/fightingice.log
-            runs/rendered/ffmpeg.log
-            runs/rendered/glxinfo.txt
             runs/rendered/rendered-garnet-zen/status.json
+            runs/rendered/rendered-garnet-zen/spectator.json
           if-no-files-found: warn
           retention-days: 14
 
