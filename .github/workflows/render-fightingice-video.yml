@@ -9,22 +9,18 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/render-fightingice-video.yml'
-      - 'site/index.html'
-      - 'site/app.js'
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: pages-rendered-fightingice-screen-v1
+  group: rendered-fightingice-screen-v2
   cancel-in-progress: true
 
 env:
   SHIU_COMMIT: 2a83ad611cd9768f8c9723fc613ed27761a5feb5
   ADAPTER_CACHE_KEY: malecns-v1.0-shiu-strict-minw5-2a83ad611cd9768f8c9723fc613ed27761a5feb5-adapter-v1
-  STRUCTURE_CACHE_KEY: malecns-v1.0-structure-index-v1
+  SPECTATOR_RELEASE_TAG: spectator-latest
   GAME_URL: https://github.com/TeamFightingICE/FightingICE/releases/download/v7.1/DareFightingICE-7.1.zip
   GAME_SHA256: 510752a69a097b767677d3911b1407d6a08a721dad4faf2cb5b7a19b988f1c62
   RESOURCE_URL: https://github.com/TeamFightingICE/FightingICE/releases/download/v7.1/resource-7.1.zip
@@ -35,15 +31,12 @@ jobs:
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: main
 
-      - name: Fast-forward to latest dashboard data
+      - name: Fast-forward to latest public match data
         run: git pull --ff-only origin main
 
       - name: Resolve spectator matchup from public replay
@@ -63,34 +56,29 @@ jobs:
           values['SPECTATOR_RUN_ID']=safe[:64]
           with open(os.environ['GITHUB_ENV'],'a') as f:
               for k,v in values.items(): f.write(f'{k}={v}\n')
-          print(json.dumps(values, indent=2))
+          print(json.dumps(values,indent=2))
           PY
 
       - name: Set up reference Python 3.10
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-
       - name: Install pinned Shiu/Brian2 runtime
         run: |
           python -m pip install --upgrade pip
-          python -m pip install \
-            'numpy==1.24.0' 'pandas==1.5.3' 'pyarrow==10.0.1' \
-            'joblib==1.2.0' 'Cython==0.29.36' 'brian2==2.5.1'
+          python -m pip install 'numpy==1.24.0' 'pandas==1.5.3' 'pyarrow==10.0.1' 'joblib==1.2.0' 'Cython==0.29.36' 'brian2==2.5.1'
           echo "PY310=$(which python)" >> "$GITHUB_ENV"
 
       - name: Set up bridge Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
       - name: Install bridge dependencies and recorder
         run: |
           python -m pip install --upgrade pip
           python -m pip install 'numpy==2.3.5' 'pandas==2.3.3' 'pyarrow==23.0.1' 'pyftg==2.3'
           sudo apt-get update -qq
           sudo apt-get install -y ffmpeg
-          ffmpeg -version | head -1
 
       - uses: actions/setup-java@v5
         with:
@@ -104,20 +92,6 @@ jobs:
           key: ${{ env.ADAPTER_CACHE_KEY }}
           fail-on-cache-miss: true
 
-      - name: Restore spectator-only structural annotation index
-        uses: actions/cache@v4
-        with:
-          path: data/processed/malecns-structure-v1
-          key: ${{ env.STRUCTURE_CACHE_KEY }}
-          fail-on-cache-miss: true
-
-      - name: Enrich public replay with structural annotations
-        run: |
-          python scripts/enrich_replay_structure.py \
-            --replay site/data/replay-latest.json \
-            --status site/data/status.json \
-            --structure-index data/processed/malecns-structure-v1/body_structure.csv.gz
-
       - name: Build fixed game interface
         run: |
           mkdir -p data/processed/malecns-interface-v1
@@ -125,11 +99,8 @@ jobs:
             --metadata data/processed/malecns-shiu-strict-v1/neuron_metadata.parquet \
             --manifest data/processed/malecns-shiu-strict-v1/manifest.json \
             --out data/processed/malecns-interface-v1/interface.json \
-            --seed 20260911 \
-            --input-bodies-per-polarity-feature 16 \
-            --max-poisson-rate-hz 150 \
-            --decision-window-ms 20 \
-            --neutral-min-spikes 1
+            --seed 20260911 --input-bodies-per-polarity-feature 16 \
+            --max-poisson-rate-hz 150 --decision-window-ms 20 --neutral-min-spikes 1
 
       - name: Fetch pinned Shiu reference model
         run: |
@@ -144,7 +115,6 @@ jobs:
         with:
           path: external/v71
           key: fightingice-v71-510752a6-386fd713
-
       - name: Download verified FightingICE v7.1 on cache miss
         if: steps.game-cache.outputs.cache-hit != 'true'
         run: |
@@ -155,13 +125,12 @@ jobs:
           echo "$RESOURCE_SHA256  external/downloads/resource.zip" | sha256sum -c -
           unzip -q external/downloads/game.zip -d external/v71
           GAME_JAR="$(find external/v71 -type f -name FightingICE.jar -print -quit)"
-          test -n "$GAME_JAR"
           unzip -q -o external/downloads/resource.zip -d "$(dirname "$GAME_JAR")"
           rm -rf external/downloads
 
       - name: Start headless FightingICE with official renderer
         run: |
-          mkdir -p runs/rendered site/data
+          mkdir -p runs/rendered
           GAME_JAR="$(find external/v71 -type f -name FightingICE.jar -print -quit)"
           GAME_DIR="$(dirname "$GAME_JAR")"
           (
@@ -172,13 +141,12 @@ jobs:
               > "$GITHUB_WORKSPACE/runs/rendered/fightingice.log" 2>&1 &
             echo $! > "$GITHUB_WORKSPACE/runs/rendered/fightingice.pid"
           )
-          ready=0
           for i in $(seq 1 90); do
-            if grep -q 'Socket server is started' runs/rendered/fightingice.log 2>/dev/null; then ready=1; break; fi
-            if ! kill -0 "$(cat runs/rendered/fightingice.pid)" 2>/dev/null; then break; fi
+            grep -q 'Socket server is started' runs/rendered/fightingice.log 2>/dev/null && exit 0
+            kill -0 "$(cat runs/rendered/fightingice.pid)" 2>/dev/null || exit 1
             sleep 1
           done
-          test "$ready" -eq 1
+          exit 1
 
       - name: Run six canonical rounds and capture official ScreenData
         run: |
@@ -186,79 +154,87 @@ jobs:
             --host 127.0.0.1 --port 31415 \
             --character-p1 "$SPECTATOR_P1" --character-p2 "$SPECTATOR_P2" \
             --seed-p1 "$SPECTATOR_SEED1" --seed-p2 "$SPECTATOR_SEED2" \
-            --reference-python "$PY310" \
-            --reference-model external/shiu-reference/model.py \
+            --reference-python "$PY310" --reference-model external/shiu-reference/model.py \
             --adapter-dir data/processed/malecns-shiu-strict-v1 \
             --interface data/processed/malecns-interface-v1/interface.json \
-            --decision-interval 60 \
-            --games 1 --expected-rounds 6 --timeout 1800 \
-            --spectator-video site/data/latest-fight.mp4 \
-            --spectator-fps 10 \
-            --run-id "$SPECTATOR_RUN_ID" \
-            --out runs/rendered
-          test -s site/data/latest-fight.mp4
+            --decision-interval 60 --games 1 --expected-rounds 6 --timeout 1800 \
+            --spectator-video runs/rendered/latest-fight.mp4 --spectator-fps 10 \
+            --run-id "$SPECTATOR_RUN_ID" --out runs/rendered
           ffprobe -v error -show_entries format=duration,size -show_entries stream=width,height,codec_name \
-            -of json site/data/latest-fight.mp4 | tee runs/rendered/video-probe.json
+            -of json runs/rendered/latest-fight.mp4 | tee runs/rendered/video-probe.json
           python - <<'PY'
-          import json, os
+          import json, os, pathlib
           probe=json.load(open('runs/rendered/video-probe.json'))
           stream=probe['streams'][0]
-          duration=float(probe['format']['duration'])
-          size=int(probe['format']['size'])
-          assert stream['codec_name']=='h264', stream
-          assert int(stream['width'])==960 and int(stream['height'])==640, stream
-          assert 45.0 < duration < 100.0, duration
-          assert size > 10000, size
+          duration=float(probe['format']['duration']); size=int(probe['format']['size'])
+          assert stream['codec_name']=='h264'
+          assert int(stream['width'])==960 and int(stream['height'])==640
+          assert 45.0 < duration < 100.0
+          assert size > 10000
           spectator=json.load(open(f"runs/rendered/{os.environ['SPECTATOR_RUN_ID']}/spectator.json"))
+          asset='https://github.com/Unjuno/connectome-fighter/releases/download/spectator-latest/latest-fight.mp4'
           video={
-              'schema_version': 2,
-              'mode': 'official-fightingice-screendata-spectator',
-              'p1': {'character': os.environ['SPECTATOR_P1'], 'seed': int(os.environ['SPECTATOR_SEED1'])},
-              'p2': {'character': os.environ['SPECTATOR_P2'], 'seed': int(os.environ['SPECTATOR_SEED2'])},
-              'rounds': 6,
-              'telemetry_reference': {'run_id': os.environ['TELEMETRY_RUN_ID'], 'round_ordinal': int(os.environ['TELEMETRY_ROUND'])},
-              'relationship': 'Same character pairing and character-specific seeds as the selected telemetry replay; this is a fresh six-round spectator render and is not claimed to be the identical trajectory.',
-              'policy_pixel_access': False,
-              'width': int(stream['width']), 'height': int(stream['height']),
-              'fps': int(spectator['fps']), 'frames': int(spectator['frames']),
-              'duration_seconds': duration, 'bytes': size,
-              'source_actions_run': os.environ.get('GITHUB_RUN_ID'),
+              'schema_version':3,
+              'mode':'official-fightingice-screendata-spectator',
+              'asset_url':asset,
+              'p1':{'character':os.environ['SPECTATOR_P1'],'seed':int(os.environ['SPECTATOR_SEED1'])},
+              'p2':{'character':os.environ['SPECTATOR_P2'],'seed':int(os.environ['SPECTATOR_SEED2'])},
+              'rounds':6,
+              'telemetry_reference':{'run_id':os.environ['TELEMETRY_RUN_ID'],'round_ordinal':int(os.environ['TELEMETRY_ROUND'])},
+              'relationship':'Fresh six-round spectator render using the selected matchup and character-specific seeds; not claimed to be the identical telemetry trajectory.',
+              'policy_pixel_access':False,
+              'width':int(stream['width']),'height':int(stream['height']),
+              'fps':int(spectator['fps']),'frames':int(spectator['frames']),
+              'duration_seconds':duration,'bytes':size,
+              'source_actions_run':int(os.environ['GITHUB_RUN_ID']),
           }
-          json.dump(video, open('site/data/video.json','w'), indent=2, sort_keys=True)
-          print(json.dumps(video, indent=2))
+          pathlib.Path('runs/rendered/video.json').write_text(json.dumps(video,indent=2,sort_keys=True)+'\n')
+          print(json.dumps(video,indent=2))
           PY
-          ffmpeg -y -loglevel error -ss 5 -i site/data/latest-fight.mp4 -frames:v 1 runs/rendered/sample-frame.png
-          test -s runs/rendered/sample-frame.png
 
       - name: Stop FightingICE
         if: always()
         run: |
-          if [ -f runs/rendered/fightingice.pid ]; then
-            kill "$(cat runs/rendered/fightingice.pid)" 2>/dev/null || true
+          if [ -f runs/rendered/fightingice.pid ]; then kill "$(cat runs/rendered/fightingice.pid)" 2>/dev/null || true; fi
+
+      - name: Publish stable latest spectator release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view "$SPECTATOR_RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$SPECTATOR_RELEASE_TAG" --prerelease \
+              --title 'Latest Connectome Fighter spectator' \
+              --notes 'Rolling spectator asset for the Vercel viewer. Replaced on each successful render.'
+          fi
+          gh release upload "$SPECTATOR_RELEASE_TAG" \
+            runs/rendered/latest-fight.mp4 \
+            runs/rendered/video.json \
+            --clobber
+
+      - name: Persist spectator metadata only
+        run: |
+          mkdir -p site/data
+          cp runs/rendered/video.json site/data/video.json
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git pull --ff-only origin main
+          cp runs/rendered/video.json site/data/video.json
+          git add site/data/video.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'Update spectator metadata [skip ci]'
+            git push origin HEAD:main
           fi
 
-      - name: Upload rendered evidence
+      - name: Upload render evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: rendered-fightingice-spectator
           path: |
-            site/data/latest-fight.mp4
-            site/data/video.json
-            site/data/replay-latest.json
-            site/data/status.json
+            runs/rendered/video.json
             runs/rendered/video-probe.json
-            runs/rendered/sample-frame.png
             runs/rendered/fightingice.log
             runs/rendered/*/status.json
             runs/rendered/*/spectator.json
           if-no-files-found: warn
           retention-days: 14
-
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
-      - name: Deploy dashboard with one-minute FightingICE video
-        id: deployment
-        uses: actions/deploy-pages@v4
