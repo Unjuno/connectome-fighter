@@ -1,0 +1,22 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "echo 'static spectator build'",
+  "outputDirectory": "site",
+  "rewrites": [
+    {
+      "source": "/live-data/:path*",
+      "destination": "https://unjuno.github.io/connectome-fighter/data/:path*"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/live-data/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
+      ]
+    }
+  ]
+}
