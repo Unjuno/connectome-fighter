@@ -1,7 +1,9 @@
 """Callback state machine, independent of Java and pyftg."""
 from __future__ import annotations
+from typing import Any
 from .contracts import Policy, Observation, Action, action_keys, player_index
 from .trajectory import RoundLedger
+
 
 class Session:
     def __init__(self, policy: Policy, ledger: RoundLedger, player: bool,
@@ -18,7 +20,7 @@ class Session:
         self.keys = action_keys(Action.NEUTRAL, True)
         self.frame_gaps = 0
 
-    def process(self, obs: Observation | None) -> dict[str, bool]:
+    def process(self, obs: Observation | None, *, display: dict[str, Any] | None = None) -> dict[str, bool]:
         if obs is None:
             self.keys = action_keys(Action.NEUTRAL, True)
             return self.keys.copy()
@@ -38,7 +40,11 @@ class Session:
         self.last_seen = obs.frame
         if self.last_decision < 0 or obs.frame-self.last_decision >= self.interval:
             decision = self.policy.act(obs.vector)
-            self.ledger.append(obs, decision)
+            telemetry = None
+            telemetry_fn = getattr(self.policy, "telemetry", None)
+            if callable(telemetry_fn):
+                telemetry = telemetry_fn()
+            self.ledger.append(obs, decision, brain=telemetry, display=display)
             self.last_decision = obs.frame
             self.keys = action_keys(decision.action, obs.facing_right)
         return self.keys.copy()
