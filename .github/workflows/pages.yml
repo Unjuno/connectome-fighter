@@ -1,8 +1,7 @@
-name: pages-static-preview
+name: pages-manual-redeploy
 
-# Manual preview only. The authoritative public Pages deployment is produced by
-# continuous-training.yml so a source-code push cannot overwrite learned status
-# and replay JSON with repository placeholders.
+# Manual fallback only. The authoritative deployment is produced at the end of
+# malecns-baseline-batch.yml, after canonical MaleCNS artifacts are aggregated.
 on:
   workflow_dispatch:
 
@@ -12,7 +11,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages-static-preview
+  group: pages-manual-redeploy
   cancel-in-progress: true
 
 jobs:
@@ -23,10 +22,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
-      - name: Deploy static preview
+      - name: Redeploy current canonical dashboard
         id: deployment
         uses: actions/deploy-pages@v4
