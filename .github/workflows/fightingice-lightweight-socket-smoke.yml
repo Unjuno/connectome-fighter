@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'scripts/run_live_arena_server.py'
+      - 'deploy/arena-runtime/start-session.sh'
       - 'deploy/arena-runtime/stage-fightingice-lightweight.sh'
       - 'deploy/arena-runtime/build-jre21.sh'
       - '.github/workflows/fightingice-lightweight-socket-smoke.yml'
@@ -126,14 +127,19 @@ jobs:
           print({'status':s['status'],'rounds':s['completed_rounds_per_agent'],'learning':s['learning_performed']})
           PY
 
-      - name: Verify live arena defaults to lightweight mode
+      - name: Verify live arena lightweight bootstrap contract
         run: |
           python - <<'PY'
           from pathlib import Path
-          text=Path('scripts/run_live_arena_server.py').read_text(encoding='utf-8')
-          assert 'choices=["lightweight", "headless"]' in text
-          assert 'default="lightweight"' in text
-          assert 'processing_flag = "--lightweight-mode"' in text
-          assert 'FightingICE.jar:./lib/*:./lib/lwjgl/*' in text
-          print('live arena FightingICE mode contract: lightweight')
+          server=Path('scripts/run_live_arena_server.py').read_text(encoding='utf-8')
+          start=Path('deploy/arena-runtime/start-session.sh').read_text(encoding='utf-8')
+          assert 'choices=["lightweight", "headless"]' in server
+          assert 'default="lightweight"' in server
+          assert 'processing_flag = "--lightweight-mode"' in server
+          assert 'FightingICE.jar:./lib/*:./lib/lwjgl/*' in server
+          assert 'FIGHTINGICE_MODE="${CONNECTOME_FIGHTINGICE_MODE:-lightweight}"' in start
+          assert 'if [[ "$FIGHTINGICE_MODE" == "headless" ]]' in start
+          assert 'font-runtime-not-required-lightweight' in start
+          assert '--fightingice-mode "$FIGHTINGICE_MODE"' in start
+          print('live arena lightweight contract: no font preflight, explicit lightweight runner mode')
           PY
