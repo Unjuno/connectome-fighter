@@ -57,17 +57,22 @@ jobs:
           now=datetime.now(timezone.utc)
           run_number=max(1,int(os.environ.get('GITHUB_RUN_NUMBER','1')))
           slot=(run_number-1)%len(pairs)
-          p1,p2,s1,s2=pairs[slot]
+          epoch=(run_number-1)//len(pairs)
+          p1,p2,base_s1,base_s2=pairs[slot]
+          seed_offset=epoch*1_000_000
+          s1=base_s1+seed_offset
+          s2=base_s2+seed_offset
           nxt=now.replace(minute=17,second=0,microsecond=0)
           if nxt <= now:
               nxt += timedelta(hours=1)
-          run_id=f"spectator-{slot}-{p1.lower()}-{p2.lower()}-{os.environ['GITHUB_RUN_ID']}"
+          run_id=f"spectator-e{epoch}-{slot}-{p1.lower()}-{p2.lower()}-{os.environ['GITHUB_RUN_ID']}"
           run_id=re.sub(r'[^a-z0-9_-]+','-',run_id)[:64]
           values={
             'SPECTATOR_P1':p1,'SPECTATOR_P2':p2,
             'SPECTATOR_SEED1':s1,'SPECTATOR_SEED2':s2,
             'SPECTATOR_RUN_ID':run_id,
             'SPECTATOR_SLOT':slot,
+            'SPECTATOR_EPOCH':epoch,
             'NEXT_EXPECTED_AT':nxt.isoformat(),
           }
           with open(os.environ['GITHUB_ENV'],'a') as f:
