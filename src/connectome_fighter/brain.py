@@ -137,16 +137,35 @@ class ConnectomeActorCritic(nn.Module):
 class NeuralPolicy:
     """Inference wrapper with private recurrent state and activity telemetry."""
     def __init__(self, model: ConnectomeActorCritic, version: str, seed: int = 0,
-                 *, node_ids: tuple[str, ...] | None = None, activity_top_k: int = 12):
+                 *, node_ids: tuple[str, ...] | None = None,
+                 node_positions: np.ndarray | None = None,
+                 brain_bounds: tuple[np.ndarray, np.ndarray] | None = None,
+                 coordinate_space: str | None = None,
+                 activity_top_k: int = 12):
         if not version:
             raise ValueError("Policy version is required")
         if activity_top_k <= 0:
             raise ValueError("activity_top_k must be positive")
         if node_ids is not None and len(node_ids) != model.core.n_nodes:
             raise ValueError("node_ids length does not match model")
+        if node_positions is not None:
+            node_positions = np.asarray(node_positions, dtype=np.float32)
+            if node_positions.shape != (model.core.n_nodes, 3):
+                raise ValueError("node_positions must have shape [n_nodes, 3]")
         self.model, self.version = model.eval(), version
         self.node_ids = node_ids
+        self.node_positions = node_positions
         self.activity_top_k = int(activity_top_k)
+        self.brain_space = None
+        if brain_bounds is not None:
+            lo, hi = (np.asarray(x, dtype=np.float32) for x in brain_bounds)
+            if lo.shape != (3,) or hi.shape != (3,) or not np.all(np.isfinite(lo)) or not np.all(np.isfinite(hi)):
+                raise ValueError("Invalid brain coordinate bounds")
+            self.brain_space = {
+                "bounds_min": lo.tolist(),
+                "bounds_max": hi.tolist(),
+                "coordinate_space": coordinate_space or "FlyWire annotation coordinates",
+            }
         device = next(model.parameters()).device
         self.generator = torch.Generator(device=device).manual_seed(seed)
         self._last_telemetry: dict | None = None
@@ -160,6 +179,10 @@ class NeuralPolicy:
         item = {"node_index": int(idx), "value": float(value)}
         if self.node_ids is not None:
             item["node_id"] = self.node_ids[idx]
+        if self.node_positions is not None:
+            position = self.node_positions[idx]
+            if bool(np.isfinite(position).all()):
+                item["position"] = [float(x) for x in position]
         return item
 
     @torch.no_grad()
@@ -193,18 +216,21 @@ class NeuralPolicy:
             self._node_item(int(output_nodes[local_idx]), val)
             for local_idx, val in zip(desc_local.tolist(), desc_values.tolist())
         ]
+        activation = {
+            "mean": float(self.state.mean()),
+            "max": float(self.state.max()),
+            "fraction_gt_0_75": float((self.state > 0.75).float().mean()),
+            "top_global": top,
+            "top_change": top_change,
+            "top_descending": descending,
+        }
+        if self.brain_space is not None:
+            activation["brain_space"] = self.brain_space
         self._last_telemetry = {
             # These fixed-connectome features are the sufficient input for the
             # trainable actor/critic heads in PPO-readout-v1.
             "readout_features": readout.to(dtype=torch.float32).cpu().tolist(),
-            "activation": {
-                "mean": float(self.state.mean()),
-                "max": float(self.state.max()),
-                "fraction_gt_0_75": float((self.state > 0.75).float().mean()),
-                "top_global": top,
-                "top_change": top_change,
-                "top_descending": descending,
-            },
+            "activation": activation,
         }
         return Decision(action, float(log_probs[0, action]), float(value[0]), self.version)
 
