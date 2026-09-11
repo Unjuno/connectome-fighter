@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'site/**'
+      - 'spectator/**'
       - '.github/workflows/pages.yml'
 
 permissions:
@@ -31,6 +32,8 @@ jobs:
         run: |
           test -s site/index.html
           test -s site/app.js
+          test -s spectator/index.html
+          test -s spectator/app.js
           if [ -f site/data/matches.json ]; then
             python - <<'PY'
           import json
@@ -40,10 +43,24 @@ jobs:
           print({'matches':d['match_count'],'updated_at':d['updated_at']})
           PY
           fi
+          if [ -f site/data/queue.json ]; then
+            python - <<'PY'
+          import json
+          q=json.load(open('site/data/queue.json'))
+          assert q['mode']=='rolling-pseudo-live'
+          assert 1 <= len(q.get('clips', [])) <= 3
+          print({'clips':len(q['clips']),'schema':q.get('schema_version'),'next_expected_at':q.get('next_expected_at')})
+          PY
+          fi
+      - name: Stage live spectator application
+        run: |
+          rm -rf site/live
+          mkdir -p site/live
+          cp spectator/index.html spectator/app.js site/live/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
-      - name: Deploy current log/data site
+      - name: Deploy logs, data, and spectator dashboard
         id: deployment
         uses: actions/deploy-pages@v4
