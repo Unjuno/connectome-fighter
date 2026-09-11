@@ -18,7 +18,7 @@ import pandas as pd
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'src'))
 
-from connectome_fighter.characters import CANONICAL_CHARACTERS
+from connectome_fighter.characters import CHARACTERS
 from connectome_fighter.valence_plasticity import ValencePlasticityConfig, initialize_state, save_state, sha256_file
 
 
@@ -51,7 +51,7 @@ def main()->int:
     candidate_sha=sha256_file(args.candidates)
     args.out_dir.mkdir(parents=True,exist_ok=True)
     states={}
-    for character in CANONICAL_CHARACTERS:
+    for character in CHARACTERS:
         state=initialize_state(character=character,n_candidates=len(candidates),candidate_sha256=candidate_sha,config=cfg)
         path=args.out_dir/f'{character}.npz'; meta=save_state(path,state,cfg)
         states[character]={
@@ -60,7 +60,7 @@ def main()->int:
         }
     manifest={
         'schema_version':1,'kind':'canonical-four-character-lineage-bundle','lineage_id':args.lineage_id,
-        'characters':list(CANONICAL_CHARACTERS),'reward_id':cfg.reward_id,'plasticity_id':raw.get('id'),
+        'characters':list(CHARACTERS),'reward_id':cfg.reward_id,'plasticity_id':raw.get('id'),
         'candidate_sha256':candidate_sha,'config_sha256':cfg.fingerprint(),'candidate_edges':int(len(candidates)),
         'states':states,'learning_performed':False,
         'invariants':{'independent_state_file_per_character':True,'topology_changed':False,'sign_changed':False,'potentiation_allowed':False},
