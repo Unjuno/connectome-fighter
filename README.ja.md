@@ -1,60 +1,68 @@
 # Connectome Fighter
 
-[FightingICE](https://github.com/TeamFightingICE/FightingICE) を既存の対戦環境として使い、Drosophila由来のコネクトーム配線に制約されたファイターを**checkpointを引き継ぎながら継続学習**させ、その世代間・対戦相手との試合をGitHub Pagesで観戦できるようにする研究・実装基盤です。
+このプロジェクトは、FightingICE を対戦環境として使い、**実際に公開された Drosophila CNS connectome を神経基盤として**キャラクターを制御し、対戦時にどの神経構造が使われたかを後から解析できるようにする研究・実装基盤です。
 
-[Training Arena](https://unjuno.github.io/connectome-fighter/) · [Roadmap](ROADMAP.md) · [English](README.md)
+## Canonical substrate
 
-## 主目的
+現在の canonical target は次です。
 
-```text
-latest checkpoint
-      ↓
-FightingICEで追加学習
-      ↓
-new checkpoint
-      ↓
-champion / archive / baseline と評価対戦
-      ↓
-replay + metrics を出力
-      ↓
-GitHub Pagesで観戦
-      ↓
-次のjobがcheckpointを復元して続行
-```
+- anatomy: **MaleCNS v1.0** (`male-cns:v1.0`)
+  - FlyEM / HHMI Janelia + Cambridge + MRC LMB + Google Research
+  - brain + optic lobes + ventral nerve cord
+  - official: https://male-cns.janelia.org/
+- dynamics: **Shiu et al. 2024 の公開 leaky integrate-and-fire (LIF) model**
+  - DOI: `10.1038/s41586-024-07763-9`
+  - reference code: https://github.com/philshiu/Drosophila_brain_model
 
-GitHub-hosted Actionsは永続プロセスではないため、学習はbounded chunkに分割し、各job間をcheckpointで接続します。真の24/7計算が必要になった場合はtrainerだけself-hosted runnerへ移し、Actionsをscheduler/orchestrator、Pagesを観戦UIとして残す設計です。
+重要: MaleCNS は解剖学的connectomeであり、Google公式の膜電位シミュレータではありません。したがって、**構造はMaleCNS、時間発展は公開済みLIF model、ゲームI/Oは本プロジェクト固有interface**として明確に分離します。
 
-詳細: [`ROADMAP.md`](ROADMAP.md) · [`docs/CONTINUOUS_TRAINING.ja.md`](docs/CONTINUOUS_TRAINING.ja.md) · [Milestone #5](https://github.com/Unjuno/connectome-fighter/issues/5)
+詳細: [`docs/SUBSTRATE_CONTRACT.ja.md`](docs/SUBSTRATE_CONTRACT.ja.md)
 
-## 現在の範囲
+## NNを脳の代用品にしない
 
-- FightingICE 7.1 / pyftg 2.3 の実対戦bridge
-- 数値観測 → 制御器 → 8操作
-- 勝利 `+1`、敗北 `-1`、引き分け `0` のterminal-only報酬contract
-- 二者の対戦ログを照合する監査層
-- FlyWire/Shiu v783由来graphの再現可能なimport pipeline
-- 実配線と次数・符号を保存したrewire対照を比較するgraph層
-- 疎なconnectome-constrained recurrent controllerの工学的scaffold
-- CIとGitHub Pages spectator scaffold
+Canonical control path では、MLP/RNN/GRU/GNN/custom sigmoid recurrent network を「ハエ脳本体」として使いません。PyTorch等を高速計算器として使うことはあり得ますが、学習可能な人工NNでconnectomeを置換しません。
 
-## 現在の制限
+## キャラごとの別個体
 
-継続RL trainerとcheckpoint round-tripはまだ未完成です。Pagesは観戦用data contractとviewerの骨格を持ちますが、実学習リプレイはまだ公開されていません。また `brain.py` のsigmoid再帰モデルはShiuらのLIFモデルの再現ではありません。
+FightingICE の GARNET / ZEN / LUD / NEZ は、それぞれ独立したsimulation state / RNG / checkpoint / plasticity stateを持ちます。immutableなMaleCNS anatomy assetをメモリ節約のため共有しても、神経状態は共有しません。
 
-## 最小検査
+## 後解析を第一級要件にする
 
-```bash
-python -m pip install -e '.[test]'
-python -m pytest -q
-python scripts/smoke_core.py
-```
+各decision windowで、少なくとも次を保存します。
 
-ライブ対戦にはFightingICE本体と `pyftg==2.3` が必要です。
+- game observation / action
+- 刺激した MaleCNS body IDs
+- spikeした body IDs と spike count
+- membrane-potential summary
+- neuron type / superclass / side / soma neuromere
+- neurotransmitter identity + confidence
+- motor/descending output contribution
+- dataset/dynamics/interface hash
 
-## 研究上の分離
+これにより、対戦後に「どの神経型・経路・階層が、どの局面と行動で使われたか」を解析できます。
 
-「同じハエ由来制御器が継続学習して強くなる」と「Drosophila由来topologyが対照配線より有利」は別命題です。後者を主張するには、観測・行動・報酬・学習予算・seed・評価相手を固定し、実配線と構造対照を比較します。
+## Legacy pipeline
+
+旧実装の以下は、FightingICE bridgeやloggingの工学的検証としては残しますが、canonicalなハエ脳の結果として扱いません。
+
+- FlyWire v783 substrate
+- `brain.py` の custom sigmoid recurrent core
+- PPO readout checkpoint
+- Release tag `training-state`
+
+旧 continuous-training workflow は自動実行を停止しています。
+
+## 再開gate
+
+MaleCNS版のscheduled learningは、次を確認してから有効化します。
+
+1. official MaleCNS filesのprovenance/hash確認
+2. body ID / connection weight / neurotransmitter join検証
+3. published LIF equationsのreference一致
+4. MaleCNS -> LIF -> FightingICE の1 round完走
+5. replayで実MaleCNS body ID/activityを可視化
+6. 4キャラの神経状態独立性を確認
 
 ## ライセンス
 
-このリポジトリで新規作成したコードはMIT Licenseです。FightingICE、コネクトームデータ、論文などの外部成果物には各自の利用条件が適用されます。
+本リポジトリの新規コードはMIT Licenseです。MaleCNS、FightingICE、Shiu model等の外部成果物にはそれぞれのライセンスが適用されます。
