@@ -1,0 +1,284 @@
+name: publish-arena-runtime-bundle
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/arena-runtime/**'
+      - 'scripts/run_live_arena_server.py'
+      - 'scripts/run_game_malecns_lif.py'
+      - 'scripts/materialize_malecns_valence_adapter.py'
+      - 'src/connectome_fighter/trajectory.py'
+      - 'src/connectome_fighter/pyftg_bridge.py'
+      - 'src/connectome_fighter/malecns_worker_policy.py'
+      - '.github/workflows/publish-arena-runtime-bundle.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-arena-runtime-bundle
+  cancel-in-progress: true
+
+env:
+  TARGET_TAG: arena-runtime-latest
+  BASE_URL: https://storage.googleapis.com/flyem-male-cns/v1.0/connectome-data/flat-connectome
+  ANNOTATIONS_FILE: body-annotations-male-cns-v1.0-minconf-0.5.feather
+  NT_FILE: body-neurotransmitters-male-cns-v1.0.feather
+  CONNECTIVITY_FILE: connectome-weights-male-cns-v1.0-minconf-0.5.feather
+  SHIU_COMMIT: 2a83ad611cd9768f8c9723fc613ed27761a5feb5
+  ADAPTER_CACHE_KEY: malecns-v1.0-shiu-strict-minw5-2a83ad611cd9768f8c9723fc613ed27761a5feb5-adapter-v1
+  VALENCE_CACHE_KEY: malecns-v1.0-kc-mbon-valence-v1
+  GAME_URL: https://github.com/TeamFightingICE/FightingICE/releases/download/v7.1/DareFightingICE-7.1.zip
+  GAME_SHA256: 510752a69a097b767677d3911b1407d6a08a721dad4faf2cb5b7a19b988f1c62
+  RESOURCE_URL: https://github.com/TeamFightingICE/FightingICE/releases/download/v7.1/resource-7.1.zip
+  RESOURCE_SHA256: 386fd713f901db00583054528ccfbce315953c157dc16231c4367416d86dce53
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deterministic bundle-build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install 'numpy==2.3.5' 'pandas==2.3.3' 'pyarrow==23.0.1'
+
+      - name: Restore immutable MaleCNS source cache
+        id: source-cache
+        uses: actions/cache@v4
+        with:
+          path: external/malecns-v1.0
+          key: malecns-v1.0-flat-connectome-official-20260608
+
+      - name: Download official MaleCNS v1.0 files on source-cache miss
+        if: steps.source-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p external/malecns-v1.0
+          for f in "$ANNOTATIONS_FILE" "$NT_FILE" "$CONNECTIVITY_FILE"; do
+            curl -fL --retry 5 --retry-all-errors \
+              -o "external/malecns-v1.0/$f" "$BASE_URL/$f"
+            test -s "external/malecns-v1.0/$f"
+          done
+
+      - name: Restore canonical MaleCNS-to-Shiu adapter cache
+        id: adapter-cache
+        uses: actions/cache@v4
+        with:
+          path: data/processed/malecns-shiu-strict-v1
+          key: ${{ env.ADAPTER_CACHE_KEY }}
+
+      - name: Build canonical adapter on cache miss
+        if: steps.adapter-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          rm -rf data/processed/malecns-shiu-strict-v1
+          python scripts/build_malecns_shiu_tables.py \
+            --annotations "external/malecns-v1.0/$ANNOTATIONS_FILE" \
+            --neurotransmitters "external/malecns-v1.0/$NT_FILE" \
+            --connectivity "external/malecns-v1.0/$CONNECTIVITY_FILE" \
+            --out data/processed/malecns-shiu-strict-v1 \
+            --min-weight 5 \
+            --histamine-mode strict-shiu \
+            --shiu-reference-commit "$SHIU_COMMIT"
+
+      - name: Restore canonical KC-to-MBON valence partition cache
+        id: valence-cache
+        uses: actions/cache@v4
+        with:
+          path: data/processed/malecns-valence-v1
+          key: ${{ env.VALENCE_CACHE_KEY }}
+
+      - name: Build valence partition on cache miss
+        if: steps.valence-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          rm -rf data/processed/malecns-valence-v1
+          python scripts/build_malecns_valence_partition.py \
+            --metadata data/processed/malecns-shiu-strict-v1/neuron_metadata.parquet \
+            --connectivity data/processed/malecns-shiu-strict-v1/connectivity.parquet \
+            --adapter-manifest data/processed/malecns-shiu-strict-v1/manifest.json \
+            --out-dir data/processed/malecns-valence-v1
+
+      - name: Validate canonical structural inputs
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, pandas as pd, pyarrow.parquet as pq
+          adapter='data/processed/malecns-shiu-strict-v1'
+          valence='data/processed/malecns-valence-v1'
+          m=json.load(open(f'{adapter}/manifest.json'))
+          assert m['dataset']=='male-cns:v1.0'
+          assert m['histamine_mode']=='strict-shiu'
+          assert m['min_connection_weight']==5
+          assert m['shiu_reference_commit']=='2a83ad611cd9768f8c9723fc613ed27761a5feb5'
+          assert m['counts']['included_neurons'] > 150_000
+          assert m['counts']['runtime_edges'] > 1_000_000
+          assert pq.ParquetFile(f'{adapter}/connectivity.parquet').metadata.num_rows == m['counts']['runtime_edges']
+          v=json.load(open(f'{valence}/manifest.json'))
+          c=pd.read_parquet(f'{valence}/kc_mbon_valence_candidates.parquet')
+          assert len(c)==33496
+          assert v['invariants']['topology_changed'] is False
+          assert v['invariants']['weights_changed'] is False
+          assert v['invariants']['signs_changed'] is False
+          assert v['invariants']['learning_applied'] is False
+          print(json.dumps({'adapter_counts':m['counts'],'candidate_edges':len(c)},indent=2))
+          PY
+
+      - name: Build deterministic game interface
+        run: |
+          set -euo pipefail
+          mkdir -p runs/interface
+          python scripts/build_malecns_game_interface.py \
+            --metadata data/processed/malecns-shiu-strict-v1/neuron_metadata.parquet \
+            --manifest data/processed/malecns-shiu-strict-v1/manifest.json \
+            --out runs/interface/interface.json \
+            --seed 20260911 \
+            --input-bodies-per-polarity-feature 16 \
+            --max-poisson-rate-hz 150 \
+            --decision-window-ms 20 \
+            --neutral-min-spikes 1
+
+      - name: Fetch and verify pinned Shiu reference model
+        run: |
+          set -euo pipefail
+          mkdir -p runs/shiu
+          curl -fL --retry 4 --retry-all-errors \
+            -o runs/shiu/model.py \
+            "https://raw.githubusercontent.com/philshiu/Drosophila_brain_model/$SHIU_COMMIT/model.py"
+          echo 'fc45837d7122c6ce2a7f3f2f23c515992e4b232aadb919efabb72337fac88e4e  runs/shiu/model.py' | sha256sum -c -
+
+      - name: Restore FightingICE v7.1 cache
+        id: game-cache
+        uses: actions/cache@v4
+        with:
+          path: external/v71
+          key: fightingice-v71-510752a6-386fd713
+
+      - name: Download and verify FightingICE v7.1 on cache miss
+        if: steps.game-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p external/v71 external/downloads
+          curl -fL --retry 4 --retry-all-errors -o external/downloads/game.zip "$GAME_URL"
+          curl -fL --retry 4 --retry-all-errors -o external/downloads/resource.zip "$RESOURCE_URL"
+          echo "$GAME_SHA256  external/downloads/game.zip" | sha256sum -c -
+          echo "$RESOURCE_SHA256  external/downloads/resource.zip" | sha256sum -c -
+          unzip -q external/downloads/game.zip -d external/v71
+          GAME_JAR="$(find external/v71 -type f -name FightingICE.jar -print -quit)"
+          test -n "$GAME_JAR"
+          unzip -q -o external/downloads/resource.zip -d "$(dirname "$GAME_JAR")"
+          rm -rf external/downloads
+
+      - name: Stage immutable arena runtime bundle
+        run: |
+          set -euo pipefail
+          ROOT=runs/arena-runtime
+          rm -rf "$ROOT"
+          mkdir -p "$ROOT/repo" "$ROOT/data" "$ROOT/shiu" "$ROOT/fightingice" "$ROOT/bin"
+          cp -a src scripts configs "$ROOT/repo/"
+          cp -a data/processed/malecns-shiu-strict-v1 "$ROOT/data/"
+          cp -a data/processed/malecns-valence-v1 "$ROOT/data/"
+          cp runs/interface/interface.json "$ROOT/data/interface.json"
+          cp runs/shiu/model.py "$ROOT/shiu/model.py"
+          cp deploy/arena-runtime/start-session.sh "$ROOT/bin/start-session"
+          chmod +x "$ROOT/bin/start-session"
+          GAME_JAR="$(find external/v71 -type f -name FightingICE.jar -print -quit)"
+          test -n "$GAME_JAR"
+          cp -a "$(dirname "$GAME_JAR")/." "$ROOT/fightingice/"
+          test -s "$ROOT/fightingice/FightingICE.jar"
+          test -s "$ROOT/data/malecns-shiu-strict-v1/connectivity.parquet"
+          test -s "$ROOT/data/malecns-valence-v1/kc_mbon_valence_candidates.parquet"
+          test -x "$ROOT/bin/start-session"
+
+      - name: Build runtime manifest and archive
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json, pathlib
+          root=pathlib.Path('runs/arena-runtime')
+          def sha(path): return hashlib.sha256(path.read_bytes()).hexdigest()
+          adapter=json.load(open(root/'data/malecns-shiu-strict-v1/manifest.json'))
+          interface=json.load(open(root/'data/interface.json'))
+          manifest={
+            'schema_version':1,
+            'kind':'connectome-fighter-arena-runtime-bundle',
+            'canonical_model':'MaleCNS v1.0 + pinned Shiu LIF',
+            'mutability':'immutable-runtime-read-only-inference',
+            'learning_enabled':False,
+            'policy_pixel_access':False,
+            'male_cns_dataset':adapter['dataset'],
+            'shiu_commit':adapter['shiu_reference_commit'],
+            'shiu_model_sha256':sha(root/'shiu/model.py'),
+            'interface_id':interface['interface_id'],
+            'interface_sha256':interface['interface_sha256'],
+            'adapter_manifest_sha256':sha(root/'data/malecns-shiu-strict-v1/manifest.json'),
+            'adapter_connectivity_sha256':sha(root/'data/malecns-shiu-strict-v1/connectivity.parquet'),
+            'valence_candidates_sha256':sha(root/'data/malecns-valence-v1/kc_mbon_valence_candidates.parquet'),
+            'fightingice_version':'7.1',
+            'fightingice_jar_sha256':sha(root/'fightingice/FightingICE.jar'),
+            'session_entrypoint':'bin/start-session',
+            'checkpoint_handoff_tag':'arena-inference-latest',
+            'note':'Runtime assets only. Approved mutable character state is downloaded separately by hash from the inference snapshot release.'
+          }
+          (root/'manifest.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n',encoding='utf-8')
+          print(json.dumps(manifest,indent=2,sort_keys=True))
+          PY
+          tar -C runs -czf runs/arena-runtime.tar.gz arena-runtime
+          sha256sum runs/arena-runtime.tar.gz | tee runs/arena-runtime.tar.gz.sha256
+          test -s runs/arena-runtime.tar.gz
+
+      - name: Validate packaged runtime contract
+        run: |
+          set -euo pipefail
+          mkdir -p runs/verify
+          tar -C runs/verify -xzf runs/arena-runtime.tar.gz
+          test -x runs/verify/arena-runtime/bin/start-session
+          test -s runs/verify/arena-runtime/fightingice/FightingICE.jar
+          test -s runs/verify/arena-runtime/shiu/model.py
+          test -s runs/verify/arena-runtime/data/interface.json
+          test -s runs/verify/arena-runtime/data/malecns-shiu-strict-v1/connectivity.parquet
+          test -s runs/verify/arena-runtime/data/malecns-valence-v1/kc_mbon_valence_candidates.parquet
+          python - <<'PY'
+          import json
+          m=json.load(open('runs/verify/arena-runtime/manifest.json'))
+          assert m['kind']=='connectome-fighter-arena-runtime-bundle'
+          assert m['canonical_model']=='MaleCNS v1.0 + pinned Shiu LIF'
+          assert m['learning_enabled'] is False
+          assert m['policy_pixel_access'] is False
+          assert m['session_entrypoint']=='bin/start-session'
+          print(json.dumps(m,indent=2,sort_keys=True))
+          PY
+
+      - name: Publish rolling arena runtime release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TARGET_TAG" >/dev/null 2>&1; then
+            gh release create "$TARGET_TAG" --prerelease \
+              --title 'Connectome Fighter arena runtime bundle' \
+              --notes 'Immutable canonical runtime bundle for short-lived read-only Vercel inference sessions. Learned character state remains in the separate arena-inference-latest handoff.'
+          fi
+          gh release upload "$TARGET_TAG" \
+            runs/arena-runtime.tar.gz \
+            runs/arena-runtime.tar.gz.sha256 \
+            runs/arena-runtime/manifest.json \
+            --clobber
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arena-runtime-bundle-manifest
+          path: |
+            runs/arena-runtime/manifest.json
+            runs/arena-runtime.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 30
