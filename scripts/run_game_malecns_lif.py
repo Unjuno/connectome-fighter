@@ -118,8 +118,6 @@ def main() -> int:
         status["interface_sha256"] = interface_hash
         write_json(out / "status.json", status)
 
-        # Agent registration names are unique per live match. Reusing names in
-        # the same FightingICE server previously produced terminal-only traces.
         agents = [
             FighterAI(
                 f"CF-{run_id}-P{i+1}-{characters[i]}",
@@ -149,7 +147,10 @@ def main() -> int:
 
         asyncio.run(run())
         from connectome_fighter.match_audit import audit_pair
-        audit = audit_pair(out / "p1.jsonl", out / "p2.jsonl", args.expected_rounds)
+        audit = audit_pair(
+            out / "p1.jsonl", out / "p2.jsonl", args.expected_rounds,
+            expected_trainable=False,
+        )
         status["audit"] = audit
         status["status"] = "COMPLETED_WITH_VALIDATED_CANONICAL_TRACES"
         code = 0
