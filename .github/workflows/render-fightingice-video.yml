@@ -39,7 +39,7 @@ jobs:
       - name: Fast-forward to latest public data
         run: git pull --ff-only origin main
 
-      - name: Choose hourly matchup and next expected clip time
+      - name: Choose rotating matchup and next expected clip time
         run: |
           python - <<'PY'
           from datetime import datetime, timezone, timedelta
@@ -53,7 +53,8 @@ jobs:
             ('LUD','NEZ',30303,40404),
           ]
           now=datetime.now(timezone.utc)
-          slot=int(now.timestamp()//3600)%len(pairs)
+          run_number=max(1,int(os.environ.get('GITHUB_RUN_NUMBER','1')))
+          slot=(run_number-1)%len(pairs)
           p1,p2,s1,s2=pairs[slot]
           nxt=now.replace(minute=17,second=0,microsecond=0)
           if nxt <= now:
@@ -64,6 +65,7 @@ jobs:
             'SPECTATOR_P1':p1,'SPECTATOR_P2':p2,
             'SPECTATOR_SEED1':s1,'SPECTATOR_SEED2':s2,
             'SPECTATOR_RUN_ID':run_id,
+            'SPECTATOR_SLOT':slot,
             'NEXT_EXPECTED_AT':nxt.isoformat(),
           }
           with open(os.environ['GITHUB_ENV'],'a') as f:
