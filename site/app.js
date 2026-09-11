@@ -76,13 +76,16 @@ function renderBrain(target, summaryTarget, activity) {
   if(!activity){ summary.textContent='No connectome activity telemetry.'; return; }
   summary.textContent=`mean ${Number(activity.mean??0).toFixed(3)} · max ${Number(activity.max??0).toFixed(3)} · >0.75 ${((Number(activity.fraction_gt_0_75)||0)*100).toFixed(2)}%`;
   const rows=[];
-  (activity.top_global||[]).slice(0,7).forEach(x=>rows.push({...x,kind:'whole'}));
+  const changes=(activity.top_change||[]).slice(0,7);
+  if(changes.length) changes.forEach(x=>rows.push({...x,kind:'change'}));
+  else (activity.top_global||[]).slice(0,7).forEach(x=>rows.push({...x,kind:'whole'}));
   (activity.top_descending||[]).slice(0,5).forEach(x=>rows.push({...x,kind:'desc'}));
   rows.forEach(x=>{
     const row=document.createElement('div'); row.className='brain-row';
     const label=fmt(x.node_id,`index ${x.node_index}`);
     const value=Math.max(0,Math.min(1,Number(x.value)||0));
-    row.innerHTML=`<div class="brain-label" title="${label}">${x.kind==='desc'?'D':'G'} · ${label}</div><div class="bar"><span style="width:${(value*100).toFixed(1)}%"></span></div><div>${value.toFixed(3)}</div>`;
+    const prefix=x.kind==='desc'?'D':x.kind==='change'?'Δ':'G';
+    row.innerHTML=`<div class="brain-label" title="${label}">${prefix} · ${label}</div><div class="bar"><span style="width:${(value*100).toFixed(1)}%"></span></div><div>${value.toFixed(3)}</div>`;
     root.appendChild(row);
   });
 }
