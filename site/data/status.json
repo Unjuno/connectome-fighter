@@ -1,13 +1,130 @@
 {
-  "schema_version": 2,
-  "phase": "trainer-not-started",
-  "updated_at": null,
-  "chunk": 0,
-  "characters": {
-    "GARNET": {"character":"GARNET","generation":0,"training_matches":0,"elo":1500,"checkpoint_id":null,"history":[]},
-    "ZEN": {"character":"ZEN","generation":0,"training_matches":0,"elo":1500,"checkpoint_id":null,"history":[]},
-    "LUD": {"character":"LUD","generation":0,"training_matches":0,"elo":1500,"checkpoint_id":null,"history":[]},
-    "NEZ": {"character":"NEZ","generation":0,"training_matches":0,"elo":1500,"checkpoint_id":null,"history":[]}
+  "canonical_model": "MaleCNS v1.0 + pinned Shiu LIF",
+  "history": [
+    {
+      "action_rates": {
+        "A": 0.014583333333333334,
+        "B": 0.6333333333333333,
+        "BACKWARD": 0.22708333333333333,
+        "C": 0.030208333333333334,
+        "DOWN": 0.071875,
+        "FORWARD": 0.01875,
+        "UP": 0.004166666666666667
+      },
+      "independent_rounds": 48,
+      "nonzero_reward_rate": 0.020833333333333332,
+      "nonzero_reward_rounds": 1,
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34620984683",
+      "updated_at": "2026-09-11T16:21:30Z"
+    }
+  ],
+  "latest_match": {
+    "replay_url": "./data/replay-latest.json",
+    "run_id": "baseline-zen-nez-ZEN-NEZ",
+    "winner": "NEZ"
   },
-  "latest_match": null
+  "metrics": {
+    "action_counts": {
+      "A": 14,
+      "B": 608,
+      "BACKWARD": 218,
+      "C": 29,
+      "DOWN": 69,
+      "FORWARD": 18,
+      "UP": 4
+    },
+    "action_rates": {
+      "A": 0.014583333333333334,
+      "B": 0.6333333333333333,
+      "BACKWARD": 0.22708333333333333,
+      "C": 0.030208333333333334,
+      "DOWN": 0.071875,
+      "FORWARD": 0.01875,
+      "UP": 0.004166666666666667
+    },
+    "characters": {
+      "GARNET": {
+        "action_counts": {
+          "A": 3,
+          "B": 175,
+          "BACKWARD": 34,
+          "C": 4,
+          "DOWN": 19,
+          "FORWARD": 5
+        },
+        "decisions": 240,
+        "draws": 24,
+        "losses": 0,
+        "rounds": 24,
+        "wins": 0
+      },
+      "LUD": {
+        "action_counts": {
+          "A": 5,
+          "B": 148,
+          "BACKWARD": 59,
+          "C": 7,
+          "DOWN": 14,
+          "FORWARD": 4,
+          "UP": 3
+        },
+        "decisions": 240,
+        "draws": 24,
+        "losses": 0,
+        "rounds": 24,
+        "wins": 0
+      },
+      "NEZ": {
+        "action_counts": {
+          "A": 2,
+          "B": 130,
+          "BACKWARD": 72,
+          "C": 12,
+          "DOWN": 18,
+          "FORWARD": 6
+        },
+        "decisions": 240,
+        "draws": 23,
+        "losses": 0,
+        "rounds": 24,
+        "wins": 1
+      },
+      "ZEN": {
+        "action_counts": {
+          "A": 4,
+          "B": 155,
+          "BACKWARD": 53,
+          "C": 6,
+          "DOWN": 18,
+          "FORWARD": 3,
+          "UP": 1
+        },
+        "decisions": 240,
+        "draws": 23,
+        "losses": 1,
+        "rounds": 24,
+        "wins": 0
+      }
+    },
+    "independent_nonzero_reward_rate": 0.020833333333333332,
+    "independent_nonzero_reward_rounds": 1,
+    "independent_rounds": 48,
+    "independent_seed_pairings": 6,
+    "raw_nonzero_reward_rounds": 1,
+    "raw_rounds": 48,
+    "raw_runs": 6,
+    "total_decisions": 960
+  },
+  "phase": "canonical-baseline-no-weight-updates",
+  "randomness": "observation-driven Poisson sensory spikes; deterministic spike-count argmax readout",
+  "reward_design": {
+    "draw": 0.0,
+    "id": "R0-terminal-hp-sign",
+    "learning_enabled": false,
+    "loss": -1.0,
+    "win": 1.0
+  },
+  "schema_version": 3,
+  "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34620984683",
+  "updated_at": "2026-09-11T16:21:30Z"
 }
