@@ -6,7 +6,7 @@ on:
       baseline_run_id:
         description: 'Successful malecns-baseline-batch run ID to rescore'
         required: false
-        default: '34620984683'
+        default: '34629644845'
   workflow_run:
     workflows: [malecns-baseline-batch]
     types: [completed]
@@ -15,6 +15,7 @@ on:
     paths:
       - 'scripts/score_reward_candidates.py'
       - 'scripts/score_stalemate_reward.py'
+      - 'scripts/score_engagement_potential.py'
       - '.github/workflows/reward-design-offline.yml'
 
 permissions:
@@ -49,7 +50,7 @@ jobs:
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             RUN_ID="${{ inputs.baseline_run_id }}"
           else
-            RUN_ID="34620984683"
+            RUN_ID="34629644845"
           fi
           test -n "$RUN_ID"
           echo "BASELINE_RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
@@ -71,7 +72,7 @@ jobs:
         with:
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
-          run-id: ${{ inputs.baseline_run_id || '34620984683' }}
+          run-id: ${{ inputs.baseline_run_id || '34629644845' }}
           pattern: malecns-baseline-*
           path: runs/reward-input
 
@@ -91,18 +92,28 @@ jobs:
             --events runs/reward-analysis/reward-events.csv \
             --out runs/reward-analysis/stalemate-analysis.json
 
+      - name: Offline-score R2c engagement potential
+        run: |
+          python scripts/score_engagement_potential.py \
+            --root runs/reward-input \
+            --out runs/reward-analysis/engagement-analysis.json \
+            --stage-width 960 \
+            --damage-unit-hp 10
+
       - name: Sanity gate
         run: |
           python - <<'PY'
           import json
           d=json.load(open('runs/reward-analysis/reward-analysis.json'))
           s=json.load(open('runs/reward-analysis/stalemate-analysis.json'))
-          assert d['status']=='PASS' and s['status']=='PASS'
-          assert d['learning_performed'] is False and s['learning_performed'] is False
+          e=json.load(open('runs/reward-analysis/engagement-analysis.json'))
+          assert d['status']=='PASS' and s['status']=='PASS' and e['status']=='PASS'
+          assert d['learning_performed'] is False and s['learning_performed'] is False and e['learning_performed'] is False
           assert d['guardrails']['same_logged_trajectories_for_all_candidates'] is True
           assert d['guardrails']['current_action_randomness_unchanged'] is True
           assert s['guardrails']['same_trajectories'] is True
-          assert s['guardrails']['current_action_randomness_unchanged'] is True
+          assert e['guardrails']['same_trajectories'] is True
+          assert e['guardrails']['no_specific_action_reward'] is True
           assert d['input']['game_rounds'] > 0
           print(json.dumps({
               'baseline_run_id': '${{ env.BASELINE_RUN_ID }}',
@@ -112,6 +123,7 @@ jobs:
               'damage_window_rate': d['observed']['damage_window_rate'],
               'no_damage_draw_rate': s['no_damage_draw_rate'],
               'R2b_first_config_decision_nonzero_rate': s['configs'][0]['decision_reward']['nonzero_rate'],
+              'R2c_first_config_decision_nonzero_rate': e['configs'][0]['decision_reward']['nonzero_rate'],
           }, indent=2))
           PY
 
@@ -123,6 +135,7 @@ jobs:
           pairs=[
               ('runs/reward-analysis/reward-analysis.json','site/data/reward-analysis.json'),
               ('runs/reward-analysis/stalemate-analysis.json','site/data/stalemate-analysis.json'),
+              ('runs/reward-analysis/engagement-analysis.json','site/data/engagement-analysis.json'),
           ]
           for src,dst in pairs:
               data=json.load(open(src))
@@ -132,7 +145,7 @@ jobs:
           PY
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add site/data/reward-analysis.json site/data/stalemate-analysis.json
+          git add site/data/reward-analysis.json site/data/stalemate-analysis.json site/data/engagement-analysis.json
           if ! git diff --cached --quiet; then
             git commit -m 'Update offline reward analysis [skip ci]'
             git push origin HEAD:main
