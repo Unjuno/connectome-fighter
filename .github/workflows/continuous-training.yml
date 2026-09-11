@@ -1,259 +1,31 @@
-name: continuous-training
+name: continuous-training-legacy-paused
+
+# PAUSED ON PURPOSE.
+# The previous scheduled trainer used FlyWire v783 plus a custom sigmoid
+# recurrent scaffold. That is not the canonical substrate requested for this
+# project. Automatic training stays disabled until the MaleCNS v1.0 +
+# published-LIF control path passes provenance and integration gates.
 
 on:
-  schedule:
-    - cron: '17 * * * *'
   workflow_dispatch:
-    inputs:
-      train_games_per_pair:
-        description: 'Repeats for each of the two round-robin training matchups in this chunk'
-        required: true
-        default: '1'
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/continuous-training.yml'
 
 permissions:
-  contents: write
-  pages: write
-  id-token: write
-
-concurrency:
-  group: connectome-fighter-training-writer
-  cancel-in-progress: false
-
-env:
-  SHIU_COMMIT: 91bdd1e7dcf193f3e7ca5a8933497fcef63b7960
-  ANNOT_COMMIT: 8587524c1748ce5ef2080822a2fc890fc03bf597
-  GAME_URL: https://github.com/TeamFightingICE/FightingICE/releases/download/v7.1/DareFightingICE-7.1.zip
-  GAME_SHA256: 510752a69a097b767677d3911b1407d6a08a721dad4faf2cb5b7a19b988f1c62
-  RESOURCE_URL: https://github.com/TeamFightingICE/FightingICE/releases/download/v7.1/resource-7.1.zip
-  RESOURCE_SHA256: 386fd713f901db00583054528ccfbce315953c157dc16231c4367416d86dce53
-  TRAIN_GAMES_PER_PAIR: ${{ inputs.train_games_per_pair || '1' }}
+  contents: read
 
 jobs:
-  train-evaluate-publish:
+  paused:
     runs-on: ubuntu-latest
-    timeout-minutes: 330
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '21'
-
-      - name: Install runtime
+      - name: Explain pause
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install torch==2.10.0 --index-url https://download.pytorch.org/whl/cpu
-          python -m pip install '.[game,data]'
-          gh --version
+          cat <<'EOF'
+          Legacy continuous training is paused.
 
-      - name: Restore immutable connectome cache
-        id: graph-cache
-        uses: actions/cache@v4
-        with:
-          path: data/processed/shiu783
-          key: shiu783-${{ env.SHIU_COMMIT }}-${{ env.ANNOT_COMMIT }}-routing-v2-coordinates
+          Canonical target:
+            anatomy: FlyEM/Janelia/Cambridge/MRC LMB/Google Research MaleCNS v1.0
+            dynamics: published Drosophila LIF model, explicitly separated from anatomy
+            no custom sigmoid/RNN/MLP brain in the canonical control path
 
-      - name: Build verified connectome and routing on cache miss
-        if: steps.graph-cache.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p external/shiu783 external/annotations data/processed/shiu783
-          SHIU_BASE="https://raw.githubusercontent.com/philshiu/Drosophila_brain_model/$SHIU_COMMIT"
-          ANNOT_BASE="https://raw.githubusercontent.com/flyconnectome/flywire_annotations/$ANNOT_COMMIT"
-          curl -fL --retry 3 -o external/shiu783/Completeness_783.csv "$SHIU_BASE/Completeness_783.csv"
-          curl -fL --retry 3 -o external/shiu783/Connectivity_783.parquet "$SHIU_BASE/Connectivity_783.parquet"
-          curl -fL --retry 3 -o external/annotations/neurons.tsv "$ANNOT_BASE/supplemental_files/Supplemental_file1_neuron_annotations.tsv"
-          python scripts/import_shiu_flywire.py \
-            --completeness external/shiu783/Completeness_783.csv \
-            --connectivity external/shiu783/Connectivity_783.parquet \
-            --out data/processed/shiu783 \
-            --source-version "FlyWire 783 / Shiu table @ $SHIU_COMMIT" \
-            --source-url "https://github.com/philshiu/Drosophila_brain_model/tree/$SHIU_COMMIT" \
-            --license "CC BY-NC 4.0 (FlyWire public release data)"
-          python scripts/make_routing_from_annotations.py \
-            --nodes data/processed/shiu783/nodes.csv \
-            --annotations external/annotations/neurons.tsv \
-            --out data/processed/shiu783/routing.json \
-            --metadata-out data/processed/shiu783/node_metadata.npz \
-            --seed 20260911 \
-            --neurons-per-polarity-per-feature 32 \
-            --input-scale 0.25 \
-            --annotation-source "https://github.com/flyconnectome/flywire_annotations/tree/$ANNOT_COMMIT" \
-            --annotation-version "$ANNOT_COMMIT"
-          rm -rf external/shiu783 external/annotations
-
-      - name: Validate cached biological runtime
-        run: |
-          test -s data/processed/shiu783/nodes.csv
-          test -s data/processed/shiu783/edges.npz
-          test -s data/processed/shiu783/manifest.json
-          test -s data/processed/shiu783/routing.json
-          test -s data/processed/shiu783/node_metadata.npz
-          PYTHONPATH=src python - <<'PY'
-          import json, numpy as np
-          from connectome_fighter.graph import load_graph
-          from connectome_fighter.routing import validate_routing
-          g=load_graph('data/processed/shiu783', require_biological=True)
-          r=json.load(open('data/processed/shiu783/routing.json'))
-          validate_routing(g,r)
-          with np.load('data/processed/shiu783/node_metadata.npz', allow_pickle=False) as m:
-              assert m['positions'].shape == (g.n_nodes, 3)
-              assert int(m['has_position'].sum()) > 0
-          print(g.n_nodes,g.n_edges,g.fingerprint(),r['routing_sha256'])
-          PY
-
-      - name: Restore FightingICE v7.1 cache
-        id: game-cache
-        uses: actions/cache@v4
-        with:
-          path: external/v71
-          key: fightingice-v71-510752a6-386fd713
-
-      - name: Download verified FightingICE v7.1 on cache miss
-        if: steps.game-cache.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p external/v71 external/downloads
-          curl -fL --retry 3 -o external/downloads/game.zip "$GAME_URL"
-          curl -fL --retry 3 -o external/downloads/resource.zip "$RESOURCE_URL"
-          echo "$GAME_SHA256  external/downloads/game.zip" | sha256sum -c -
-          echo "$RESOURCE_SHA256  external/downloads/resource.zip" | sha256sum -c -
-          unzip -q external/downloads/game.zip -d external/v71
-          GAME_JAR="$(find external/v71 -type f -name FightingICE.jar -print -quit)"
-          test -n "$GAME_JAR"
-          unzip -q -o external/downloads/resource.zip -d "$(dirname "$GAME_JAR")"
-          rm -rf external/downloads
-
-      - name: Start FightingICE headless server
-        run: |
-          mkdir -p runs/continuous
-          GAME_JAR="$(find external/v71 -type f -name FightingICE.jar -print -quit)"
-          test -n "$GAME_JAR"
-          GAME_DIR="$(dirname "$GAME_JAR")"
-          (
-            cd "$GAME_DIR"
-            nohup java -cp 'FightingICE.jar:./lib/*:./lib/lwjgl/*:./lib/lwjgl/natives/linux/amd64/*:./lib/grpc/*' \
-              Main --headless-mode --pyftg-mode --input-sync --limithp 400 400 \
-              --port 31415 -r 1 -f 600 \
-              > "$GITHUB_WORKSPACE/runs/continuous/fightingice.log" 2>&1 &
-            echo $! > "$GITHUB_WORKSPACE/runs/continuous/fightingice.pid"
-          )
-          ready=0
-          for i in $(seq 1 90); do
-            if grep -q 'Socket server is started' runs/continuous/fightingice.log 2>/dev/null; then ready=1; break; fi
-            if ! kill -0 "$(cat runs/continuous/fightingice.pid)" 2>/dev/null; then break; fi
-            sleep 1
-          done
-          cat runs/continuous/fightingice.log || true
-          test "$ready" -eq 1
-
-      - name: Restore durable character brains
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          rm -rf state release-state
-          mkdir -p state release-state
-          if gh release view training-state >/dev/null 2>&1; then
-            gh release download training-state --dir release-state --pattern 'state-pointer.json' || true
-            if [ -s release-state/state-pointer.json ]; then
-              ACTIVE_SLOT="$(python - <<'PY'
-          import json
-          print(json.load(open('release-state/state-pointer.json'))['active_slot'])
-          PY
-              )"
-              gh release download training-state --dir release-state --pattern "slot-${ACTIVE_SLOT}-*"
-              python scripts/restore_training_state.py --download-dir release-state --state-dir state
-            else
-              gh release download training-state --dir state --pattern 'brain-*.pt' || true
-              gh release download training-state --dir state --pattern 'brain-*.pt.sha256' || true
-              gh release download training-state --dir state --pattern 'league-state.json' || true
-            fi
-          else
-            gh release create training-state --title 'Continuous training state' \
-              --notes 'Double-buffered rolling state for four character-specific brain lineages. state-pointer.json is committed last.' \
-              --prerelease
-          fi
-          find state -maxdepth 1 -type f -print | sort
-
-      - name: Train four independent character brains and evaluate
-        run: |
-          python scripts/train_chunk.py \
-            --host 127.0.0.1 --port 31415 \
-            --graph-dir data/processed/shiu783 \
-            --routing data/processed/shiu783/routing.json \
-            --state-dir state --out runs/continuous \
-            --characters GARNET ZEN LUD NEZ \
-            --train-games-per-pair "$TRAIN_GAMES_PER_PAIR" \
-            --timeout 240 --neural-steps 1 --code-sha "$GITHUB_SHA"
-
-      - name: Stop FightingICE
-        if: always()
-        run: |
-          if [ -f runs/continuous/fightingice.pid ]; then
-            kill "$(cat runs/continuous/fightingice.pid)" 2>/dev/null || true
-          fi
-
-      - name: Publish atomic durable state
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          test -s state/brain-GARNET.pt
-          test -s state/brain-ZEN.pt
-          test -s state/brain-LUD.pt
-          test -s state/brain-NEZ.pt
-          test -s state/league-state.json
-          rm -rf publish-state
-          python scripts/package_training_state.py --state-dir state --out publish-state
-          ACTIVE_SLOT="$(python - <<'PY'
-          import json
-          print(json.load(open('publish-state/state-pointer.json'))['active_slot'])
-          PY
-          )"
-          gh release upload training-state publish-state/slot-${ACTIVE_SLOT}-brain-*.pt --clobber
-          gh release upload training-state publish-state/slot-${ACTIVE_SLOT}-league-state.json --clobber
-          gh release upload training-state publish-state/slot-${ACTIVE_SLOT}-manifest.json --clobber
-          gh release upload training-state publish-state/state-pointer.json --clobber
-
-      - name: Assemble spectator site
-        run: |
-          rm -rf site-build
-          cp -R site site-build
-          mkdir -p site-build/data
-          cp runs/continuous/site-data/status.json site-build/data/status.json
-          cp runs/continuous/site-data/latest-replay.json site-build/data/latest-replay.json
-
-      - uses: actions/configure-pages@v5
-
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: site-build
-
-      - name: Deploy spectator Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
-
-      - name: Upload minimal run evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: continuous-training-summary-${{ github.run_number }}
-          path: |
-            runs/continuous/chunk-summary.json
-            runs/continuous/progress.json
-            runs/continuous/site-data/status.json
-            runs/continuous/site-data/latest-replay.json
-            runs/continuous/fightingice.log
-            publish-state/state-pointer.json
-            publish-state/slot-*-manifest.json
-          if-no-files-found: warn
-          retention-days: 14
+          The old `training-state` release is legacy evidence only and MUST NOT
+          be resumed as a canonical MaleCNS lineage.
+          EOF
