@@ -1,4 +1,4 @@
-"""Run one bounded four-character training chunk and export one evaluation replay.
+"""Run one bounded four-character training chunk and export one spectator replay.
 
 Each FightingICE character owns an independent checkpoint lineage. The immutable
 connectome topology may be reused as read-only data, but trainable readout/value
@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import time
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -95,25 +96,37 @@ def _load_or_initialize_state(
 def _run_match(
     *, host: str, port: int, graph_dir: Path, routing_path: Path, state_dir: Path,
     out_root: Path, run_id: str, p1: str, p2: str, seed1: int, seed2: int,
-    evaluation: bool, timeout: float, neural_steps: int,
+    evaluation: bool, timeout: float, neural_steps: int, max_attempts: int = 2,
 ) -> Path:
-    cmd = [
-        sys.executable, str(ROOT / "scripts" / "run_game.py"),
-        "--host", host, "--port", str(port), "--games", "1",
-        "--policy", "connectome",
-        "--graph-dir", str(graph_dir), "--routing", str(routing_path),
-        "--character-p1", p1, "--character-p2", p2,
-        "--checkpoint-p1", str(state_dir / checkpoint_filename(p1)),
-        "--checkpoint-p2", str(state_dir / checkpoint_filename(p2)),
-        "--seed-p1", str(seed1), "--seed-p2", str(seed2),
-        "--timeout", str(timeout), "--expected-rounds", "1",
-        "--neural-steps", str(neural_steps), "--torch-threads", "1",
-        "--run-id", run_id, "--out", str(out_root),
-    ]
-    if evaluation:
-        cmd.append("--evaluation")
-    subprocess.run(cmd, cwd=ROOT, check=True)
-    return out_root / run_id
+    if max_attempts <= 0:
+        raise ValueError("max_attempts must be positive")
+    last_error: subprocess.CalledProcessError | None = None
+    for attempt in range(max_attempts):
+        attempt_id = run_id if attempt == 0 else f"{run_id}-retry{attempt}"
+        cmd = [
+            sys.executable, str(ROOT / "scripts" / "run_game.py"),
+            "--host", host, "--port", str(port), "--games", "1",
+            "--policy", "connectome",
+            "--graph-dir", str(graph_dir), "--routing", str(routing_path),
+            "--character-p1", p1, "--character-p2", p2,
+            "--checkpoint-p1", str(state_dir / checkpoint_filename(p1)),
+            "--checkpoint-p2", str(state_dir / checkpoint_filename(p2)),
+            "--seed-p1", str(seed1 + attempt), "--seed-p2", str(seed2 + attempt),
+            "--timeout", str(timeout), "--expected-rounds", "1",
+            "--neural-steps", str(neural_steps), "--torch-threads", "1",
+            "--run-id", attempt_id, "--out", str(out_root),
+        ]
+        if evaluation:
+            cmd.append("--evaluation")
+        completed = subprocess.run(cmd, cwd=ROOT, check=False)
+        if completed.returncode == 0:
+            return out_root / attempt_id
+        last_error = subprocess.CalledProcessError(completed.returncode, cmd)
+        if attempt + 1 < max_attempts:
+            print(f"Match {attempt_id} failed; retrying once after a short reset gap", file=sys.stderr)
+            time.sleep(2.0)
+    assert last_error is not None
+    raise last_error
 
 
 def main() -> int:
@@ -183,6 +196,8 @@ def main() -> int:
     all_pairs = list(itertools.combinations(characters, 2))
     train_pairs = _training_pairs(characters, chunk)
     match_counter = 0
+    last_training_dir: Path | None = None
+    last_training_pair: tuple[str, str] | None = None
     for repeat in range(args.train_games_per_pair):
         for p1, p2 in train_pairs:
             match_counter += 1
@@ -203,6 +218,12 @@ def main() -> int:
                 raise RuntimeError("Training match was unexpectedly marked non-trainable")
             rounds_by_character[p1].extend(p1_rounds)
             rounds_by_character[p2].extend(p2_rounds)
+            last_training_dir, last_training_pair = run_dir, (p1, p2)
+            write_json(args.out / "progress.json", {
+                "chunk": chunk, "stage": "collecting-training",
+                "completed_training_matches": match_counter,
+                "last_match": [p1, p2], "updated_at": now_utc(),
+            })
 
     training_metrics: dict[str, Any] = {}
     for character in characters:
@@ -228,26 +249,44 @@ def main() -> int:
         metadata[character] = new_meta
         training_metrics[character] = {**metrics, "rounds": len(character_rounds)}
 
-    # Rotate the public evaluation matchup independently of the training slice.
+    # Evaluation is intentionally non-destructive.  A transient live-game
+    # failure must never discard a successfully trained generation.
     eval_pair = all_pairs[(chunk - 1) % len(all_pairs)]
     ep1, ep2 = eval_pair
     eval_id = f"eval-c{chunk:05d}-{ep1.lower()}-{ep2.lower()}"
-    eval_dir = _run_match(
-        host=args.host, port=args.port, graph_dir=args.graph_dir, routing_path=args.routing,
-        state_dir=args.state_dir, out_root=live_root, run_id=eval_id,
-        p1=ep1, p2=ep2,
-        seed1=900_000 + chunk * 2, seed2=900_001 + chunk * 2,
-        evaluation=True, timeout=args.timeout, neural_steps=args.neural_steps,
-    )
-    er1, er2 = completed_rounds(eval_dir / "p1.jsonl"), completed_rounds(eval_dir / "p2.jsonl")
-    if len(er1) != 1 or len(er2) != 1:
-        raise RuntimeError("Evaluation did not complete")
-    if er1[0].get("trainable") or er2[0].get("trainable"):
-        raise RuntimeError("Evaluation trace must never be trainable")
-    reward = float(er1[0]["outcome_reward"])
-    score1 = 1.0 if reward > 0 else 0.0 if reward < 0 else 0.5
-    r1, r2 = float(league["elo"][ep1]), float(league["elo"][ep2])
-    league["elo"][ep1], league["elo"][ep2] = _elo(r1, r2, score1)
+    evaluation_ok = False
+    evaluation_error: str | None = None
+    replay_source = "evaluation"
+    try:
+        eval_dir = _run_match(
+            host=args.host, port=args.port, graph_dir=args.graph_dir, routing_path=args.routing,
+            state_dir=args.state_dir, out_root=live_root, run_id=eval_id,
+            p1=ep1, p2=ep2,
+            seed1=900_000 + chunk * 2, seed2=900_001 + chunk * 2,
+            evaluation=True, timeout=args.timeout, neural_steps=args.neural_steps,
+            max_attempts=2,
+        )
+        er1, er2 = completed_rounds(eval_dir / "p1.jsonl"), completed_rounds(eval_dir / "p2.jsonl")
+        if len(er1) != 1 or len(er2) != 1:
+            raise RuntimeError("Evaluation did not complete")
+        if er1[0].get("trainable") or er2[0].get("trainable"):
+            raise RuntimeError("Evaluation trace must never be trainable")
+        reward = float(er1[0]["outcome_reward"])
+        score1 = 1.0 if reward > 0 else 0.0 if reward < 0 else 0.5
+        r1, r2 = float(league["elo"][ep1]), float(league["elo"][ep2])
+        league["elo"][ep1], league["elo"][ep2] = _elo(r1, r2, score1)
+        evaluation_ok = True
+        replay_dir = eval_dir
+        replay_pair = (ep1, ep2)
+    except Exception as exc:
+        evaluation_error = f"{type(exc).__name__}: {exc}"
+        print(f"Evaluation unavailable; preserving trained generation: {evaluation_error}", file=sys.stderr)
+        if last_training_dir is None or last_training_pair is None:
+            raise
+        replay_dir = last_training_dir
+        replay_pair = last_training_pair
+        replay_source = "training-fallback"
+
     league["chunks"] = chunk
     league["last_training_pairs"] = [list(x) for x in train_pairs]
     for c in characters:
@@ -260,10 +299,11 @@ def main() -> int:
         league["history"][c] = league["history"][c][-300:]
     write_json(league_path, league)
 
+    rp1, rp2 = replay_pair
     replay_path = site_data / "latest-replay.json"
     replay = export_replay(
-        eval_dir / "p1.jsonl", eval_dir / "p2.jsonl", replay_path,
-        p1_character=ep1, p2_character=ep2,
+        replay_dir / "p1.jsonl", replay_dir / "p2.jsonl", replay_path,
+        p1_character=rp1, p2_character=rp2,
     )
     status = {
         "schema_version": 2,
@@ -287,11 +327,13 @@ def main() -> int:
             for c in characters
         },
         "latest_match": {
-            "p1": ep1,
-            "p2": ep2,
+            "p1": rp1,
+            "p2": rp2,
             "winner": replay["result"]["winner"],
             "replay_url": "./data/latest-replay.json",
-            "evaluation": True,
+            "evaluation": evaluation_ok,
+            "source": replay_source,
+            "evaluation_error": evaluation_error,
         },
     }
     write_json(site_data / "status.json", status)
@@ -303,6 +345,10 @@ def main() -> int:
         "training_metrics": training_metrics,
         "evaluation": status["latest_match"],
         "updated_at": status["updated_at"],
+    })
+    write_json(args.out / "progress.json", {
+        "chunk": chunk, "stage": "completed", "updated_at": status["updated_at"],
+        "evaluation": evaluation_ok, "replay_source": replay_source,
     })
     print(json.dumps(status, indent=2, ensure_ascii=False))
     return 0
