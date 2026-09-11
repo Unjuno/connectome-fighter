@@ -18,12 +18,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-import torch
-
 from connectome_fighter.characters import CHARACTERS, CHARACTER_SEEDS, validate_character
-from connectome_fighter.checkpoint import (
-    checkpoint_filename, load_checkpoint, save_checkpoint,
-)
+from connectome_fighter.checkpoint import checkpoint_filename, load_checkpoint, save_checkpoint
 from connectome_fighter.game_runtime import now_utc, write_json
 from connectome_fighter.graph import load_graph
 from connectome_fighter.learning import PPOConfig, initialize_heads, make_optimizer, ppo_update
@@ -36,6 +32,23 @@ def _elo(r1: float, r2: float, score1: float, k: float = 24.0) -> tuple[float, f
     e2 = 1.0 - e1
     score2 = 1.0 - score1
     return r1 + k * (score1 - e1), r2 + k * (score2 - e2)
+
+
+def _training_pairs(characters: list[str], chunk: int) -> list[tuple[str, str]]:
+    """Return a bounded round-robin slice.
+
+    With the canonical four characters, two disjoint matches per chunk ensure
+    every brain trains exactly once; three chunks cover all six pairings.
+    """
+    if len(characters) == 4:
+        a, b, c, d = characters
+        schedule = [
+            [(a, b), (c, d)],
+            [(a, c), (b, d)],
+            [(a, d), (b, c)],
+        ]
+        return schedule[(chunk - 1) % len(schedule)]
+    return list(itertools.combinations(characters, 2))
 
 
 def _load_or_initialize_state(
@@ -167,10 +180,11 @@ def main() -> int:
 
     chunk = int(league.get("chunks", 0)) + 1
     rounds_by_character: dict[str, list[dict[str, Any]]] = {c: [] for c in characters}
-    pairs = list(itertools.combinations(characters, 2))
+    all_pairs = list(itertools.combinations(characters, 2))
+    train_pairs = _training_pairs(characters, chunk)
     match_counter = 0
     for repeat in range(args.train_games_per_pair):
-        for p1, p2 in pairs:
+        for p1, p2 in train_pairs:
             match_counter += 1
             run_id = f"tr-c{chunk:05d}-{match_counter:02d}-{p1.lower()}-{p2.lower()}"
             run_dir = _run_match(
@@ -193,6 +207,8 @@ def main() -> int:
     training_metrics: dict[str, Any] = {}
     for character in characters:
         character_rounds = rounds_by_character[character]
+        if not character_rounds:
+            raise RuntimeError(f"Character {character} received no training match in this chunk")
         metrics = ppo_update(heads[character], optimizers[character], character_rounds, config)
         previous = metadata[character]
         new_meta = save_checkpoint(
@@ -212,8 +228,8 @@ def main() -> int:
         metadata[character] = new_meta
         training_metrics[character] = {**metrics, "rounds": len(character_rounds)}
 
-    # Rotate the public evaluation matchup so every character appears over time.
-    eval_pair = pairs[(chunk - 1) % len(pairs)]
+    # Rotate the public evaluation matchup independently of the training slice.
+    eval_pair = all_pairs[(chunk - 1) % len(all_pairs)]
     ep1, ep2 = eval_pair
     eval_id = f"eval-c{chunk:05d}-{ep1.lower()}-{ep2.lower()}"
     eval_dir = _run_match(
@@ -233,6 +249,7 @@ def main() -> int:
     r1, r2 = float(league["elo"][ep1]), float(league["elo"][ep2])
     league["elo"][ep1], league["elo"][ep2] = _elo(r1, r2, score1)
     league["chunks"] = chunk
+    league["last_training_pairs"] = [list(x) for x in train_pairs]
     for c in characters:
         league["history"][c].append({
             "chunk": chunk,
@@ -253,6 +270,7 @@ def main() -> int:
         "phase": "continuous-training",
         "updated_at": now_utc(),
         "chunk": chunk,
+        "training_pairs": [list(x) for x in train_pairs],
         "graph_sha256": graph_hash,
         "routing_sha256": routing_hash,
         "characters": {
@@ -280,6 +298,7 @@ def main() -> int:
     write_json(args.out / "chunk-summary.json", {
         "status": "COMPLETED",
         "chunk": chunk,
+        "training_pairs": [list(x) for x in train_pairs],
         "characters": metadata,
         "training_metrics": training_metrics,
         "evaluation": status["latest_match"],
