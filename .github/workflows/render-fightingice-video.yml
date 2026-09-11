@@ -9,6 +9,8 @@ on:
     paths:
       - '.github/workflows/render-fightingice-video.yml'
       - 'scripts/build_spectator_queue.py'
+      - 'scripts/build_malecns_skeleton_projection.py'
+      - 'scripts/enrich_spectator_queue_morphology.py'
 
 permissions:
   contents: write
@@ -30,7 +32,7 @@ env:
 jobs:
   render:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
         with:
@@ -230,6 +232,14 @@ jobs:
         run: |
           if [ -f runs/rendered/fightingice.pid ]; then kill "$(cat runs/rendered/fightingice.pid)" 2>/dev/null || true; fi
 
+      - name: Build released MaleCNS morphology projection
+        run: |
+          python scripts/build_malecns_skeleton_projection.py \
+            --run-dir "runs/rendered/$SPECTATOR_RUN_ID" \
+            --out runs/rendered/morphology.json \
+            --bodies-per-side 6 \
+            --max-segments-per-body 180
+
       - name: Rotate old clips and build rolling queue
         run: |
           if [ -s runs/previous/latest-fight.mp4 ]; then cp runs/previous/latest-fight.mp4 runs/rendered/previous-1.mp4; fi
@@ -243,6 +253,9 @@ jobs:
             --public-base "https://github.com/${{ github.repository }}/releases/download/$SPECTATOR_RELEASE_TAG/" \
             --source-run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
             --next-expected-at "$NEXT_EXPECTED_AT"
+          python scripts/enrich_spectator_queue_morphology.py \
+            --queue runs/rendered/queue.json \
+            --morphology runs/rendered/morphology.json
 
       - name: Publish rolling release assets
         env:
@@ -277,6 +290,7 @@ jobs:
           path: |
             runs/rendered/video.json
             runs/rendered/queue.json
+            runs/rendered/morphology.json
             runs/rendered/video-probe.json
             runs/rendered/fightingice.log
             runs/rendered/*/status.json
