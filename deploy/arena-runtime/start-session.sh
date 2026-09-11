@@ -5,8 +5,8 @@ P1="GARNET"
 P2="ZEN"
 MANIFEST_URL="https://github.com/Unjuno/connectome-fighter/releases/download/arena-inference-latest/manifest.json"
 LISTEN=8080
+UPSTREAM_PORT=18080
 SESSION_ID=""
-UV_VERSION="0.12.12"
 
 while (($#)); do
   case "$1" in
@@ -25,13 +25,84 @@ if [[ "$P1" == "$P2" ]]; then echo "fighters must differ" >&2; exit 2; fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK="${CONNECTOME_SESSION_ROOT:-/tmp/connectome-arena-session}"
-mkdir -p "$WORK/bin"
+mkdir -p "$WORK"
 
 if [[ -z "$SESSION_ID" ]]; then
   SESSION_ID="arena-$(date +%s)-$RANDOM"
 fi
 
-if ! command -v curl >/dev/null 2>&1 || ! command -v java >/dev/null 2>&1; then
+STATUS_FILE="$WORK/bootstrap-status.json"
+write_status() {
+  local phase="$1"
+  local tmp="$STATUS_FILE.tmp"
+  printf '{"phase":"%s"}\n' "$phase" > "$tmp"
+  mv "$tmp" "$STATUS_FILE"
+}
+write_error() {
+  local rc="$1"
+  local line="$2"
+  local tmp="$STATUS_FILE.tmp"
+  printf '{"phase":"error","exit_code":%d,"line":%d,"error":"arena bootstrap failed"}\n' "$rc" "$line" > "$tmp"
+  mv "$tmp" "$STATUS_FILE"
+}
+
+write_status "starting-proxy"
+node "$ROOT/bin/bootstrap-proxy.mjs" \
+  --listen "$LISTEN" \
+  --upstream "$UPSTREAM_PORT" \
+  --status-file "$STATUS_FILE" \
+  --session-id "$SESSION_ID" \
+  --p1 "$P1" \
+  --p2 "$P2" &
+PROXY_PID=$!
+
+cleanup_proxy() {
+  kill "$PROXY_PID" >/dev/null 2>&1 || true
+  wait "$PROXY_PID" >/dev/null 2>&1 || true
+}
+on_error() {
+  local rc=$?
+  local line=${BASH_LINENO[0]:-0}
+  trap - ERR
+  write_error "$rc" "$line"
+  # Keep the public bootstrap endpoint alive briefly so the viewer can surface the error.
+  sleep 30
+  cleanup_proxy
+  exit "$rc"
+}
+trap on_error ERR
+trap cleanup_proxy EXIT INT TERM
+
+sleep 0.2
+kill -0 "$PROXY_PID"
+write_status "verifying-prebuilt-runtime"
+
+REF_REL="$(cat "$ROOT/runtime/python310.path")"
+BRIDGE_REL="$(cat "$ROOT/runtime/python311.path")"
+REF_PY="$ROOT/$REF_REL"
+BRIDGE_PY="$ROOT/$BRIDGE_REL"
+SITE310="$ROOT/runtime/site310"
+SITE311="$ROOT/runtime/site311"
+
+for required in \
+  "$REF_PY" \
+  "$BRIDGE_PY" \
+  "$SITE310/brian2" \
+  "$SITE311/pyftg" \
+  "$ROOT/data/malecns-shiu-strict-v1/connectivity.parquet" \
+  "$ROOT/data/malecns-valence-v1/kc_mbon_valence_candidates.parquet" \
+  "$ROOT/fightingice/FightingICE.jar" \
+  "$ROOT/shiu/model.py"; do
+  test -e "$required"
+done
+
+test -x "$REF_PY"
+test -x "$BRIDGE_PY"
+
+if [[ -x "$ROOT/runtime/jre21/bin/java" ]]; then
+  export PATH="$ROOT/runtime/jre21/bin:$PATH"
+elif ! command -v java >/dev/null 2>&1; then
+  write_status "installing-java-fallback"
   if command -v sudo >/dev/null 2>&1; then
     sudo apt-get update -qq
     sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq openjdk-21-jre-headless ca-certificates curl
@@ -40,34 +111,29 @@ if ! command -v curl >/dev/null 2>&1 || ! command -v java >/dev/null 2>&1; then
     DEBIAN_FRONTEND=noninteractive apt-get install -y -qq openjdk-21-jre-headless ca-certificates curl
   fi
 fi
+command -v java >/dev/null
+command -v curl >/dev/null
 
-UV="$WORK/bin/uv"
-if [[ ! -x "$UV" ]]; then
-  export UV_INSTALL_DIR="$WORK/bin"
-  export UV_NO_MODIFY_PATH=1
-  curl -LsSf "https://astral.sh/uv/${UV_VERSION}/install.sh" | sh
-fi
-"$UV" --version
+REF_WRAPPER="$WORK/reference-python"
+cat > "$REF_WRAPPER" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+export PYTHONPATH="$SITE310"
+exec "$REF_PY" "\$@"
+EOF
+chmod +x "$REF_WRAPPER"
 
-export UV_PYTHON_INSTALL_DIR="$WORK/uv-python"
-export UV_CACHE_DIR="$WORK/uv-cache"
-"$UV" python install 3.10 3.11
+bridge_python() {
+  PYTHONPATH="$ROOT/repo/src:$SITE311" "$BRIDGE_PY" "$@"
+}
 
-REF_ENV="$WORK/ref-py310"
-BRIDGE_ENV="$WORK/bridge-py311"
-"$UV" venv --python 3.10 "$REF_ENV"
-"$UV" pip install --python "$REF_ENV/bin/python" \
-  'numpy==1.24.0' 'pandas==1.5.3' 'pyarrow==10.0.1' 'joblib==1.2.0' 'Cython==0.29.36' 'brian2==2.5.1'
-"$UV" venv --python 3.11 "$BRIDGE_ENV"
-"$UV" pip install --python "$BRIDGE_ENV/bin/python" \
-  'numpy==2.3.5' 'pandas==2.3.3' 'pyarrow==23.0.1' 'pyftg==2.3'
-
+write_status "verifying-inference-snapshot"
 SNAPSHOT_DIR="$WORK/snapshot"
 mkdir -p "$SNAPSHOT_DIR"
 curl -fL --retry 4 --retry-all-errors -o "$SNAPSHOT_DIR/manifest.json" "$MANIFEST_URL"
 BASE_URL="${MANIFEST_URL%/manifest.json}"
 
-"$BRIDGE_ENV/bin/python" - "$SNAPSHOT_DIR/manifest.json" "$BASE_URL" "$SNAPSHOT_DIR" <<'PY'
+bridge_python - "$SNAPSHOT_DIR/manifest.json" "$BASE_URL" "$SNAPSHOT_DIR" <<'PY'
 import hashlib, json, pathlib, subprocess, sys
 manifest_path, base_url, out_dir = sys.argv[1:]
 m = json.load(open(manifest_path, encoding='utf-8'))
@@ -114,7 +180,7 @@ materialize_if_available() {
   local character="$1"
   local out="$2"
   local state_file
-  state_file="$($BRIDGE_ENV/bin/python - "$SNAPSHOT_DIR/manifest.json" "$character" <<'PY'
+  state_file="$(bridge_python - "$SNAPSHOT_DIR/manifest.json" "$character" <<'PY'
 import json, sys
 m=json.load(open(sys.argv[1],encoding='utf-8'))
 e=(m.get('characters') or {}).get(sys.argv[2])
@@ -124,7 +190,7 @@ PY
   if [[ -z "$state_file" ]]; then
     return 1
   fi
-  PYTHONPATH="$ROOT/repo/src" "$BRIDGE_ENV/bin/python" "$ROOT/repo/scripts/materialize_malecns_valence_adapter.py" \
+  bridge_python "$ROOT/repo/scripts/materialize_malecns_valence_adapter.py" \
     --base-adapter "$BASE_ADAPTER" \
     --candidates "$CANDIDATES" \
     --state "$SNAPSHOT_DIR/$state_file" \
@@ -133,15 +199,16 @@ PY
     --out "$out"
 }
 
+write_status "materializing-approved-checkpoints"
 if materialize_if_available "$P1" "$WORK/p1-adapter"; then P1_ADAPTER="$WORK/p1-adapter"; fi
 if materialize_if_available "$P2" "$WORK/p2-adapter"; then P2_ADAPTER="$WORK/p2-adapter"; fi
 
 CMD=(
-  "$BRIDGE_ENV/bin/python" "$ROOT/repo/scripts/run_live_arena_server.py"
-  --listen "$LISTEN"
+  "$ROOT/repo/scripts/run_live_arena_server.py"
+  --listen "$UPSTREAM_PORT"
   --session-id "$SESSION_ID"
   --p1 "$P1" --p2 "$P2"
-  --reference-python "$REF_ENV/bin/python"
+  --reference-python "$REF_WRAPPER"
   --reference-model "$ROOT/shiu/model.py"
   --adapter-dir "$BASE_ADAPTER"
   --interface "$ROOT/data/interface.json"
@@ -152,5 +219,17 @@ CMD=(
 if [[ -n "$P1_ADAPTER" ]]; then CMD+=(--adapter-dir-p1 "$P1_ADAPTER"); fi
 if [[ -n "$P2_ADAPTER" ]]; then CMD+=(--adapter-dir-p2 "$P2_ADAPTER"); fi
 
-export PYTHONPATH="$ROOT/repo/src"
-exec "${CMD[@]}"
+write_status "starting-fightingice-malecns"
+set +e
+bridge_python "${CMD[@]}"
+RC=$?
+set -e
+if [[ "$RC" -eq 0 ]]; then
+  write_status "ended"
+else
+  write_error "$RC" 0
+fi
+sleep 30
+cleanup_proxy
+trap - EXIT INT TERM ERR
+exit "$RC"
