@@ -1,31 +1,53 @@
-name: continuous-training-legacy-paused
+name: canonical-continuous-training
 
-# PAUSED ON PURPOSE.
-# The previous scheduled trainer used FlyWire v783 plus a custom sigmoid
-# recurrent scaffold. That is not the canonical substrate requested for this
-# project. Automatic training stays disabled until the MaleCNS v1.0 +
-# published-LIF control path passes provenance and integration gates.
+# Canonical sequential trainer.
+# Exactly one training run is allowed at a time. A successful run dispatches
+# the next run, so training continues without parallel MaleCNS jobs.
+# Set repository variable CANONICAL_TRAINING_ENABLED=false to stop the chain.
 
 on:
   workflow_dispatch:
+    inputs:
+      matches_per_run:
+        description: Sequential matches to execute before checkpointing
+        required: false
+        default: '3'
+      character:
+        description: Character lineage to train (currently GARNET is the proven resume lineage)
+        required: false
+        default: 'GARNET'
 
 permissions:
-  contents: read
+  contents: write
+  actions: write
+
+concurrency:
+  group: canonical-continuous-training
+  cancel-in-progress: false
 
 jobs:
-  paused:
+  train:
+    if: ${{ vars.CANONICAL_TRAINING_ENABLED != 'false' }}
+    uses: ./.github/workflows/canonical-checkpoint-resume.yml
+    with:
+      continuous_mode: true
+      matches_per_run: ${{ inputs.matches_per_run || '3' }}
+      character: ${{ inputs.character || 'GARNET' }}
+    secrets: inherit
+
+  continue:
+    needs: train
+    if: ${{ needs.train.result == 'success' && vars.CANONICAL_TRAINING_ENABLED != 'false' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Explain pause
+      - name: Dispatch next sequential training run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MATCHES_PER_RUN: ${{ inputs.matches_per_run || '3' }}
+          CHARACTER: ${{ inputs.character || 'GARNET' }}
         run: |
-          cat <<'EOF'
-          Legacy continuous training is paused.
-
-          Canonical target:
-            anatomy: FlyEM/Janelia/Cambridge/MRC LMB/Google Research MaleCNS v1.0
-            dynamics: published Drosophila LIF model, explicitly separated from anatomy
-            no custom sigmoid/RNN/MLP brain in the canonical control path
-
-          The old `training-state` release is legacy evidence only and MUST NOT
-          be resumed as a canonical MaleCNS lineage.
-          EOF
+          gh workflow run continuous-training.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            -f matches_per_run="$MATCHES_PER_RUN" \
+            -f character="$CHARACTER"
