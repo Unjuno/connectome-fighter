@@ -3,36 +3,73 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Connectome Fighter Lab</title>
+  <title>Connectome Fighter · Training Arena</title>
   <style>
-    :root { color-scheme: light dark; font-family: ui-sans-serif, system-ui, sans-serif; }
-    body { margin: 0; background: #0b0f14; color: #e7edf5; }
-    main { max-width: 920px; margin: 0 auto; padding: 48px 24px 72px; }
-    h1 { font-size: clamp(2rem, 5vw, 4rem); margin: 0 0 8px; }
-    .lead { color: #aeb9c8; max-width: 720px; line-height: 1.6; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap: 16px; margin: 32px 0; }
-    .card { border: 1px solid #273242; border-radius: 14px; padding: 18px; background: #111822; }
-    .metric { font-size: 1.55rem; font-weight: 700; }
-    .label { color: #91a0b5; font-size: .9rem; }
-    a { color: #8ecbff; }
+    :root { color-scheme: dark; font-family: ui-sans-serif, system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:#0b0f14; color:#e7edf5; }
+    main { max-width:1080px; margin:0 auto; padding:40px 20px 72px; }
+    h1 { font-size:clamp(2rem,5vw,4rem); margin:.15em 0; }
+    h2 { margin-top:38px; }
+    .lead { color:#aeb9c8; max-width:800px; line-height:1.6; }
     .status { display:inline-block; border:1px solid #39506b; border-radius:999px; padding:6px 10px; font-size:.85rem; }
-    code { background: #171f2b; padding: .12em .35em; border-radius: 4px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin:28px 0; }
+    .card { border:1px solid #273242; border-radius:14px; padding:16px; background:#111822; min-height:92px; }
+    .metric { font-size:1.55rem; font-weight:750; overflow-wrap:anywhere; }
+    .label { color:#91a0b5; font-size:.86rem; margin-bottom:8px; }
+    .panel { border:1px solid #273242; border-radius:14px; padding:18px; background:#111822; margin:16px 0; }
+    canvas { width:100%; display:block; border-radius:10px; }
+    #history { height:220px; }
+    #replay { height:300px; }
+    #replay-slider { width:100%; margin-top:12px; }
+    .muted { color:#91a0b5; }
+    a { color:#8ecbff; }
+    code { background:#171f2b; padding:.12em .35em; border-radius:4px; }
   </style>
 </head>
 <body>
 <main>
-  <span class="status">research scaffold · no biological advantage claimed</span>
-  <h1>Connectome Fighter Lab</h1>
-  <p class="lead">A reproducible testbed for asking whether connectome-constrained controllers learn competitive policies differently from matched control networks in FightingICE.</p>
+  <span class="status">continuous-learning spectator · phase: <strong id="phase">loading</strong></span>
+  <h1>Connectome Fighter</h1>
+  <p class="lead">The target system is a persistent Drosophila-connectome-constrained fighter: each bounded training job resumes the previous checkpoint, learns from more fights, evaluates against a checkpoint league, and publishes a browser-viewable match here.</p>
+
   <div class="grid">
-    <div class="card"><div class="label">M1 · real game bridge</div><div class="metric">PASS</div><p>FightingICE 7.1 + pyftg 2.3, one audited headless round.</p></div>
-    <div class="card"><div class="label">M2 · biological graph</div><div class="metric">IN PROGRESS</div><p>FlyWire v783 import/provenance pipeline.</p></div>
-    <div class="card"><div class="label">M3 · reinforcement learning</div><div class="metric">NOT RUN</div><p>No PPO/self-play result yet.</p></div>
+    <div class="card"><div class="label">generation</div><div id="generation" class="metric">—</div></div>
+    <div class="card"><div class="label">training matches</div><div id="matches" class="metric">—</div></div>
+    <div class="card"><div class="label">current checkpoint</div><div id="checkpoint" class="metric">—</div></div>
+    <div class="card"><div class="label">champion</div><div id="champion" class="metric">—</div></div>
+    <div class="card"><div class="label">Elo</div><div id="elo" class="metric">—</div></div>
+    <div class="card"><div class="label">fixed-baseline win rate</div><div id="baseline" class="metric">—</div></div>
   </div>
-  <section><h2>Primary experiment</h2><p>Compare a verified Drosophila-derived wiring topology against degree/sign-preserving rewired controls under identical observations, actions, reward, training budget, seeds, and held-out evaluation opponents.</p></section>
-  <section><h2>Verified game bridge</h2><p>GitHub Actions run <a href="https://github.com/Unjuno/connectome-fighter/actions/runs/34535409876">34535409876</a> completed a real 600-frame ZEN-vs-ZEN round. Both Python agents recorded 147 decisions and the two-sided trace audit passed. This run used random policies: it is evidence for the bridge only, not for a connectome or learning effect.</p></section>
-  <section><h2>Reproducibility rule</h2><p>Mock tests, synthetic graphs, live-game controls, biological-graph runs, and confirmatory experiments are separate evidence classes. FlyWire public-release data are not relicensed by this repository.</p></section>
-  <p><a href="https://github.com/Unjuno/connectome-fighter">Repository</a> · <a href="https://github.com/Unjuno/connectome-fighter/issues">Milestones</a></p>
+
+  <section>
+    <h2>Latest evaluation fight</h2>
+    <div class="panel">
+      <div id="replay-status" class="muted">Loading replay…</div>
+      <canvas id="replay"></canvas>
+      <input id="replay-slider" type="range" min="0" max="0" value="0" />
+    </div>
+  </section>
+
+  <section>
+    <h2>Learning history</h2>
+    <div class="panel"><canvas id="history"></canvas></div>
+    <p class="muted">Updated: <span id="updated">—</span>. The public viewer only displays exported evaluation telemetry; evaluation fights do not update weights.</p>
+  </section>
+
+  <section>
+    <h2>How it is intended to run</h2>
+    <p>GitHub Actions is used in bounded chunks, not as one immortal process: restore checkpoint → train → checkpoint → evaluate → export replay/metrics → deploy Pages → resume on the next run. The current hosted-runner job ceiling is six hours, so true near-24/7 compute should eventually move to a self-hosted runner while keeping the same checkpoint and spectator contracts.</p>
+  </section>
+
+  <section>
+    <h2>Evidence boundary</h2>
+    <p>Continuous learning demonstrates a persistent competitive agent. It does <strong>not</strong> by itself show that the biological Drosophila topology is superior. That claim requires the separate matched-rewire A/B protocol.</p>
+  </section>
+
+  <p id="error" class="muted"></p>
+  <p><a href="https://github.com/Unjuno/connectome-fighter">Repository</a> · <a href="https://github.com/Unjuno/connectome-fighter/issues/5">Continuous-training milestone</a> · <a href="https://github.com/Unjuno/connectome-fighter/blob/main/docs/CONTINUOUS_TRAINING.ja.md">Architecture</a></p>
 </main>
+<script src="./app.js"></script>
 </body>
 </html>
