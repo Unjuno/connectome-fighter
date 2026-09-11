@@ -17,6 +17,7 @@ import pyarrow as pa
 import pyarrow.ipc as ipc
 
 DATASET = "male-cns:v1.0"
+OFFICIAL_QUANTIFICATION_CODE = "flyconnectome/2025malecns:supplemental_data/quantify-neuron-connections.ipynb"
 
 
 def sha256(path: Path) -> str:
@@ -86,7 +87,6 @@ def summarize_annotations(path: Path) -> tuple[dict, pd.DataFrame, str]:
 def summarize_neurotransmitters(path: Path) -> tuple[dict, pd.DataFrame, str, str]:
     df = pd.read_feather(path)
     body_col = first_column(df.columns, ["bodyid", "body_id", "body", "segment_id", "segment"])
-    # Prefer the released consensus field over the raw per-body prediction.
     nt_col = first_column(df.columns, [
         "consensus_nt", "predicted_nt", "celltype_predicted_nt", "neurotransmitter", "nt"
     ])
@@ -104,6 +104,35 @@ def summarize_neurotransmitters(path: Path) -> tuple[dict, pd.DataFrame, str, st
     }, df, body_col, nt_col
 
 
+def _join_nt(
+    annotations: pd.DataFrame,
+    annotation_body_col: str,
+    nts: pd.DataFrame,
+    nt_body_col: str,
+    nt_col: str,
+) -> pd.DataFrame:
+    left = annotations.copy()
+    nt_cols = [nt_body_col, nt_col]
+    for candidate in ["predicted_nt", "predicted_nt_confidence", "celltype_predicted_nt", "consensus_nt"]:
+        actual = first_column(nts.columns, [candidate])
+        if actual is not None and actual not in nt_cols:
+            nt_cols.append(actual)
+    right = nts[nt_cols].drop_duplicates(subset=[nt_body_col])
+    return left.merge(right, left_on=annotation_body_col, right_on=nt_body_col, how="left", validate="one_to_one")
+
+
+def _nt_summary(joined: pd.DataFrame, nt_col: str) -> dict:
+    nt_values = joined[nt_col].astype("string").fillna("<NA>").str.lower()
+    known = ~nt_values.isin(["<na>", "unclear", "unknown", "none", "nan"])
+    return {
+        "bodies": int(len(joined)),
+        "with_nt_row": int(joined[nt_col].notna().sum()),
+        "with_known_consensus_nt": int(known.sum()),
+        "known_consensus_fraction": float(known.mean()),
+        "consensus_counts": compact_counts(joined[nt_col], 20),
+    }
+
+
 def summarize_join(
     annotations: pd.DataFrame,
     annotation_body_col: str,
@@ -111,22 +140,37 @@ def summarize_join(
     nt_body_col: str,
     nt_col: str,
 ) -> dict:
-    left = annotations[[annotation_body_col]].drop_duplicates().rename(columns={annotation_body_col: "body"})
-    nt_cols = [nt_body_col, nt_col]
-    for candidate in ["predicted_nt", "predicted_nt_confidence", "consensus_nt"]:
-        actual = first_column(nts.columns, [candidate])
-        if actual is not None and actual not in nt_cols:
-            nt_cols.append(actual)
-    right = nts[nt_cols].drop_duplicates(subset=[nt_body_col]).rename(columns={nt_body_col: "body"})
-    joined = left.merge(right, on="body", how="left", validate="one_to_one")
-    nt_values = joined[nt_col].astype("string").fillna("<NA>").str.lower()
-    known = ~nt_values.isin(["<na>", "unclear", "unknown", "none", "nan"])
+    joined = _join_nt(annotations, annotation_body_col, nts, nt_body_col, nt_col)
+    return _nt_summary(joined, nt_col)
+
+
+def summarize_official_candidate_set(
+    annotations: pd.DataFrame,
+    annotation_body_col: str,
+    nts: pd.DataFrame,
+    nt_body_col: str,
+    nt_col: str,
+) -> dict:
+    superclass_col = first_column(annotations.columns, ["superclass"])
+    if superclass_col is None:
+        raise ValueError("MaleCNS annotation table has no superclass column")
+    superclass = annotations[superclass_col].astype("string")
+    # This mirrors the criterion in the paper repository's quantification
+    # notebook: superclass exists and its name does not contain 'tbc'.
+    mask = superclass.notna() & ~superclass.str.contains("tbc", case=False, na=False)
+    candidates = annotations.loc[mask].copy()
+    joined = _join_nt(candidates, annotation_body_col, nts, nt_body_col, nt_col)
     return {
-        "annotated_bodies": int(len(left)),
-        "with_nt_row": int(joined[nt_col].notna().sum()),
-        "with_known_consensus_nt": int(known.sum()),
-        "known_consensus_fraction": float(known.mean()),
-        "consensus_counts_on_annotated_bodies": compact_counts(joined[nt_col], 20),
+        "selection_rule": "superclass is non-null and does not contain 'tbc'",
+        "reference_code": OFFICIAL_QUANTIFICATION_CODE,
+        "candidate_bodies": int(candidates[annotation_body_col].nunique()),
+        "superclass_counts": compact_counts(candidates[superclass_col], 40),
+        "nt_coverage": _nt_summary(joined, nt_col),
+        "paper_reported_neurons": 166691,
+        "note": (
+            "The paper-level count and this flat-table selection need not be identical; "
+            "do not force equality without a release-specific definition."
+        ),
     }
 
 
@@ -176,7 +220,7 @@ def main() -> int:
     ann_summary, ann_df, ann_body = summarize_annotations(args.annotations)
     nt_summary, nt_df, nt_body, nt_col = summarize_neurotransmitters(args.neurotransmitters)
     manifest = {
-        "schema_version": 2,
+        "schema_version": 3,
         "dataset": DATASET,
         "canonical_anatomy": True,
         "official_project": "FlyEM/Janelia + Cambridge + MRC LMB + Google Research",
@@ -189,6 +233,9 @@ def main() -> int:
         "annotations": ann_summary,
         "neurotransmitters": nt_summary,
         "annotation_nt_join": summarize_join(ann_df, ann_body, nt_df, nt_body, nt_col),
+        "official_notebook_style_candidate_set": summarize_official_candidate_set(
+            ann_df, ann_body, nt_df, nt_body, nt_col
+        ),
         "connectivity": summarize_connectivity(args.connectivity),
         "interpretation": {
             "is_executable_dynamics_model": False,
