@@ -11,8 +11,6 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 concurrency:
   group: malecns-canonical-baseline
@@ -241,13 +239,10 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-  publish-pages:
+  publish-data:
     needs: baseline
     if: ${{ always() && needs.baseline.result == 'success' }}
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -260,7 +255,7 @@ jobs:
           pattern: malecns-baseline-*
           path: runs/downloaded
           merge-multiple: false
-      - name: Export compact canonical Pages data
+      - name: Export compact canonical public data
         run: |
           python scripts/export_malecns_pages.py \
             --artifacts-root runs/downloaded \
@@ -273,13 +268,6 @@ jobs:
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add site/data/status.json site/data/replay-latest.json
           if ! git diff --cached --quiet; then
-            git commit -m 'Update canonical MaleCNS dashboard [skip ci]'
+            git commit -m 'Update canonical MaleCNS dashboard data [skip ci]'
             git push origin HEAD:main
           fi
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
-      - name: Deploy canonical experiment dashboard
-        id: deployment
-        uses: actions/deploy-pages@v4
