@@ -1,0 +1,108 @@
+name: reward-design-offline
+
+on:
+  workflow_dispatch:
+    inputs:
+      baseline_run_id:
+        description: 'Successful malecns-baseline-batch run ID to rescore'
+        required: false
+        default: '34620984683'
+  workflow_run:
+    workflows: [malecns-baseline-batch]
+    types: [completed]
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/score_reward_candidates.py'
+      - '.github/workflows/reward-design-offline.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: reward-design-offline-${{ github.event.workflow_run.id || inputs.baseline_run_id || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  score:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Resolve baseline run ID
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            RUN_ID="${{ github.event.workflow_run.id }}"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            RUN_ID="${{ inputs.baseline_run_id }}"
+          else
+            RUN_ID="34620984683"
+          fi
+          test -n "$RUN_ID"
+          echo "BASELINE_RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
+          echo "Scoring baseline run $RUN_ID"
+
+      - name: Download canonical baseline artifacts (workflow_run)
+        if: github.event_name == 'workflow_run'
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
+          pattern: malecns-baseline-*
+          path: runs/reward-input
+
+      - name: Download canonical baseline artifacts (dispatch or push)
+        if: github.event_name != 'workflow_run'
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.baseline_run_id || '34620984683' }}
+          pattern: malecns-baseline-*
+          path: runs/reward-input
+
+      - name: Offline-score R0/R1/R2 candidates
+        run: |
+          mkdir -p runs/reward-analysis
+          python scripts/score_reward_candidates.py \
+            --root runs/reward-input \
+            --out-json runs/reward-analysis/reward-analysis.json \
+            --out-csv runs/reward-analysis/reward-events.csv \
+            --max-hp 400 \
+            --damage-unit-hp 10
+
+      - name: Sanity gate
+        run: |
+          python - <<'PY'
+          import json
+          p='runs/reward-analysis/reward-analysis.json'
+          d=json.load(open(p))
+          assert d['status']=='PASS'
+          assert d['learning_performed'] is False
+          assert d['guardrails']['same_logged_trajectories_for_all_candidates'] is True
+          assert d['guardrails']['current_action_randomness_unchanged'] is True
+          assert d['input']['game_rounds'] > 0
+          assert d['input']['decision_windows_per_brain'] > 0
+          print(json.dumps({
+              'baseline_run_id': '${{ env.BASELINE_RUN_ID }}',
+              'game_rounds': d['input']['game_rounds'],
+              'decision_windows_per_brain': d['input']['decision_windows_per_brain'],
+              'terminal_nonzero_rate': d['candidate_families']['R0_terminal_sign']['decision_reward']['nonzero_rate'],
+              'damage_window_rate': d['observed']['damage_window_rate'],
+          }, indent=2))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reward-design-offline-${{ env.BASELINE_RUN_ID }}
+          path: runs/reward-analysis/
+          if-no-files-found: error
+          retention-days: 30
