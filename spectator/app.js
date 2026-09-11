@@ -82,8 +82,55 @@ function timelineAt(clip, side, timeSeconds) {
   return best;
 }
 
+function canvasContext(canvas) {
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  const cssWidth = Math.max(300, Math.floor(canvas.clientWidth || 600));
+  const cssHeight = Math.max(145, Math.floor(cssWidth / 2.1));
+  const width = Math.floor(cssWidth * dpr), height = Math.floor(cssHeight * dpr);
+  if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
+  return { ctx: canvas.getContext('2d'), width, height, dpr };
+}
+
+function drawMorphology(side, clip, row) {
+  const canvas = $(`brain-${side}-canvas`); if (!canvas) return;
+  const { ctx, width, height, dpr } = canvasContext(canvas); ctx.clearRect(0, 0, width, height);
+  const morphology = clip?.morphology || {}; const items = morphology?.sides?.[side] || []; const bounds = morphology?.bounds || null;
+  ctx.fillStyle = 'rgba(225,235,247,.62)'; ctx.font = `${11 * dpr}px ui-monospace, SFMono-Regular, monospace`;
+  if (!items.length || !bounds) {
+    ctx.fillText('released morphology is not attached to this clip', 16 * dpr, 25 * dpr); return;
+  }
+  const pad = 18 * dpr;
+  const xMin = Number(bounds.x_min), xMax = Number(bounds.x_max), zMin = Number(bounds.z_min), zMax = Number(bounds.z_max);
+  const xSpan = Math.max(1, xMax - xMin), zSpan = Math.max(1, zMax - zMin);
+  const xMap = (x) => pad + ((Number(x) - xMin) / xSpan) * (width - 2 * pad);
+  const zMap = (z) => height - pad - ((Number(z) - zMin) / zSpan) * (height - 2 * pad);
+  const active = new Map((row?.top_bodies || []).map((x) => [Number(x.body_id), Number(x.spikes || 0)]));
+  const maxActive = Math.max(1, ...active.values());
+  let activeDisplayed = 0;
+
+  for (const item of items) {
+    const bodyId = Number(item.body_id); const segments = item?.morphology?.segments || []; const spikes = active.get(bodyId) || 0;
+    if (spikes > 0) activeDisplayed += 1;
+    const power = spikes > 0 ? Math.min(1, spikes / maxActive) : 0;
+    const alpha = spikes > 0 ? 0.42 + 0.55 * power : 0.10;
+    const rgb = side === 'p1' ? '91,181,255' : '255,112,145';
+    ctx.strokeStyle = `rgba(${rgb},${alpha})`; ctx.lineWidth = (spikes > 0 ? 1.35 + 1.2 * power : 0.55) * dpr; ctx.beginPath();
+    for (const segment of segments) {
+      if (!Array.isArray(segment) || segment.length < 4) continue;
+      ctx.moveTo(xMap(segment[0]), zMap(segment[1])); ctx.lineTo(xMap(segment[2]), zMap(segment[3]));
+    }
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = 'rgba(225,235,247,.72)';
+  const coordinate = `${morphology.coordinate_space || 'MaleCNS EM'} · ${morphology.coordinate_units || '8 nm'} · X–Z`;
+  ctx.fillText(coordinate, 14 * dpr, 20 * dpr);
+  ctx.fillStyle = 'rgba(150,165,184,.76)';
+  ctx.fillText(`${items.length} clip-active skeletons · ${activeDisplayed} highlighted now`, 14 * dpr, height - 11 * dpr);
+}
+
 function renderBrain(side, summary, clip) {
-  const row = timelineAt(clip, side, $('fight').currentTime || 0);
+  const row = timelineAt(clip, side, $('fight').currentTime || 0); drawMorphology(side, clip, row);
   $(`brain-${side}-time`).textContent = row ? `t ${Number(row.t_seconds || 0).toFixed(1)}s` : 'clip summary';
   $(`brain-${side}-metrics`).innerHTML = row
     ? `<span>decision ${Number(row.decision_index) + 1}</span><span>${Number(row.total_spikes || 0).toLocaleString()} spikes</span><span>${Number(row.unique_bodies || 0).toLocaleString()} active bodies</span>`
@@ -130,4 +177,5 @@ async function refresh() {
 }
 
 $('fight').addEventListener('timeupdate', renderBrainPanels); $('fight').addEventListener('seeked', renderBrainPanels); $('fight').addEventListener('loadedmetadata', renderBrainPanels);
+window.addEventListener('resize', renderBrainPanels);
 refresh(); setInterval(refresh, 30000); setInterval(updateCountdown, 1000);
