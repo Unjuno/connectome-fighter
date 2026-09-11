@@ -1,5 +1,6 @@
 const $ = (id) => document.getElementById(id);
 const CHARACTERS = ['GARNET', 'ZEN', 'LUD', 'NEZ'];
+const DATA_BASE = location.hostname.endsWith('github.io') ? '../data' : '/live-data';
 
 const state = {
   queue: null,
@@ -203,7 +204,7 @@ function fallbackQueue(video) {
     clips: [{
       clip_id: id,
       created_at: null,
-      video_url: video.asset_url || '/live-data/latest-fight.mp4',
+      video_url: video.asset_url || `${DATA_BASE}/latest-fight.mp4`,
       duration_seconds: video.duration_seconds || 0,
       round_count: video.rounds || 0,
       p1: video.p1 || { character: 'P1' },
@@ -216,12 +217,12 @@ function fallbackQueue(video) {
 
 async function refresh() {
   try {
-    const statusPromise = getJSON('/live-data/status.json');
+    const statusPromise = getJSON(`${DATA_BASE}/status.json`);
     let queue;
     try {
-      queue = await getJSON('/live-data/queue.json');
+      queue = await getJSON(`${DATA_BASE}/queue.json`);
     } catch (_) {
-      queue = fallbackQueue(await getJSON('/live-data/video.json'));
+      queue = fallbackQueue(await getJSON(`${DATA_BASE}/video.json`));
     }
     const status = await statusPromise;
     const oldLatest = state.queue?.current_clip_id;
