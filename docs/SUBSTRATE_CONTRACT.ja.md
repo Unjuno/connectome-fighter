@@ -17,7 +17,7 @@ Canonical anatomy は **MaleCNS v1.0** とする。
 - bulk data root: `gs://flyem-male-cns/v1.0/`
 - license: CC-BY
 
-MaleCNS v1.0 は brain + optic lobes + ventral nerve cord を連続的に含む雄 Drosophila CNS connectome である。
+MaleCNS v1.0 は brain + optic lobes + ventral nerve cord を連続的に含む雄 Drosophila CNS connectome である。論文は 166,691 neurons と報告している。
 
 Canonical import で最低限使用する一次データ:
 
@@ -26,6 +26,10 @@ Canonical import で最低限使用する一次データ:
 - `connectome-weights-male-cns-v1.0-minconf-0.5.feather`
 
 必要になった場合のみ synapse-level partner/location table を追加する。最初から 6.8–12.7 GB のsynapse tableを常用しない。
+
+### neuron candidate selection
+
+body annotation の全行をニューロンと見なさない。最初の候補集合は論文repositoryの `supplemental_data/quantify-neuron-connections.ipynb` と同じく、`superclass` が定義され、名前に `tbc` を含まないものとする。v1.0に対してこの基準を再計算し、論文記載数との差は勝手に補正せずmanifestに残す。
 
 ## 2. 重要な区別: connectome != executable brain dynamics
 
@@ -44,13 +48,16 @@ MaleCNS は実測・再構成された**配線図、synaptic connection strength
 - paper: Shiu et al., *Nature* 634, 210–219 (2024)
 - DOI: `10.1038/s41586-024-07763-9`
 - reference code: `https://github.com/philshiu/Drosophila_brain_model`
+- pinned `model.py` commit: `2a83ad611cd9768f8c9723fc613ed27761a5feb5`
 - simulator in reference implementation: Brian2
 
 重要: Shiu model 自体は FlyWire female-brain connectome 上で検証されたモデルであり、MaleCNS v1.0 への適用は**本プロジェクトによる移植**である。従って結果を「Google公式の生理モデル」と表現しない。
 
 初期移植では Shiu の neuron equations / threshold / refractory / synaptic delay / per-synapse weight convention を変更せず、MaleCNS の接続強度と neurotransmitter identity を入力する。
 
-Shiu の既定仮定に合わせ、初期条件では GABA と glutamate を inhibitory、その他の small-molecule transmitter を excitatory とする。この仮定はログに固定し、後で glutamate sign sensitivity test を必須にする。
+Shiu論文の分類では GABA と glutamate を inhibitory、acetylcholine / dopamine / octopamine / serotonin を excitatory とする。MaleCNS v1.0 にはこれに加えて histamine が多数含まれるため、**histamineを無言で既存カテゴリへ押し込まない**。Drosophila視覚系ではhistamine-gated chloride channelによる抑制性伝達が実験的に確立しているので、MaleCNS移植では `histamine = inhibitory` を明示的な拡張ルールとしてversion/hash化する。ただしこれはShiu reference modelそのものではなくMaleCNS adapterの追加仮定である。
+
+`consensus_nt` が `unclear` または欠損するcanonical candidateについても、推定符号を勝手に付与しない。coverageを先に計測し、除外・fallback・感度解析のどれを採るかをmanifestで明示する。
 
 ## 4. NN禁止境界
 
@@ -100,17 +107,18 @@ interfaceの学習を行う場合でも、脳本体と混同しない。最初�
 - character / lineage / checkpoint
 - frame / game observation / selected action
 - externally stimulated neuron IDs and drive
-- spiking neuron IDs and spike counts
+- spiking neuron IDs and spike times/counts
 - membrane-potential summary
-- top activity-change neurons
-- neuron type / superclass / side / soma neuromere where available
+- neuron type / superclass / class / side / soma neuromere where available
 - neurotransmitter identity + confidence
 - downstream motor/descending contribution
 - graph/dataset hash
 - dynamics-model version + parameter hash
 - interface version
 
-raw all-neuron tracesは容量が大きいため、canonical evidenceとしては event-compressed spike logs + selected state summariesを保存し、必要な試合だけfull traceを保持する。
+静的annotationはrunごとに重複保存せず、bodyIdでjoin可能な固定metadata tableとしてhashをpinする。dynamic logは `decisions.jsonl` と event-compressed `spikes.parquet` に分ける。これにより後からstatic connectivity graphへjoinして、局面別recruitment、経路、hub、sensor→motor flowを再解析できる。
+
+raw all-neuron membrane tracesは容量が大きいため、canonical evidenceとしては event-compressed spike logs + selected state summariesを保存し、必要な試合だけfull traceを保持する。
 
 ## 8. Legacy扱い
 
@@ -129,9 +137,10 @@ MaleCNS版 continuous training を再開する前に以下を全てPASSさせる
 
 1. official MaleCNS files のURL・size・hashを記録してimportできる。
 2. body IDs / connection weights / transmitter predictions のjoinが一意に検証できる。
-3. published LIF equationsの小回路golden testがreference implementationと一致する。
-4. FightingICE 1 round が `MaleCNS -> LIF spikes -> action` の経路で完走する。
-5. replayに実 MaleCNS body ID とactivity traceが表示される。
-6. 4キャラのsimulation stateが独立している。
+3. canonical candidate set とNT coverageがrelease-specificに記録され、unknown signを暗黙補完していない。
+4. published LIF equationsの小回路golden testがpinned reference implementationと一致する。
+5. FightingICE 1 round が `MaleCNS -> LIF spikes -> action` の経路で完走する。
+6. replayに実 MaleCNS body ID とactivity traceが表示される。
+7. 4キャラのsimulation stateが独立している。
 
-この6点がPASSするまで scheduled learning は無効のままにする。
+この7点がPASSするまで scheduled learning は無効のままにする。
