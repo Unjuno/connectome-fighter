@@ -1,0 +1,320 @@
+name: reward-r3ab-matched-smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reward-r3ab-matched-smoke
+  cancel-in-progress: false
+
+env:
+  SHIU_COMMIT: 2a83ad611cd9768f8c9723fc613ed27761a5feb5
+  ADAPTER_CACHE_KEY: malecns-v1.0-shiu-strict-minw5-2a83ad611cd9768f8c9723fc613ed27761a5feb5-adapter-v1
+  VALENCE_CACHE_KEY: malecns-v1.0-kc-mbon-valence-v1
+  GAME_URL: https://github.com/TeamFightingICE/FightingICE/releases/download/v7.1/DareFightingICE-7.1.zip
+  GAME_SHA256: 510752a69a097b767677d3911b1407d6a08a721dad4faf2cb5b7a19b988f1c62
+  RESOURCE_URL: https://github.com/TeamFightingICE/FightingICE/releases/download/v7.1/resource-7.1.zip
+  RESOURCE_SHA256: 386fd713f901db00583054528ccfbce315953c157dc16231c4367416d86dce53
+
+jobs:
+  condition:
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - label: baseline
+            generations: 0
+            reward: none
+            plasticity: none
+          - label: r3a
+            generations: 6
+            reward: configs/reward_r3a_terminal_v0.json
+            plasticity: configs/plasticity_valence_r3a_v0.json
+          - label: r3b
+            generations: 6
+            reward: configs/reward_r3b_terminal_nodamage_v0.json
+            plasticity: configs/plasticity_valence_r3b_v0.json
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate reward-only treatment difference
+        run: |
+          python - <<'PY'
+          import json
+          a=json.load(open('configs/reward_r3a_terminal_v0.json'))
+          b=json.load(open('configs/reward_r3b_terminal_nodamage_v0.json'))
+          pa=json.load(open('configs/plasticity_valence_r3a_v0.json'))
+          pb=json.load(open('configs/plasticity_valence_r3b_v0.json'))
+          assert a['id']=='R3a-terminal-v0'
+          assert b['id']=='R3b-terminal-nodamage-v0'
+          assert a['terminal']['win']==b['terminal']['win']==1.0
+          assert a['terminal']['loss']==b['terminal']['loss']==-1.0
+          assert a['terminal']['ordinary_draw']==b['terminal']['ordinary_draw']==0.0
+          assert a['terminal']['no_damage_draw_penalty']==0.0
+          assert b['terminal']['no_damage_draw_penalty']==-0.1
+          assert a['damage']['weight_per_unit']==b['damage']['weight_per_unit']==0.0
+          assert a['engagement_potential']['enabled'] is False
+          assert b['engagement_potential']['enabled'] is False
+          ignore={'id','status','reward_config','interpretation_boundary'}
+          pa_fixed={k:v for k,v in pa.items() if k not in ignore}
+          pb_fixed={k:v for k,v in pb.items() if k not in ignore}
+          assert pa_fixed==pb_fixed, (pa_fixed,pb_fixed)
+          assert pa['reward_config']==a['id']
+          assert pb['reward_config']==b['id']
+          print({'r3a':a['terminal'],'r3b':b['terminal'],'plasticity_matched':True})
+          PY
+
+      - name: Set up reference Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install pinned Shiu/Brian2 runtime
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install 'setuptools==68.2.2' 'numpy==1.24.0' 'pandas==1.5.3' 'pyarrow==10.0.1' 'joblib==1.2.0' 'Cython==0.29.36' 'brian2==2.5.1'
+          echo "PY310=$(which python)" >> "$GITHUB_ENV"
+
+      - name: Set up bridge/update Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install bridge/update dependencies
+        run: python -m pip install --upgrade pip && python -m pip install 'numpy==2.3.5' 'pandas==2.3.3' 'pyarrow==23.0.1' 'pyftg==2.3'
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Restore canonical MaleCNS adapter cache
+        uses: actions/cache@v4
+        with:
+          path: data/processed/malecns-shiu-strict-v1
+          key: ${{ env.ADAPTER_CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: Restore valence partition cache
+        uses: actions/cache@v4
+        with:
+          path: data/processed/malecns-valence-v1
+          key: ${{ env.VALENCE_CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: Build fixed game interface
+        run: |
+          mkdir -p data/processed/malecns-interface-r3ab
+          python scripts/build_malecns_game_interface.py \
+            --metadata data/processed/malecns-shiu-strict-v1/neuron_metadata.parquet \
+            --manifest data/processed/malecns-shiu-strict-v1/manifest.json \
+            --out data/processed/malecns-interface-r3ab/interface.json \
+            --seed 20260911 --input-bodies-per-polarity-feature 16 \
+            --max-poisson-rate-hz 150 --decision-window-ms 20 --neutral-min-spikes 1
+
+      - name: Fetch pinned Shiu model
+        run: |
+          mkdir -p external/shiu-reference
+          curl -fL --retry 3 -o external/shiu-reference/model.py "https://raw.githubusercontent.com/philshiu/Drosophila_brain_model/$SHIU_COMMIT/model.py"
+          echo 'fc45837d7122c6ce2a7f3f2f23c515992e4b232aadb919efabb72337fac88e4e  external/shiu-reference/model.py' | sha256sum -c -
+
+      - name: Restore FightingICE v7.1 cache
+        id: game-cache
+        uses: actions/cache@v4
+        with:
+          path: external/v71
+          key: fightingice-v71-510752a6-386fd713
+      - name: Download verified FightingICE v7.1 on cache miss
+        if: steps.game-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p external/v71 external/downloads
+          curl -fL --retry 3 -o external/downloads/game.zip "$GAME_URL"
+          curl -fL --retry 3 -o external/downloads/resource.zip "$RESOURCE_URL"
+          echo "$GAME_SHA256  external/downloads/game.zip" | sha256sum -c -
+          echo "$RESOURCE_SHA256  external/downloads/resource.zip" | sha256sum -c -
+          unzip -q external/downloads/game.zip -d external/v71
+          GAME_JAR="$(find external/v71 -type f -name FightingICE.jar -print -quit)"
+          test -n "$GAME_JAR"
+          unzip -q -o external/downloads/resource.zip -d "$(dirname "$GAME_JAR")"
+          rm -rf external/downloads
+
+      - name: Start FightingICE
+        run: |
+          mkdir -p runs/r3ab/${{ matrix.label }}
+          GAME_JAR="$(find external/v71 -type f -name FightingICE.jar -print -quit)"
+          test -n "$GAME_JAR"
+          GAME_DIR="$(dirname "$GAME_JAR")"
+          (
+            cd "$GAME_DIR"
+            nohup java -cp 'FightingICE.jar:./lib/*:./lib/lwjgl/*:./lib/lwjgl/natives/linux/amd64/*:./lib/grpc/*' \
+              Main --headless-mode --pyftg-mode --input-sync --limithp 400 400 --port 31415 -r 1 -f 600 \
+              > "$GITHUB_WORKSPACE/runs/r3ab/${{ matrix.label }}/fightingice.log" 2>&1 &
+            echo $! > "$GITHUB_WORKSPACE/runs/r3ab/${{ matrix.label }}/fightingice.pid"
+          )
+          for i in $(seq 1 90); do
+            grep -q 'Socket server is started' runs/r3ab/${{ matrix.label }}/fightingice.log 2>/dev/null && exit 0
+            kill -0 "$(cat runs/r3ab/${{ matrix.label }}/fightingice.pid)" 2>/dev/null || exit 1
+            sleep 1
+          done
+          exit 1
+
+      - name: Run matched six-generation training sequence
+        if: matrix.generations > 0
+        run: |
+          set -euo pipefail
+          ROOT="runs/r3ab/${{ matrix.label }}"
+          mkdir -p "$ROOT/state" "$ROOT/updates"
+          for GEN in $(seq 1 ${{ matrix.generations }}); do
+            ADAPTER="data/processed/malecns-shiu-strict-v1"
+            if [ -f "$ROOT/state/GARNET.npz" ]; then
+              rm -rf "$ROOT/current-adapter"
+              PYTHONPATH=src python scripts/materialize_malecns_valence_adapter.py \
+                --base-adapter data/processed/malecns-shiu-strict-v1 \
+                --candidates data/processed/malecns-valence-v1/kc_mbon_valence_candidates.parquet \
+                --state "$ROOT/state/GARNET.npz" --character GARNET \
+                --plasticity-config "${{ matrix.plasticity }}" --out "$ROOT/current-adapter"
+              ADAPTER="$ROOT/current-adapter"
+            fi
+            SEED1=$((910101 + GEN * 1000)); SEED2=$((910202 + GEN * 1000))
+            RUN_ID="${{ matrix.label }}-train-g${GEN}"
+            PYTHONPATH=src python scripts/run_game_malecns_lif.py \
+              --host 127.0.0.1 --port 31415 \
+              --character-p1 GARNET --character-p2 ZEN \
+              --seed-p1 "$SEED1" --seed-p2 "$SEED2" \
+              --reference-python "$PY310" --reference-model external/shiu-reference/model.py \
+              --adapter-dir data/processed/malecns-shiu-strict-v1 \
+              --adapter-dir-p1 "$ADAPTER" --adapter-dir-p2 data/processed/malecns-shiu-strict-v1 \
+              --interface data/processed/malecns-interface-r3ab/interface.json \
+              --decision-interval 60 --games 1 --expected-rounds 1 --timeout 900 \
+              --trainable-trace --run-id "$RUN_ID" --out "$ROOT"
+            PYTHONPATH=src python scripts/update_malecns_valence_plasticity.py \
+              --character GARNET --side 1 \
+              --round-trace "$ROOT/$RUN_ID/p1.jsonl" \
+              --spikes "$ROOT/$RUN_ID/p1-brain/spikes.parquet" \
+              --candidates data/processed/malecns-valence-v1/kc_mbon_valence_candidates.parquet \
+              --reward-config "${{ matrix.reward }}" --plasticity-config "${{ matrix.plasticity }}" \
+              --state "$ROOT/state/GARNET.npz" --out-summary "$ROOT/updates/g${GEN}.json"
+          done
+          python - <<'PY'
+          import glob,json,pathlib
+          xs=[json.load(open(p)) for p in sorted(glob.glob('runs/r3ab/${{ matrix.label }}/updates/g*.json'))]
+          out={
+            'schema_version':1,
+            'condition':'${{ matrix.label }}',
+            'generations':len(xs),
+            'positive_signals':sum(x['signals']['positive'] for x in xs),
+            'negative_signals':sum(x['signals']['negative'] for x in xs),
+            'nonzero_signals':sum(x['signals']['nonzero'] for x in xs),
+            'sum_signal':sum(x['signals']['sum'] for x in xs),
+            'changed_edges_last':xs[-1]['updates']['changed_edges'],
+            'last_state':xs[-1]['state'],
+            'last_updates':xs[-1]['updates'],
+          }
+          pathlib.Path('runs/r3ab/${{ matrix.label }}/training-summary.json').write_text(json.dumps(out,indent=2,sort_keys=True)+'\n')
+          print(json.dumps(out,indent=2,sort_keys=True))
+          PY
+
+      - name: Materialize final trained adapter
+        if: matrix.generations > 0
+        run: |
+          rm -rf runs/r3ab/${{ matrix.label }}/final-adapter
+          PYTHONPATH=src python scripts/materialize_malecns_valence_adapter.py \
+            --base-adapter data/processed/malecns-shiu-strict-v1 \
+            --candidates data/processed/malecns-valence-v1/kc_mbon_valence_candidates.parquet \
+            --state runs/r3ab/${{ matrix.label }}/state/GARNET.npz --character GARNET \
+            --plasticity-config "${{ matrix.plasticity }}" --out runs/r3ab/${{ matrix.label }}/final-adapter
+
+      - name: Run held-out eight-round evaluation
+        run: |
+          ADAPTER="data/processed/malecns-shiu-strict-v1"
+          if [ "${{ matrix.generations }}" -gt 0 ]; then ADAPTER="runs/r3ab/${{ matrix.label }}/final-adapter"; fi
+          PYTHONPATH=src python scripts/run_game_malecns_lif.py \
+            --host 127.0.0.1 --port 31415 \
+            --character-p1 GARNET --character-p2 ZEN \
+            --seed-p1 990101 --seed-p2 990202 \
+            --reference-python "$PY310" --reference-model external/shiu-reference/model.py \
+            --adapter-dir data/processed/malecns-shiu-strict-v1 \
+            --adapter-dir-p1 "$ADAPTER" --adapter-dir-p2 data/processed/malecns-shiu-strict-v1 \
+            --interface data/processed/malecns-interface-r3ab/interface.json \
+            --decision-interval 60 --games 8 --expected-rounds 8 --timeout 1800 \
+            --run-id ${{ matrix.label }}-eval --out runs/r3ab/${{ matrix.label }}
+          python scripts/summarize_lineage_eval.py \
+            --trace runs/r3ab/${{ matrix.label }}/${{ matrix.label }}-eval/p1.jsonl \
+            --side 1 --condition ${{ matrix.label }} \
+            --out runs/r3ab/${{ matrix.label }}/eval-summary.json
+
+      - name: Stop FightingICE
+        if: always()
+        run: |
+          if [ -f runs/r3ab/${{ matrix.label }}/fightingice.pid ]; then kill "$(cat runs/r3ab/${{ matrix.label }}/fightingice.pid)" 2>/dev/null || true; fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reward-r3ab-${{ matrix.label }}
+          path: |
+            runs/r3ab/${{ matrix.label }}/eval-summary.json
+            runs/r3ab/${{ matrix.label }}/training-summary.json
+            runs/r3ab/${{ matrix.label }}/updates/*.json
+            runs/r3ab/${{ matrix.label }}/state/GARNET.npz.json
+            runs/r3ab/${{ matrix.label }}/${{ matrix.label }}-eval/status.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  compare:
+    needs: condition
+    if: ${{ always() && needs.condition.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: reward-r3ab-*
+          path: runs/results
+      - name: Compare matched held-out behavior
+        run: |
+          python - <<'PY'
+          import glob,json,pathlib
+          results={}
+          for p in glob.glob('runs/results/**/eval-summary.json',recursive=True):
+              d=json.load(open(p)); results[d['condition']]=d
+          assert set(results)=={'baseline','r3a','r3b'}, results.keys()
+          baseline=results['baseline']; a=results['r3a']; b=results['r3b']
+          keys=['mean_min_distance_px','mean_distance_reduction_px','damage_rounds','total_damage_dealt_hp','wins']
+          out={
+            'schema_version':1,
+            'status':'PASS',
+            'hypothesis':'A sparse zero-damage timeout penalty can escape the no-damage draw regime without dense damage or geometry shaping.',
+            'training_generations_per_treatment':6,
+            'evaluation_rounds_per_condition':8,
+            'fixed_controls':{
+              'anatomy':'MaleCNS v1.0',
+              'dynamics':'pinned Shiu LIF',
+              'interface_seed':20260911,
+              'training_seeds':'910101/910202 + generation*1000',
+              'evaluation_seeds':[990101,990202],
+              'decision_interval_frames':60,
+              'plasticity_parameters':'matched between R3a and R3b',
+              'epsilon_greedy':False,
+              'specific_action_reward':False,
+            },
+            'results':results,
+            'vs_baseline':{
+              name:{f'delta_{k}':results[name][k]-baseline[k] for k in keys}
+              for name in ('r3a','r3b')
+            },
+            'r3b_minus_r3a':{f'delta_{k}':b[k]-a[k] for k in keys},
+            'interpretation_boundary':'This is a six-match training plus eight-round held-out engineering smoke. It does not establish stable superiority or biological validity. Production continuous learning remains disabled.',
+          }
+          pathlib.Path('runs/reward-r3ab-comparison.json').write_text(json.dumps(out,indent=2,sort_keys=True)+'\n')
+          print(json.dumps({'r3b_minus_r3a':out['r3b_minus_r3a']},indent=2,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reward-r3ab-comparison
+          path: runs/reward-r3ab-comparison.json
+          if-no-files-found: error
+          retention-days: 30
