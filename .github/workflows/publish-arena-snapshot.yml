@@ -2,6 +2,10 @@ name: publish-arena-inference-snapshot
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-arena-snapshot.yml'
 
 permissions:
   contents: write
@@ -32,11 +36,11 @@ jobs:
           gh release download "$SOURCE_TAG" \
             --pattern 'garnet-g2.tar.gz' \
             --pattern 'garnet-g2.tar.gz.sha256' \
-            --pattern 'checkpoint-manifest-g2.json' \
+            --pattern 'checkpoint-manifest.json' \
             --dir runs/source
           test -s runs/source/garnet-g2.tar.gz
           test -s runs/source/garnet-g2.tar.gz.sha256
-          test -s runs/source/checkpoint-manifest-g2.json
+          test -s runs/source/checkpoint-manifest.json
           expected="$(awk '{print $1}' runs/source/garnet-g2.tar.gz.sha256)"
           echo "$expected  runs/source/garnet-g2.tar.gz" | sha256sum -c -
 
@@ -50,7 +54,7 @@ jobs:
           import hashlib, json, pathlib
 
           state = pathlib.Path('runs/arena/GARNET.npz')
-          source_manifest = json.load(open('runs/source/checkpoint-manifest-g2.json'))
+          source_manifest = json.load(open('runs/source/checkpoint-manifest.json'))
           source_meta = json.load(open('runs/unpack/state/GARNET.npz.json'))
           sha = hashlib.sha256(state.read_bytes()).hexdigest()
 
