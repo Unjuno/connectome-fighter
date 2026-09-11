@@ -2,7 +2,7 @@
 
 [FightingICE](https://github.com/TeamFightingICE/FightingICE) を既存の対戦環境として使い、Drosophila由来のコネクトーム配線に制約されたファイターを**checkpointを引き継ぎながら継続学習**させ、その世代間・対戦相手との試合をGitHub Pagesで観戦できるようにする研究・実装基盤です。
 
-[Training Arena](https://unjuno.github.io/connectome-fighter/) · [English](README.md)
+[Training Arena](https://unjuno.github.io/connectome-fighter/) · [Roadmap](ROADMAP.md) · [English](README.md)
 
 ## 主目的
 
@@ -24,7 +24,7 @@ GitHub Pagesで観戦
 
 GitHub-hosted Actionsは永続プロセスではないため、学習はbounded chunkに分割し、各job間をcheckpointで接続します。真の24/7計算が必要になった場合はtrainerだけself-hosted runnerへ移し、Actionsをscheduler/orchestrator、Pagesを観戦UIとして残す設計です。
 
-詳細: [`docs/CONTINUOUS_TRAINING.ja.md`](docs/CONTINUOUS_TRAINING.ja.md) · [Milestone #5](https://github.com/Unjuno/connectome-fighter/issues/5)
+詳細: [`ROADMAP.md`](ROADMAP.md) · [`docs/CONTINUOUS_TRAINING.ja.md`](docs/CONTINUOUS_TRAINING.ja.md) · [Milestone #5](https://github.com/Unjuno/connectome-fighter/issues/5)
 
 ## 現在の範囲
 
