@@ -18,6 +18,7 @@ import pyarrow.ipc as ipc
 
 DATASET = "male-cns:v1.0"
 OFFICIAL_QUANTIFICATION_CODE = "flyconnectome/2025malecns:supplemental_data/quantify-neuron-connections.ipynb"
+UNKNOWN_NT = {"<na>", "unclear", "unknown", "none", "nan", ""}
 
 
 def sha256(path: Path) -> str:
@@ -113,7 +114,11 @@ def _join_nt(
 ) -> pd.DataFrame:
     left = annotations.copy()
     nt_cols = [nt_body_col, nt_col]
-    for candidate in ["predicted_nt", "predicted_nt_confidence", "celltype_predicted_nt", "consensus_nt"]:
+    for candidate in [
+        "predicted_nt", "predicted_nt_confidence",
+        "celltype_predicted_nt", "celltype_predicted_nt_confidence",
+        "consensus_nt",
+    ]:
         actual = first_column(nts.columns, [candidate])
         if actual is not None and actual not in nt_cols:
             nt_cols.append(actual)
@@ -121,15 +126,57 @@ def _join_nt(
     return left.merge(right, left_on=annotation_body_col, right_on=nt_body_col, how="left", validate="one_to_one")
 
 
+def _known_mask(series: pd.Series) -> pd.Series:
+    return ~series.astype("string").fillna("<NA>").str.lower().isin(UNKNOWN_NT)
+
+
 def _nt_summary(joined: pd.DataFrame, nt_col: str) -> dict:
-    nt_values = joined[nt_col].astype("string").fillna("<NA>").str.lower()
-    known = ~nt_values.isin(["<na>", "unclear", "unknown", "none", "nan"])
+    known = _known_mask(joined[nt_col])
     return {
         "bodies": int(len(joined)),
         "with_nt_row": int(joined[nt_col].notna().sum()),
         "with_known_consensus_nt": int(known.sum()),
         "known_consensus_fraction": float(known.mean()),
         "consensus_counts": compact_counts(joined[nt_col], 20),
+    }
+
+
+def _nt_resolution_summary(joined: pd.DataFrame, consensus_col: str) -> dict:
+    consensus = joined[consensus_col].astype("string")
+    resolved = consensus.copy()
+    source = pd.Series("consensus", index=joined.index, dtype="string")
+    unresolved = ~_known_mask(consensus)
+
+    pred_col = first_column(joined.columns, ["predicted_nt"])
+    pred_conf_col = first_column(joined.columns, ["predicted_nt_confidence"])
+    if pred_col is not None and pred_conf_col is not None:
+        pred_known = _known_mask(joined[pred_col])
+        pred_conf = pd.to_numeric(joined[pred_conf_col], errors="coerce")
+        use_pred = unresolved & pred_known & (pred_conf >= 0.5)
+        resolved.loc[use_pred] = joined.loc[use_pred, pred_col].astype("string")
+        source.loc[use_pred] = "predicted_nt_conf>=0.5"
+        unresolved = ~_known_mask(resolved)
+
+    cell_col = first_column(joined.columns, ["celltype_predicted_nt"])
+    cell_conf_col = first_column(joined.columns, ["celltype_predicted_nt_confidence"])
+    if cell_col is not None and cell_conf_col is not None:
+        cell_known = _known_mask(joined[cell_col])
+        cell_conf = pd.to_numeric(joined[cell_conf_col], errors="coerce")
+        use_cell = unresolved & cell_known & (cell_conf >= 0.5)
+        resolved.loc[use_cell] = joined.loc[use_cell, cell_col].astype("string")
+        source.loc[use_cell] = "celltype_predicted_nt_conf>=0.5"
+        unresolved = ~_known_mask(resolved)
+
+    return {
+        "policy": (
+            "consensus_nt; if unresolved, predicted_nt with confidence>=0.5; "
+            "then celltype_predicted_nt with confidence>=0.5; never invent a transmitter"
+        ),
+        "resolved_bodies": int((~unresolved).sum()),
+        "resolved_fraction": float((~unresolved).mean()),
+        "unresolved_bodies": int(unresolved.sum()),
+        "resolved_counts": compact_counts(resolved, 20),
+        "resolution_source_counts": compact_counts(source.where(~unresolved, "unresolved"), 10),
     }
 
 
@@ -141,7 +188,10 @@ def summarize_join(
     nt_col: str,
 ) -> dict:
     joined = _join_nt(annotations, annotation_body_col, nts, nt_body_col, nt_col)
-    return _nt_summary(joined, nt_col)
+    return {
+        **_nt_summary(joined, nt_col),
+        "resolution_without_guessing": _nt_resolution_summary(joined, nt_col),
+    }
 
 
 def summarize_official_candidate_set(
@@ -165,7 +215,10 @@ def summarize_official_candidate_set(
         "reference_code": OFFICIAL_QUANTIFICATION_CODE,
         "candidate_bodies": int(candidates[annotation_body_col].nunique()),
         "superclass_counts": compact_counts(candidates[superclass_col], 40),
-        "nt_coverage": _nt_summary(joined, nt_col),
+        "nt_coverage": {
+            **_nt_summary(joined, nt_col),
+            "resolution_without_guessing": _nt_resolution_summary(joined, nt_col),
+        },
         "paper_reported_neurons": 166691,
         "note": (
             "The paper-level count and this flat-table selection need not be identical; "
@@ -220,7 +273,7 @@ def main() -> int:
     ann_summary, ann_df, ann_body = summarize_annotations(args.annotations)
     nt_summary, nt_df, nt_body, nt_col = summarize_neurotransmitters(args.neurotransmitters)
     manifest = {
-        "schema_version": 3,
+        "schema_version": 4,
         "dataset": DATASET,
         "canonical_anatomy": True,
         "official_project": "FlyEM/Janelia + Cambridge + MRC LMB + Google Research",
