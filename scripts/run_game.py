@@ -1,4 +1,4 @@
-"""Real-game inference and trace collection. This script does not train a policy."""
+"""Real-game inference and trace collection. This script never updates weights."""
 from __future__ import annotations
 import argparse
 import asyncio
@@ -9,9 +9,11 @@ import re
 import sys
 import traceback
 import uuid
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/"src"))
 from connectome_fighter.game_runtime import now_utc, write_json
+from connectome_fighter.characters import CHARACTER_SEEDS, validate_character
 
 
 def main() -> int:
@@ -22,6 +24,13 @@ def main() -> int:
     parser.add_argument("--policy", choices=["random", "connectome"], default="random")
     parser.add_argument("--graph-dir")
     parser.add_argument("--routing")
+    parser.add_argument("--character-p1", default="ZEN")
+    parser.add_argument("--character-p2", default="ZEN")
+    parser.add_argument("--checkpoint-p1")
+    parser.add_argument("--checkpoint-p2")
+    parser.add_argument("--evaluation", action="store_true",
+                        help="Mark emitted rounds non-trainable; weights are never updated here")
+    parser.add_argument("--activity-top-k", type=int, default=12)
     parser.add_argument("--out", type=Path, default=Path("runs/live"))
     parser.add_argument("--timeout", type=float, default=300.)
     parser.add_argument("--run-id")
@@ -32,9 +41,11 @@ def main() -> int:
                         help="Engineering recurrent updates per game decision; not biological milliseconds")
     parser.add_argument("--torch-threads", type=int, default=1)
     args = parser.parse_args()
+    args.character_p1 = validate_character(args.character_p1)
+    args.character_p2 = validate_character(args.character_p2)
     if (args.games <= 0 or args.timeout <= 0 or not 1 <= args.port <= 65535
-        or args.neural_steps <= 0 or args.torch_threads <= 0):
-        parser.error("Invalid count, timeout, port, neural step count, or thread count")
+        or args.neural_steps <= 0 or args.torch_threads <= 0 or args.activity_top_k <= 0):
+        parser.error("Invalid count, timeout, port, neural step count, thread count, or activity top-k")
     if args.expected_rounds is not None and args.expected_rounds <= 0:
         parser.error("Expected rounds must be positive")
     run_id = args.run_id or uuid.uuid4().hex[:12]
@@ -48,12 +59,16 @@ def main() -> int:
         pyftg_version = importlib.metadata.version("pyftg")
     except importlib.metadata.PackageNotFoundError:
         pyftg_version = None
-    status = {"started_at_utc": now_utc(), "status": "STARTING", "learning_performed": False,
-              "connectome_used": args.policy == "connectome", "host": args.host, "port": args.port,
-              "games_requested": args.games, "seeds": [args.seed_p1, args.seed_p2],
-              "python": sys.version.split()[0], "pyftg": pyftg_version,
-              "neural_steps_per_decision": (args.neural_steps if args.policy == "connectome" else None),
-              "torch_threads": (args.torch_threads if args.policy == "connectome" else None)}
+    status = {
+        "started_at_utc": now_utc(), "status": "STARTING", "learning_performed": False,
+        "evaluation": bool(args.evaluation), "connectome_used": args.policy == "connectome",
+        "characters": [args.character_p1, args.character_p2],
+        "host": args.host, "port": args.port, "games_requested": args.games,
+        "seeds": [args.seed_p1, args.seed_p2], "python": sys.version.split()[0],
+        "pyftg": pyftg_version,
+        "neural_steps_per_decision": (args.neural_steps if args.policy == "connectome" else None),
+        "torch_threads": (args.torch_threads if args.policy == "connectome" else None),
+    }
     write_json(out/"status.json", status)
     agents = []
     code = 1
@@ -63,30 +78,35 @@ def main() -> int:
         from connectome_fighter.policies import RandomPolicy
         from connectome_fighter.trajectory import JsonlSink
         seeds = [args.seed_p1, args.seed_p2]
+        characters = [args.character_p1, args.character_p2]
         if args.policy == "random":
-            policies = [RandomPolicy(seed) for seed in seeds]
+            policies = [RandomPolicy(seed, f"random-{characters[i]}-{seed}") for i, seed in enumerate(seeds)]
         else:
             import torch
             from connectome_fighter.graph import load_graph
             from connectome_fighter.brain import ConnectomeActorCritic, NeuralPolicy, SparseGraphCore
+            from connectome_fighter.checkpoint import load_checkpoint
             from connectome_fighter.routing import validate_routing
             torch.set_num_threads(args.torch_threads)
             graph = load_graph(args.graph_dir, require_biological=True)
             routing = json.loads(Path(args.routing).read_text())
             validate_routing(graph, routing)
             graph_hash = graph.fingerprint()
+            routing_hash = routing["routing_sha256"]
             status["graph_sha256"] = graph_hash
-            status["routing_sha256"] = routing["routing_sha256"]
+            status["routing_sha256"] = routing_hash
             status["routing_annotation_version"] = routing.get("annotation_version")
             status["input_neurons"] = len(routing["input_nodes"])
             status["output_neurons"] = len(routing["output_nodes"])
-            # Fixed-connectome agents have distinct recurrent states and readouts,
-            # but may share the immutable sparse anatomical core to avoid holding
-            # two copies of a 15M-edge matrix in memory.
+            # The immutable anatomical matrix is shared only as a memory
+            # optimization. Each character has a distinct recurrent state,
+            # actor/critic parameters, RNG and checkpoint lineage.
             shared_core = SparseGraphCore(graph, plastic=False)
             policies = []
-            for seed in seeds:
-                torch.manual_seed(seed)
+            checkpoint_paths = [args.checkpoint_p1, args.checkpoint_p2]
+            checkpoint_meta = []
+            for i, (seed, character, checkpoint_path) in enumerate(zip(seeds, characters, checkpoint_paths)):
+                torch.manual_seed(CHARACTER_SEEDS[character])
                 model = ConnectomeActorCritic(
                     graph,
                     routing["input_nodes"], routing["output_nodes"],
@@ -97,10 +117,37 @@ def main() -> int:
                     plastic=False,
                     shared_core=shared_core,
                 )
-                policies.append(NeuralPolicy(model, f"untrained-{graph_hash[:12]}-{routing['routing_sha256'][:8]}-{seed}", seed))
+                if checkpoint_path:
+                    payload = load_checkpoint(
+                        checkpoint_path,
+                        expected_character=character,
+                        expected_graph_hash=graph_hash,
+                        expected_routing_hash=routing_hash,
+                    )
+                    model.actor.load_state_dict(payload["actor_state"])
+                    model.critic.load_state_dict(payload["critic_state"])
+                    meta = payload["metadata"]
+                    version = meta["checkpoint_id"]
+                    checkpoint_meta.append(meta)
+                else:
+                    version = f"untrained-{character.lower()}-{graph_hash[:10]}-{routing_hash[:8]}"
+                    checkpoint_meta.append({"character": character, "checkpoint_id": version, "generation": 0})
+                policies.append(NeuralPolicy(
+                    model, version, seed, node_ids=graph.node_ids, activity_top_k=args.activity_top_k
+                ))
+            status["checkpoints"] = checkpoint_meta
             status["immutable_core_shared_between_agents"] = True
-        agents = [FighterAI(f"ConnectomeFighterP{i+1}", policy, JsonlSink(out/f"p{i+1}.jsonl"),
-                            run_id, policies[1-i].version) for i, policy in enumerate(policies)]
+        agents = [
+            FighterAI(
+                f"ConnectomeFighter-{characters[i]}-P{i+1}",
+                policy,
+                JsonlSink(out/f"p{i+1}.jsonl"),
+                run_id,
+                policies[1-i].version,
+                trainable=not args.evaluation,
+            )
+            for i, policy in enumerate(policies)
+        ]
 
         async def run() -> None:
             gateway = Gateway(host=args.host, port=args.port)
@@ -108,7 +155,7 @@ def main() -> int:
                 gateway.register_ai(ai.name(), ai)
             try:
                 await asyncio.wait_for(
-                    gateway.run_game(["ZEN", "ZEN"], [a.name() for a in agents], args.games),
+                    gateway.run_game(characters, [a.name() for a in agents], args.games),
                     timeout=args.timeout)
             finally:
                 for ai in agents:
