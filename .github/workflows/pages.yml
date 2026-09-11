@@ -1,4 +1,4 @@
-name: pages-data-deploy
+name: pages-research-ledger-deploy
 
 on:
   workflow_dispatch:
@@ -6,7 +6,8 @@ on:
     branches: [main]
     paths:
       - 'site/**'
-      - 'spectator/**'
+      - 'configs/reward_r2d_v0.json'
+      - 'configs/plasticity_valence_v0.json'
       - '.github/workflows/pages.yml'
 
 permissions:
@@ -15,7 +16,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages-data-deploy
+  group: pages-research-ledger-deploy
   cancel-in-progress: true
 
 jobs:
@@ -28,12 +29,22 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
-      - name: Validate normalized public data when present
+
+      - name: Validate normalized public evidence when present
         run: |
+          set -euo pipefail
           test -s site/index.html
           test -s site/app.js
-          test -s spectator/index.html
-          test -s spectator/app.js
+          python - <<'PY'
+          import json
+          reward=json.load(open('configs/reward_r2d_v0.json'))
+          plasticity=json.load(open('configs/plasticity_valence_v0.json'))
+          assert reward['id']=='R2d-v0'
+          assert reward['fixed_during_comparison']['epsilon_greedy'] is False
+          assert reward['fixed_during_comparison']['specific_action_reward'] is False
+          assert plasticity['reward_config']==reward['id']
+          print({'reward':reward['id'],'reward_status':reward['status'],'plasticity':plasticity['id'],'plasticity_status':plasticity['status']})
+          PY
           if [ -f site/data/matches.json ]; then
             python - <<'PY'
           import json
@@ -43,24 +54,18 @@ jobs:
           print({'matches':d['match_count'],'updated_at':d['updated_at']})
           PY
           fi
-          if [ -f site/data/queue.json ]; then
-            python - <<'PY'
-          import json
-          q=json.load(open('site/data/queue.json'))
-          assert q['mode']=='rolling-pseudo-live'
-          assert 1 <= len(q.get('clips', [])) <= 3
-          print({'clips':len(q['clips']),'schema':q.get('schema_version'),'next_expected_at':q.get('next_expected_at')})
-          PY
-          fi
-      - name: Stage live spectator application
+
+      - name: Stage exact research contracts
         run: |
-          rm -rf site/live
-          mkdir -p site/live
-          cp spectator/index.html spectator/app.js site/live/
+          rm -rf site/research-data site/live
+          mkdir -p site/research-data
+          cp configs/reward_r2d_v0.json site/research-data/reward.json
+          cp configs/plasticity_valence_v0.json site/research-data/plasticity.json
+
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
-      - name: Deploy logs, data, and spectator dashboard
+      - name: Deploy research ledger and evidence data
         id: deployment
         uses: actions/deploy-pages@v4

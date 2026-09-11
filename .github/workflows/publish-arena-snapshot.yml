@@ -1,0 +1,103 @@
+name: publish-arena-inference-snapshot
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-arena-inference-snapshot
+  cancel-in-progress: true
+
+env:
+  SOURCE_TAG: canonical-state-smoke-v1
+  TARGET_TAG: arena-inference-latest
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Download latest approved canonical checkpoint proof
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p runs/source
+          gh release download "$SOURCE_TAG" \
+            --pattern 'garnet-g2.tar.gz' \
+            --pattern 'garnet-g2.tar.gz.sha256' \
+            --pattern 'checkpoint-manifest-g2.json' \
+            --dir runs/source
+          test -s runs/source/garnet-g2.tar.gz
+          test -s runs/source/garnet-g2.tar.gz.sha256
+          test -s runs/source/checkpoint-manifest-g2.json
+          expected="$(awk '{print $1}' runs/source/garnet-g2.tar.gz.sha256)"
+          echo "$expected  runs/source/garnet-g2.tar.gz" | sha256sum -c -
+
+      - name: Extract only inference state and build minimal handoff manifest
+        run: |
+          set -euo pipefail
+          mkdir -p runs/unpack runs/arena
+          tar -C runs/unpack -xzf runs/source/garnet-g2.tar.gz
+          cp runs/unpack/state/GARNET.npz runs/arena/GARNET.npz
+          python - <<'PY'
+          import hashlib, json, pathlib
+
+          state = pathlib.Path('runs/arena/GARNET.npz')
+          source_manifest = json.load(open('runs/source/checkpoint-manifest-g2.json'))
+          source_meta = json.load(open('runs/unpack/state/GARNET.npz.json'))
+          sha = hashlib.sha256(state.read_bytes()).hexdigest()
+
+          assert source_manifest['character'] == 'GARNET'
+          assert source_manifest['generation'] == 2
+          assert source_meta['state_sha256'] == sha
+          assert source_manifest['state_sha256'] == sha
+          assert source_manifest['model'] == source_meta['model']
+
+          manifest = {
+              'schema_version': 1,
+              'kind': 'connectome-fighter-arena-inference-snapshot',
+              'canonical_model': 'MaleCNS v1.0 + pinned Shiu LIF',
+              'mutability': 'read-only-inference',
+              'source_checkpoint_tag': 'canonical-state-smoke-v1',
+              'research_metadata_embedded': False,
+              'characters': {
+                  'GARNET': {
+                      'generation': int(source_manifest['generation']),
+                      'state_file': 'GARNET.npz',
+                      'state_sha256': sha,
+                  }
+              },
+              'note': 'Minimal runtime handoff only. Reward formulas, plasticity rationale, optimizer/research history and match ledger remain on GitHub research surfaces.',
+          }
+          pathlib.Path('runs/arena/manifest.json').write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
+          print(json.dumps(manifest, indent=2, sort_keys=True))
+          PY
+
+      - name: Publish stable inference handoff release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TARGET_TAG" >/dev/null 2>&1; then
+            gh release create "$TARGET_TAG" --prerelease \
+              --title 'Connectome Fighter arena inference snapshot' \
+              --notes 'Read-only inference handoff for the public arena. Research/training metadata stays on GitHub Pages and Actions.'
+          fi
+          gh release upload "$TARGET_TAG" \
+            runs/arena/manifest.json \
+            runs/arena/GARNET.npz \
+            --clobber
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arena-inference-snapshot-manifest
+          path: runs/arena/manifest.json
+          if-no-files-found: error
+          retention-days: 30
