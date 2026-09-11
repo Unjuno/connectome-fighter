@@ -1,9 +1,11 @@
 import copy
+import json
 import torch
 
 from connectome_fighter.characters import CHARACTER_SEEDS, CHARACTERS
 from connectome_fighter.checkpoint import load_checkpoint, save_checkpoint
 from connectome_fighter.learning import PPOConfig, initialize_heads, make_optimizer, ppo_update
+from connectome_fighter.state_bundle import package_state, restore_state
 
 
 def test_character_brains_initialize_independently():
@@ -53,3 +55,29 @@ def test_ppo_updates_readout_only():
     metrics = ppo_update(heads, opt, rounds, cfg)
     assert metrics["rounds"] == 1 and metrics["transitions"] == 2
     assert any(not torch.equal(before[k], heads.actor.state_dict()[k]) for k in before)
+
+
+def test_double_buffered_state_bundle_roundtrip(tmp_path):
+    cfg = PPOConfig(epochs=1)
+    state = tmp_path / "state"
+    state.mkdir()
+    for character in CHARACTERS:
+        heads = initialize_heads(5, CHARACTER_SEEDS[character])
+        opt = make_optimizer(heads, cfg)
+        save_checkpoint(
+            state / f"brain-{character}.pt", character=character,
+            actor=heads.actor, critic=heads.critic, optimizer=opt,
+            generation=4, training_matches=8, updates=4,
+            graph_hash="c" * 64, routing_hash="d" * 64, code_sha="test",
+            hyperparameters=cfg.as_dict(),
+        )
+    (state / "league-state.json").write_text(json.dumps({"chunks": 4}), encoding="utf-8")
+    publish = tmp_path / "publish"
+    pointer = package_state(state, publish)
+    assert pointer["active_slot"] == "a"
+    restored = tmp_path / "restored"
+    result = restore_state(publish, restored)
+    assert result["generation"] == 4 and result["chunk"] == 4
+    for character in CHARACTERS:
+        loaded = load_checkpoint(restored / f"brain-{character}.pt", expected_character=character)
+        assert loaded["metadata"]["generation"] == 4
