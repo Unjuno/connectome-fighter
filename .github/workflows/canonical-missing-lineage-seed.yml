@@ -1,0 +1,360 @@
+name: canonical-missing-lineage-seed
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/canonical-missing-lineage-seed.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: canonical-missing-lineage-seed
+  cancel-in-progress: true
+
+env:
+  SHIU_COMMIT: 2a83ad611cd9768f8c9723fc613ed27761a5feb5
+  ADAPTER_CACHE_KEY: malecns-v1.0-shiu-strict-minw5-2a83ad611cd9768f8c9723fc613ed27761a5feb5-adapter-v1
+  VALENCE_CACHE_KEY: malecns-v1.0-kc-mbon-valence-v1
+  RELEASE_TAG: canonical-missing-lineage-smoke-v1
+  GAME_URL: https://github.com/TeamFightingICE/FightingICE/releases/download/v7.1/DareFightingICE-7.1.zip
+  GAME_SHA256: 510752a69a097b767677d3911b1407d6a08a721dad4faf2cb5b7a19b988f1c62
+  RESOURCE_URL: https://github.com/TeamFightingICE/FightingICE/releases/download/v7.1/resource-7.1.zip
+  RESOURCE_SHA256: 386fd713f901db00583054528ccfbce315953c157dc16231c4367416d86dce53
+
+jobs:
+  seed:
+    name: seed-${{ matrix.target }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: ZEN
+            target_seed: 910202
+            opponent_seed: 910101
+          - target: LUD
+            target_seed: 910303
+            opponent_seed: 910101
+          - target: NEZ
+            target_seed: 910404
+            opponent_seed: 910101
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up reference Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install pinned Shiu/Brian2 runtime
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install 'numpy==1.24.0' 'pandas==1.5.3' 'pyarrow==10.0.1' 'joblib==1.2.0' 'Cython==0.29.36' 'brian2==2.5.1'
+          echo "PY310=$(which python)" >> "$GITHUB_ENV"
+
+      - name: Set up bridge/update Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install bridge/update dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install 'numpy==2.3.5' 'pandas==2.3.3' 'pyarrow==23.0.1' 'pyftg==2.3'
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Restore canonical MaleCNS adapter cache
+        uses: actions/cache@v4
+        with:
+          path: data/processed/malecns-shiu-strict-v1
+          key: ${{ env.ADAPTER_CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: Restore canonical valence partition cache
+        uses: actions/cache@v4
+        with:
+          path: data/processed/malecns-valence-v1
+          key: ${{ env.VALENCE_CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: Build fixed game interface
+        run: |
+          set -euo pipefail
+          mkdir -p data/processed/malecns-interface-v1
+          python scripts/build_malecns_game_interface.py \
+            --metadata data/processed/malecns-shiu-strict-v1/neuron_metadata.parquet \
+            --manifest data/processed/malecns-shiu-strict-v1/manifest.json \
+            --out data/processed/malecns-interface-v1/interface.json \
+            --seed 20260911 \
+            --input-bodies-per-polarity-feature 16 \
+            --max-poisson-rate-hz 150 \
+            --decision-window-ms 20 \
+            --neutral-min-spikes 1
+
+      - name: Fetch pinned Shiu model
+        run: |
+          set -euo pipefail
+          mkdir -p external/shiu-reference
+          curl -fL --retry 4 --retry-all-errors \
+            -o external/shiu-reference/model.py \
+            "https://raw.githubusercontent.com/philshiu/Drosophila_brain_model/$SHIU_COMMIT/model.py"
+          echo 'fc45837d7122c6ce2a7f3f2f23c515992e4b232aadb919efabb72337fac88e4e  external/shiu-reference/model.py' | sha256sum -c -
+
+      - name: Restore FightingICE v7.1 cache
+        id: game-cache
+        uses: actions/cache@v4
+        with:
+          path: external/v71
+          key: fightingice-v71-510752a6-386fd713
+
+      - name: Download verified FightingICE v7.1 on cache miss
+        if: steps.game-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p external/v71 external/downloads
+          curl -fL --retry 4 --retry-all-errors -o external/downloads/game.zip "$GAME_URL"
+          curl -fL --retry 4 --retry-all-errors -o external/downloads/resource.zip "$RESOURCE_URL"
+          echo "$GAME_SHA256  external/downloads/game.zip" | sha256sum -c -
+          echo "$RESOURCE_SHA256  external/downloads/resource.zip" | sha256sum -c -
+          unzip -q external/downloads/game.zip -d external/v71
+          GAME_JAR="$(find external/v71 -type f -name FightingICE.jar -print -quit)"
+          test -n "$GAME_JAR"
+          unzip -q -o external/downloads/resource.zip -d "$(dirname "$GAME_JAR")"
+          rm -rf external/downloads
+
+      - name: Stage and start lightweight FightingICE
+        run: |
+          set -euo pipefail
+          mkdir -p runs/lineage-seed
+          GAME_JAR="$(find external/v71 -type f -name FightingICE.jar -print -quit)"
+          GAME_DIR="$(dirname "$GAME_JAR")"
+          bash deploy/arena-runtime/stage-fightingice-lightweight.sh "$GAME_DIR" runs/lineage-fightingice
+          (
+            cd runs/lineage-fightingice
+            nohup java -cp 'FightingICE.jar:./lib/*:./lib/lwjgl/*' Main \
+              --lightweight-mode --pyftg-mode --input-sync \
+              --limithp 400 400 --port 31415 -r 1 -f 600 \
+              > "$GITHUB_WORKSPACE/runs/lineage-seed/fightingice.log" 2>&1 &
+            echo $! > "$GITHUB_WORKSPACE/runs/lineage-seed/fightingice.pid"
+          )
+          for i in $(seq 1 60); do
+            grep -q 'Socket server is started' runs/lineage-seed/fightingice.log 2>/dev/null && exit 0
+            kill -0 "$(cat runs/lineage-seed/fightingice.pid)" 2>/dev/null || { cat runs/lineage-seed/fightingice.log; exit 1; }
+            sleep 1
+          done
+          cat runs/lineage-seed/fightingice.log
+          exit 1
+
+      - name: Run target generation-0 canonical match
+        env:
+          TARGET: ${{ matrix.target }}
+          TARGET_SEED: ${{ matrix.target_seed }}
+          OPPONENT_SEED: ${{ matrix.opponent_seed }}
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python scripts/run_game_malecns_lif.py \
+            --host 127.0.0.1 --port 31415 \
+            --character-p1 "$TARGET" --character-p2 GARNET \
+            --seed-p1 "$TARGET_SEED" --seed-p2 "$OPPONENT_SEED" \
+            --reference-python "$PY310" \
+            --reference-model external/shiu-reference/model.py \
+            --adapter-dir data/processed/malecns-shiu-strict-v1 \
+            --interface data/processed/malecns-interface-v1/interface.json \
+            --decision-interval 60 \
+            --games 1 --expected-rounds 1 --timeout 900 \
+            --trainable-trace \
+            --run-id "${TARGET,,}-g0-seed" \
+            --out runs/lineage-seed
+
+      - name: Apply candidate R2d-v0 update to target only
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          mkdir -p "runs/lineage-seed/state"
+          LOWER="${TARGET,,}"
+          PYTHONPATH=src python scripts/update_malecns_valence_plasticity.py \
+            --character "$TARGET" --side 1 \
+            --round-trace "runs/lineage-seed/${LOWER}-g0-seed/p1.jsonl" \
+            --spikes "runs/lineage-seed/${LOWER}-g0-seed/p1-brain/spikes.parquet" \
+            --candidates data/processed/malecns-valence-v1/kc_mbon_valence_candidates.parquet \
+            --reward-config configs/reward_r2d_v0.json \
+            --plasticity-config configs/plasticity_valence_v0.json \
+            --state "runs/lineage-seed/state/${TARGET}.npz" \
+            --out-summary "runs/lineage-seed/${LOWER}-g1-update.json"
+          python - "$TARGET" <<'PY'
+          import json, pathlib, sys
+          target=sys.argv[1]
+          lower=target.lower()
+          u=json.load(open(f'runs/lineage-seed/{lower}-g1-update.json'))
+          assert u['status']=='PASS'
+          assert u['character']==target
+          assert u['state_source']=='unity-initial-state'
+          assert u['state']['generation']==1 and u['state']['matches']==1
+          assert u['updates']['potentiated_edges']==0
+          assert u['updates']['max_multiplier']<=1.0
+          assert u['invariants']['topology_changed'] is False
+          assert u['invariants']['sign_changed'] is False
+          print(json.dumps({'character':target,'signals':u['signals'],'updates':u['updates'],'state':u['state']},indent=2))
+          PY
+
+      - name: Materialize target generation-1 adapter
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          LOWER="${TARGET,,}"
+          PYTHONPATH=src python scripts/materialize_malecns_valence_adapter.py \
+            --base-adapter data/processed/malecns-shiu-strict-v1 \
+            --candidates data/processed/malecns-valence-v1/kc_mbon_valence_candidates.parquet \
+            --state "runs/lineage-seed/state/${TARGET}.npz" \
+            --character "$TARGET" \
+            --plasticity-config configs/plasticity_valence_v0.json \
+            --out "runs/lineage-seed/${LOWER}-g1-adapter"
+
+      - name: Package generation-1 candidate checkpoint
+        env:
+          TARGET: ${{ matrix.target }}
+          TARGET_SEED: ${{ matrix.target_seed }}
+          OPPONENT_SEED: ${{ matrix.opponent_seed }}
+        run: |
+          set -euo pipefail
+          LOWER="${TARGET,,}"
+          ROOT="runs/candidate-${LOWER}"
+          mkdir -p "$ROOT/state" "$ROOT/evidence"
+          cp "runs/lineage-seed/state/${TARGET}.npz" "$ROOT/state/${TARGET}.npz"
+          cp "runs/lineage-seed/state/${TARGET}.npz.json" "$ROOT/state/${TARGET}.npz.json"
+          cp "runs/lineage-seed/${LOWER}-g1-update.json" "$ROOT/evidence/update.json"
+          cp "runs/lineage-seed/${LOWER}-g0-seed/status.json" "$ROOT/evidence/match-status.json"
+          cp "runs/lineage-seed/${LOWER}-g1-adapter/manifest.json" "$ROOT/evidence/materialized-adapter-manifest.json"
+          python - "$TARGET" "$TARGET_SEED" "$OPPONENT_SEED" <<'PY'
+          import hashlib, json, os, pathlib, sys
+          target, target_seed, opponent_seed=sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
+          lower=target.lower(); root=pathlib.Path(f'runs/candidate-{lower}')
+          state=root/f'state/{target}.npz'
+          meta=json.load(open(str(state)+'.json'))
+          update=json.load(open(root/'evidence/update.json'))
+          status=json.load(open(root/'evidence/match-status.json'))
+          sha=hashlib.sha256(state.read_bytes()).hexdigest()
+          assert meta['state_sha256']==sha
+          assert meta['character']==target
+          assert meta['generation']==1 and meta['matches']==1
+          assert status['status']=='COMPLETED_WITH_VALIDATED_CANONICAL_TRACES'
+          manifest={
+            'schema_version':1,
+            'kind':'canonical-character-checkpoint-candidate-smoke',
+            'character':target,
+            'generation':1,
+            'opponent':'GARNET',
+            'target_side':1,
+            'target_seed':target_seed,
+            'opponent_seed':opponent_seed,
+            'source_actions_run':int(os.environ['GITHUB_RUN_ID']),
+            'model':meta['model'],
+            'reward_id':meta['reward_id'],
+            'candidate_sha256':meta['candidate_sha256'],
+            'config_sha256':meta['config_sha256'],
+            'state_sha256':sha,
+            'changed_edges':int(update['updates']['changed_edges']),
+            'signal_sum':float(update['signals']['sum']),
+            'topology_changed':False,
+            'sign_changed':False,
+            'purpose':'independent missing-character checkpoint lineage smoke; candidate only, not production continuous training',
+          }
+          (root/'checkpoint-manifest.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n')
+          pathlib.Path(f'runs/{target}-g1-candidate-manifest.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n')
+          print(json.dumps(manifest,indent=2,sort_keys=True))
+          PY
+          tar -C "$ROOT" -czf "runs/${LOWER}-g1-candidate.tar.gz" .
+          (cd runs && sha256sum "${LOWER}-g1-candidate.tar.gz" > "${LOWER}-g1-candidate.tar.gz.sha256")
+
+      - name: Stop FightingICE
+        if: always()
+        run: |
+          if [ -f runs/lineage-seed/fightingice.pid ]; then
+            kill "$(cat runs/lineage-seed/fightingice.pid)" 2>/dev/null || true
+          fi
+
+      - name: Upload candidate lineage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-lineage-${{ matrix.target }}
+          path: |
+            runs/${{ matrix.target }}-g1-candidate-manifest.json
+            runs/${{ matrix.target == 'ZEN' && 'zen' || matrix.target == 'LUD' && 'lud' || 'nez' }}-g1-candidate.tar.gz
+            runs/${{ matrix.target == 'ZEN' && 'zen' || matrix.target == 'LUD' && 'lud' || 'nez' }}-g1-candidate.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    needs: seed
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download all validated candidate lineages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: candidate-lineage-*
+          path: runs/candidates
+          merge-multiple: true
+
+      - name: Build release index
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, pathlib
+          root=pathlib.Path('runs/candidates')
+          rows=[]
+          for path in sorted(root.glob('*-g1-candidate-manifest.json')):
+              row=json.load(open(path))
+              assert row['kind']=='canonical-character-checkpoint-candidate-smoke'
+              assert row['generation']==1
+              assert row['reward_id']=='R2d-v0'
+              assert row['model']=='KC-MBON-valence-depression-v0'
+              assert row['topology_changed'] is False
+              assert row['sign_changed'] is False
+              rows.append(row)
+          assert {r['character'] for r in rows}=={'ZEN','LUD','NEZ'}
+          payload={
+            'schema_version':1,
+            'kind':'canonical-missing-character-lineage-candidate-index',
+            'canonical_model':'MaleCNS v1.0 + pinned Shiu LIF',
+            'reward_status':'candidate-smoke-contract',
+            'continuous_canonical_learning_claimed':False,
+            'characters':{r['character']:r for r in rows},
+            'note':'These checkpoints establish independent candidate state/RNG/history lineages for the previously missing characters. They are not production-trained league assets and are not promoted to the Vercel arena inference release.',
+          }
+          (root/'index-manifest.json').write_text(json.dumps(payload,indent=2,sort_keys=True)+'\n')
+          print(json.dumps(payload,indent=2,sort_keys=True))
+          PY
+
+      - name: Publish candidate smoke release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --prerelease \
+              --title 'Missing character checkpoint lineage smoke' \
+              --notes 'Candidate-only ZEN/LUD/NEZ independent MaleCNS state lineages under the current R2d-v0 smoke contract. Not a production-trained league; continuous canonical learning is not claimed.'
+          fi
+          gh release upload "$RELEASE_TAG" \
+            runs/candidates/*.tar.gz \
+            runs/candidates/*.tar.gz.sha256 \
+            runs/candidates/*-g1-candidate-manifest.json \
+            runs/candidates/index-manifest.json \
+            --clobber
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: missing-lineage-seed-index
+          path: runs/candidates/index-manifest.json
+          if-no-files-found: error
+          retention-days: 30

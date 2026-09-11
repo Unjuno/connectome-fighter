@@ -1,0 +1,409 @@
+name: canonical-missing-lineage-resume
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [canonical-missing-lineage-seed]
+    types: [completed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: canonical-missing-lineage-resume
+  cancel-in-progress: true
+
+env:
+  SHIU_COMMIT: 2a83ad611cd9768f8c9723fc613ed27761a5feb5
+  ADAPTER_CACHE_KEY: malecns-v1.0-shiu-strict-minw5-2a83ad611cd9768f8c9723fc613ed27761a5feb5-adapter-v1
+  VALENCE_CACHE_KEY: malecns-v1.0-kc-mbon-valence-v1
+  RELEASE_TAG: canonical-missing-lineage-smoke-v1
+  GAME_URL: https://github.com/TeamFightingICE/FightingICE/releases/download/v7.1/DareFightingICE-7.1.zip
+  GAME_SHA256: 510752a69a097b767677d3911b1407d6a08a721dad4faf2cb5b7a19b988f1c62
+  RESOURCE_URL: https://github.com/TeamFightingICE/FightingICE/releases/download/v7.1/resource-7.1.zip
+  RESOURCE_SHA256: 386fd713f901db00583054528ccfbce315953c157dc16231c4367416d86dce53
+
+jobs:
+  resume:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    name: resume-${{ matrix.target }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: ZEN
+            target_seed: 1910202
+            opponent_seed: 1910101
+          - target: LUD
+            target_seed: 1910303
+            opponent_seed: 1910101
+          - target: NEZ
+            target_seed: 1910404
+            opponent_seed: 1910101
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download generation-1 candidate checkpoint
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          LOWER="${TARGET,,}"
+          mkdir -p runs/source
+          gh release download "$RELEASE_TAG" \
+            --pattern "${LOWER}-g1-candidate.tar.gz" \
+            --pattern "${LOWER}-g1-candidate.tar.gz.sha256" \
+            --pattern "${TARGET}-g1-candidate-manifest.json" \
+            --dir runs/source
+          (cd runs/source && sha256sum -c "${LOWER}-g1-candidate.tar.gz.sha256")
+          mkdir -p runs/restored
+          tar -C runs/restored -xzf "runs/source/${LOWER}-g1-candidate.tar.gz"
+          python - "$TARGET" <<'PY'
+          import hashlib, json, pathlib, sys
+          target=sys.argv[1]; lower=target.lower()
+          state=pathlib.Path(f'runs/restored/state/{target}.npz')
+          meta=json.load(open(str(state)+'.json'))
+          release_manifest=json.load(open(f'runs/source/{target}-g1-candidate-manifest.json'))
+          embedded=json.load(open('runs/restored/checkpoint-manifest.json'))
+          sha=hashlib.sha256(state.read_bytes()).hexdigest()
+          assert release_manifest==embedded
+          assert release_manifest['character']==target
+          assert release_manifest['generation']==1
+          assert release_manifest['state_sha256']==sha==meta['state_sha256']
+          assert meta['generation']==1 and meta['matches']==1
+          assert meta['reward_id']=='R2d-v0'
+          assert meta['model']=='KC-MBON-valence-depression-v0'
+          print(json.dumps({'character':target,'generation':1,'state_sha256':sha},indent=2))
+          PY
+
+      - name: Set up reference Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install pinned Shiu/Brian2 runtime
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install 'numpy==1.24.0' 'pandas==1.5.3' 'pyarrow==10.0.1' 'joblib==1.2.0' 'Cython==0.29.36' 'brian2==2.5.1'
+          echo "PY310=$(which python)" >> "$GITHUB_ENV"
+
+      - name: Set up bridge/update Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install bridge/update dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install 'numpy==2.3.5' 'pandas==2.3.3' 'pyarrow==23.0.1' 'pyftg==2.3'
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Restore canonical MaleCNS adapter cache
+        uses: actions/cache@v4
+        with:
+          path: data/processed/malecns-shiu-strict-v1
+          key: ${{ env.ADAPTER_CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: Restore canonical valence partition cache
+        uses: actions/cache@v4
+        with:
+          path: data/processed/malecns-valence-v1
+          key: ${{ env.VALENCE_CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: Build fixed game interface
+        run: |
+          set -euo pipefail
+          mkdir -p data/processed/malecns-interface-v1
+          python scripts/build_malecns_game_interface.py \
+            --metadata data/processed/malecns-shiu-strict-v1/neuron_metadata.parquet \
+            --manifest data/processed/malecns-shiu-strict-v1/manifest.json \
+            --out data/processed/malecns-interface-v1/interface.json \
+            --seed 20260911 \
+            --input-bodies-per-polarity-feature 16 \
+            --max-poisson-rate-hz 150 \
+            --decision-window-ms 20 \
+            --neutral-min-spikes 1
+
+      - name: Fetch pinned Shiu model
+        run: |
+          set -euo pipefail
+          mkdir -p external/shiu-reference
+          curl -fL --retry 4 --retry-all-errors \
+            -o external/shiu-reference/model.py \
+            "https://raw.githubusercontent.com/philshiu/Drosophila_brain_model/$SHIU_COMMIT/model.py"
+          echo 'fc45837d7122c6ce2a7f3f2f23c515992e4b232aadb919efabb72337fac88e4e  external/shiu-reference/model.py' | sha256sum -c -
+
+      - name: Materialize restored generation-1 adapter
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          LOWER="${TARGET,,}"
+          PYTHONPATH=src python scripts/materialize_malecns_valence_adapter.py \
+            --base-adapter data/processed/malecns-shiu-strict-v1 \
+            --candidates data/processed/malecns-valence-v1/kc_mbon_valence_candidates.parquet \
+            --state "runs/restored/state/${TARGET}.npz" \
+            --character "$TARGET" \
+            --plasticity-config configs/plasticity_valence_v0.json \
+            --out "runs/${LOWER}-g1-adapter"
+
+      - name: Restore FightingICE v7.1 cache
+        id: game-cache
+        uses: actions/cache@v4
+        with:
+          path: external/v71
+          key: fightingice-v71-510752a6-386fd713
+
+      - name: Download verified FightingICE v7.1 on cache miss
+        if: steps.game-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p external/v71 external/downloads
+          curl -fL --retry 4 --retry-all-errors -o external/downloads/game.zip "$GAME_URL"
+          curl -fL --retry 4 --retry-all-errors -o external/downloads/resource.zip "$RESOURCE_URL"
+          echo "$GAME_SHA256  external/downloads/game.zip" | sha256sum -c -
+          echo "$RESOURCE_SHA256  external/downloads/resource.zip" | sha256sum -c -
+          unzip -q external/downloads/game.zip -d external/v71
+          GAME_JAR="$(find external/v71 -type f -name FightingICE.jar -print -quit)"
+          test -n "$GAME_JAR"
+          unzip -q -o external/downloads/resource.zip -d "$(dirname "$GAME_JAR")"
+          rm -rf external/downloads
+
+      - name: Stage and start lightweight FightingICE
+        run: |
+          set -euo pipefail
+          mkdir -p runs/lineage-resume
+          GAME_JAR="$(find external/v71 -type f -name FightingICE.jar -print -quit)"
+          GAME_DIR="$(dirname "$GAME_JAR")"
+          bash deploy/arena-runtime/stage-fightingice-lightweight.sh "$GAME_DIR" runs/lineage-fightingice
+          (
+            cd runs/lineage-fightingice
+            nohup java -cp 'FightingICE.jar:./lib/*:./lib/lwjgl/*' Main \
+              --lightweight-mode --pyftg-mode --input-sync \
+              --limithp 400 400 --port 31415 -r 1 -f 600 \
+              > "$GITHUB_WORKSPACE/runs/lineage-resume/fightingice.log" 2>&1 &
+            echo $! > "$GITHUB_WORKSPACE/runs/lineage-resume/fightingice.pid"
+          )
+          for i in $(seq 1 60); do
+            grep -q 'Socket server is started' runs/lineage-resume/fightingice.log 2>/dev/null && exit 0
+            kill -0 "$(cat runs/lineage-resume/fightingice.pid)" 2>/dev/null || { cat runs/lineage-resume/fightingice.log; exit 1; }
+            sleep 1
+          done
+          cat runs/lineage-resume/fightingice.log
+          exit 1
+
+      - name: Run generation-1 checkpoint match
+        env:
+          TARGET: ${{ matrix.target }}
+          TARGET_SEED: ${{ matrix.target_seed }}
+          OPPONENT_SEED: ${{ matrix.opponent_seed }}
+        run: |
+          set -euo pipefail
+          LOWER="${TARGET,,}"
+          PYTHONPATH=src python scripts/run_game_malecns_lif.py \
+            --host 127.0.0.1 --port 31415 \
+            --character-p1 "$TARGET" --character-p2 GARNET \
+            --seed-p1 "$TARGET_SEED" --seed-p2 "$OPPONENT_SEED" \
+            --reference-python "$PY310" \
+            --reference-model external/shiu-reference/model.py \
+            --adapter-dir data/processed/malecns-shiu-strict-v1 \
+            --adapter-dir-p1 "runs/${LOWER}-g1-adapter" \
+            --adapter-dir-p2 data/processed/malecns-shiu-strict-v1 \
+            --interface data/processed/malecns-interface-v1/interface.json \
+            --decision-interval 60 \
+            --games 1 --expected-rounds 1 --timeout 900 \
+            --trainable-trace \
+            --run-id "${LOWER}-g1-resume" \
+            --out runs/lineage-resume
+
+      - name: Resume update to generation 2
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          LOWER="${TARGET,,}"
+          PYTHONPATH=src python scripts/update_malecns_valence_plasticity.py \
+            --character "$TARGET" --side 1 \
+            --round-trace "runs/lineage-resume/${LOWER}-g1-resume/p1.jsonl" \
+            --spikes "runs/lineage-resume/${LOWER}-g1-resume/p1-brain/spikes.parquet" \
+            --candidates data/processed/malecns-valence-v1/kc_mbon_valence_candidates.parquet \
+            --reward-config configs/reward_r2d_v0.json \
+            --plasticity-config configs/plasticity_valence_v0.json \
+            --state "runs/restored/state/${TARGET}.npz" \
+            --out-summary "runs/lineage-resume/${LOWER}-g2-update.json"
+          python - "$TARGET" <<'PY'
+          import json, sys
+          target=sys.argv[1]; lower=target.lower()
+          u=json.load(open(f'runs/lineage-resume/{lower}-g2-update.json'))
+          assert u['status']=='PASS'
+          assert u['character']==target
+          assert u['state_source']=='checkpoint'
+          assert u['state']['generation']==2 and u['state']['matches']==2
+          assert u['updates']['potentiated_edges']==0
+          assert u['updates']['max_multiplier']<=1.0
+          assert u['invariants']['topology_changed'] is False
+          assert u['invariants']['sign_changed'] is False
+          print(json.dumps({'character':target,'signals':u['signals'],'updates':u['updates'],'state':u['state']},indent=2))
+          PY
+
+      - name: Materialize target generation-2 adapter
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          LOWER="${TARGET,,}"
+          PYTHONPATH=src python scripts/materialize_malecns_valence_adapter.py \
+            --base-adapter data/processed/malecns-shiu-strict-v1 \
+            --candidates data/processed/malecns-valence-v1/kc_mbon_valence_candidates.parquet \
+            --state "runs/restored/state/${TARGET}.npz" \
+            --character "$TARGET" \
+            --plasticity-config configs/plasticity_valence_v0.json \
+            --out "runs/lineage-resume/${LOWER}-g2-adapter"
+
+      - name: Package generation-2 cross-run candidate checkpoint
+        env:
+          TARGET: ${{ matrix.target }}
+          TARGET_SEED: ${{ matrix.target_seed }}
+          OPPONENT_SEED: ${{ matrix.opponent_seed }}
+        run: |
+          set -euo pipefail
+          LOWER="${TARGET,,}"
+          ROOT="runs/resume-${LOWER}"
+          mkdir -p "$ROOT/state" "$ROOT/evidence"
+          cp "runs/restored/state/${TARGET}.npz" "$ROOT/state/${TARGET}.npz"
+          cp "runs/restored/state/${TARGET}.npz.json" "$ROOT/state/${TARGET}.npz.json"
+          cp "runs/lineage-resume/${LOWER}-g2-update.json" "$ROOT/evidence/update.json"
+          cp "runs/lineage-resume/${LOWER}-g1-resume/status.json" "$ROOT/evidence/match-status.json"
+          cp "runs/lineage-resume/${LOWER}-g2-adapter/manifest.json" "$ROOT/evidence/materialized-adapter-manifest.json"
+          cp "runs/source/${TARGET}-g1-candidate-manifest.json" "$ROOT/evidence/source-g1-manifest.json"
+          python - "$TARGET" "$TARGET_SEED" "$OPPONENT_SEED" <<'PY'
+          import hashlib, json, os, pathlib, sys
+          target, target_seed, opponent_seed=sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
+          lower=target.lower(); root=pathlib.Path(f'runs/resume-{lower}')
+          state=root/f'state/{target}.npz'
+          meta=json.load(open(str(state)+'.json'))
+          update=json.load(open(root/'evidence/update.json'))
+          status=json.load(open(root/'evidence/match-status.json'))
+          source=json.load(open(root/'evidence/source-g1-manifest.json'))
+          sha=hashlib.sha256(state.read_bytes()).hexdigest()
+          assert meta['state_sha256']==sha
+          assert meta['character']==target
+          assert meta['generation']==2 and meta['matches']==2
+          assert status['status']=='COMPLETED_WITH_VALIDATED_CANONICAL_TRACES'
+          manifest={
+            'schema_version':1,
+            'kind':'canonical-character-checkpoint-cross-run-candidate-smoke',
+            'character':target,
+            'generation':2,
+            'opponent':'GARNET',
+            'target_side':1,
+            'target_seed':target_seed,
+            'opponent_seed':opponent_seed,
+            'source_generation_1_actions_run':int(source['source_actions_run']),
+            'source_actions_run':int(os.environ['GITHUB_RUN_ID']),
+            'model':meta['model'],
+            'reward_id':meta['reward_id'],
+            'candidate_sha256':meta['candidate_sha256'],
+            'config_sha256':meta['config_sha256'],
+            'state_sha256':sha,
+            'changed_edges_this_match':int(update['updates']['changed_edges']),
+            'signal_sum_this_match':float(update['signals']['sum']),
+            'topology_changed':False,
+            'sign_changed':False,
+            'cross_actions_run_resume_proven':True,
+            'purpose':'cross-Actions-run resume gate for an independent missing-character candidate lineage; not production continuous training',
+          }
+          (root/'checkpoint-manifest.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n')
+          pathlib.Path(f'runs/{target}-g2-candidate-manifest.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n')
+          print(json.dumps(manifest,indent=2,sort_keys=True))
+          PY
+          tar -C "$ROOT" -czf "runs/${LOWER}-g2-candidate.tar.gz" .
+          (cd runs && sha256sum "${LOWER}-g2-candidate.tar.gz" > "${LOWER}-g2-candidate.tar.gz.sha256")
+
+      - name: Stop FightingICE
+        if: always()
+        run: |
+          if [ -f runs/lineage-resume/fightingice.pid ]; then
+            kill "$(cat runs/lineage-resume/fightingice.pid)" 2>/dev/null || true
+          fi
+
+      - name: Upload cross-run candidate artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: resumed-lineage-${{ matrix.target }}
+          path: |
+            runs/*-g2-candidate-manifest.json
+            runs/*-g2-candidate.tar.gz
+            runs/*-g2-candidate.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    needs: resume
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download all cross-run resumed lineages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: resumed-lineage-*
+          path: runs/resumed
+          merge-multiple: true
+
+      - name: Build cross-run resume index
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, pathlib
+          root=pathlib.Path('runs/resumed')
+          rows=[]
+          for path in sorted(root.glob('*-g2-candidate-manifest.json')):
+              row=json.load(open(path))
+              assert row['kind']=='canonical-character-checkpoint-cross-run-candidate-smoke'
+              assert row['generation']==2
+              assert row['reward_id']=='R2d-v0'
+              assert row['model']=='KC-MBON-valence-depression-v0'
+              assert row['cross_actions_run_resume_proven'] is True
+              assert row['source_generation_1_actions_run'] != row['source_actions_run']
+              rows.append(row)
+          assert {r['character'] for r in rows}=={'ZEN','LUD','NEZ'}
+          payload={
+            'schema_version':1,
+            'kind':'canonical-missing-character-cross-run-resume-candidate-index',
+            'canonical_model':'MaleCNS v1.0 + pinned Shiu LIF',
+            'reward_status':'candidate-smoke-contract',
+            'continuous_canonical_learning_claimed':False,
+            'arena_promotion_performed':False,
+            'characters':{r['character']:r for r in rows},
+            'note':'Cross-Actions-run checkpoint resume is proven for ZEN/LUD/NEZ under the current candidate smoke contract. These assets remain research candidates and are not automatically promoted to arena-inference-latest.',
+          }
+          (root/'resume-index-manifest.json').write_text(json.dumps(payload,indent=2,sort_keys=True)+'\n')
+          print(json.dumps(payload,indent=2,sort_keys=True))
+          PY
+
+      - name: Publish cross-run candidate assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release upload "$RELEASE_TAG" \
+            runs/resumed/*.tar.gz \
+            runs/resumed/*.tar.gz.sha256 \
+            runs/resumed/*-g2-candidate-manifest.json \
+            runs/resumed/resume-index-manifest.json \
+            --clobber
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: missing-lineage-resume-index
+          path: runs/resumed/resume-index-manifest.json
+          if-no-files-found: error
+          retention-days: 30
