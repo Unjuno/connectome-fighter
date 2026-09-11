@@ -1,9 +1,12 @@
-name: pages-manual-redeploy
+name: pages-data-deploy
 
-# Manual fallback only. The authoritative deployment is produced at the end of
-# malecns-baseline-batch.yml, after canonical MaleCNS artifacts are aggregated.
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - '.github/workflows/pages.yml'
 
 permissions:
   contents: read
@@ -11,7 +14,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages-manual-redeploy
+  group: pages-data-deploy
   cancel-in-progress: true
 
 jobs:
@@ -24,10 +27,23 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
+      - name: Validate normalized public data when present
+        run: |
+          test -s site/index.html
+          test -s site/app.js
+          if [ -f site/data/matches.json ]; then
+            python - <<'PY'
+          import json
+          d=json.load(open('site/data/matches.json'))
+          assert d['kind']=='normalized-fightingice-match-log'
+          assert d['match_count']==len(d['matches'])
+          print({'matches':d['match_count'],'updated_at':d['updated_at']})
+          PY
+          fi
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
-      - name: Redeploy current canonical dashboard
+      - name: Deploy current log/data site
         id: deployment
         uses: actions/deploy-pages@v4
