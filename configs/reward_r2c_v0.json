@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "id": "R2c-v0",
+  "status": "paired-learning-ab-candidate",
+  "terminal": {
+    "win": 1.0,
+    "loss": -1.0,
+    "ordinary_draw": 0.0,
+    "no_damage_draw_penalty": 0.0
+  },
+  "damage": {
+    "unit_hp": 10.0,
+    "weight_per_unit": 0.1,
+    "formula": "weight_per_unit * ((damage_dealt_hp - damage_taken_hp) / unit_hp)"
+  },
+  "engagement_potential": {
+    "enabled": true,
+    "distance": "abs(p1_x - p2_x)",
+    "contact_band_px": 180.0,
+    "stage_width_px": 960.0,
+    "weight": 0.05,
+    "phi": "-max(horizontal_distance_px - contact_band_px, 0) / stage_width_px",
+    "local_reward": "weight * (phi(next_distance) - phi(current_distance))"
+  },
+  "total_decision_reward": "damage_reward + engagement_potential_reward + terminal_win_loss_reward_on_final_decision",
+  "fixed_during_comparison": {
+    "anatomy": "MaleCNS v1.0",
+    "dynamics": "pinned Shiu LIF",
+    "decision_interval_fightingice_frames": 60,
+    "sensory_randomness": "observation-driven Poisson spikes",
+    "action_readout": "deterministic spike-count argmax",
+    "epsilon_greedy": false,
+    "specific_action_reward": false
+  },
+  "cross_seed_offline_evidence": {
+    "workflow_run": 34631037696,
+    "chunk_A_baseline_run": 34620984683,
+    "chunk_A_decision_nonzero_rate": 0.07708333333333334,
+    "chunk_A_positive_decisions": 71,
+    "chunk_A_negative_decisions": 3,
+    "chunk_B_baseline_run": 34629644845,
+    "chunk_B_decision_nonzero_rate": 0.03333333333333333,
+    "chunk_B_positive_decisions": 32,
+    "chunk_B_negative_decisions": 0
+  },
+  "interpretation_boundary": "R2c-v0 is an engineering engagement/damage/outcome signal. Horizontal distance and FightingICE outcome are not claimed to be endogenous Drosophila reinforcement signals."
+}
