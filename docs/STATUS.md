@@ -1,35 +1,87 @@
 # Status
 
-Updated for the canonical MaleCNS pipeline.
+Canonical production path: **MaleCNS v1.0 anatomy + pinned Shiu et al. 2024 LIF dynamics + FightingICE v7.1**.
 
-## Canonical substrate
+Production reward-driven learning is currently **OFF**. Existing reward/plasticity/checkpoint workflows are engineering or exploratory smoke evidence only; they are not the continuously learning production lineage.
+
+## Current production spectator — PASS
+
+The project now has a cloud-only rolling spectator system:
+
+```text
+GitHub Actions
+  ↓
+MaleCNS + pinned Shiu LIF
+  ↓
+6 real FightingICE rounds
+  ↓
+official ScreenData spectator stream
+  ↓
+~1 minute H.264 clip
+  ↓
+body-ID spike timeline + released MaleCNS SWC morphology
+  ↓
+latest / previous-1 / previous-2 rolling queue
+  ↓
+Vercel viewer polls every 30 s
+```
+
+Viewer: **https://liveunjuno.vercel.app/connectome**
+
+Detailed contract: [`SPECTATOR_PIPELINE.ja.md`](SPECTATOR_PIPELINE.ja.md).
+
+### Latest regression evidence
+
+Latest validated rolling run: **Actions `34636959865` — PASS**.
+
+- matchup: **LUD vs NEZ**
+- characters completed: **6 / 6 rounds each**
+- video: **55.7 s**, **557 ScreenData frames**, **10 fps**, **960×640 H.264**
+- encoded video bytes: **7,439,678**
+- invalid ScreenData frames: **0**
+- policy pixel access: **false**
+- rolling queue clips: **3**
+- P1 activity timeline samples: **60**
+- P2 activity timeline samples: **60**
+- released SWC morphology: **6 bodies/side**
+- SWC fetch failures: **0**
+- current character-specific seeds: LUD `3030303`, NEZ `3040404`
+- artifact: `10278598106`
+- artifact digest: `sha256:c35dd0abd995546d1534c19719ca59376febe7058903231444a6f1804455027c`
+
+Queue at that gate:
+
+1. LUD vs NEZ — 55.7 s — morphology enabled — 60 activity samples/side
+2. ZEN vs NEZ — 57.2 s — morphology enabled — 60 activity samples/side
+3. ZEN vs LUD — 55.4 s — 60 activity samples/side; this older queue entry predates the morphology payload
+
+A subsequent generated clip replaces the remaining pre-morphology slot automatically.
+
+The viewer does **not** need to redeploy for each clip. `/api/connectome/state` is a no-store Vercel proxy and the client polls every 30 seconds. `next_expected_at` drives the countdown. New `current_clip_id` values automatically move the viewer back to queue slot 0.
+
+## Canonical substrate — PASS
 
 - anatomy: **MaleCNS v1.0**
-- dynamics: **pinned Shiu et al. 2024 LIF reference code** at commit `2a83ad611cd9768f8c9723fc613ed27761a5feb5`
-- game: **FightingICE v7.1 + pyftg 2.3**
-- canonical runtime adapter: **156,675 neurons / 6,025,920 recurrent synapses** under the current strict-Shiu/min-weight-5 condition
-- artificial game I/O, game reward and project plasticity are versioned separately from the biological anatomy/dynamics.
+- dynamics: pinned Shiu et al. reference code commit `2a83ad611cd9768f8c9723fc613ed27761a5feb5`
+- game: **FightingICE v7.1 + pyftg 2.3 + Java 21**
+- current strict runtime adapter: **156,675 neurons / 6,025,920 recurrent synapses**
+- artificial game I/O, reward and project plasticity are versioned separately from biological anatomy/dynamics
 
-The old FlyWire v783 + custom sigmoid recurrent/PPO path is legacy engineering evidence only and is not canonical biological evidence.
+The old FlyWire v783 + custom sigmoid recurrent/PPO route is legacy engineering evidence only.
 
-## PASS — demonstrated in GitHub Actions
+## Canonical live control — PASS
 
-### 1. Canonical MaleCNS → Shiu LIF runtime
+- each fighter uses an independent persistent Brian2 worker process;
+- GARNET / ZEN / LUD / NEZ have independent mutable neural state and RNG;
+- FightingICE numeric observations drive selected real MaleCNS sensory bodies through observation-dependent Poisson input;
+- the whole pinned Shiu LIF network advances;
+- selected real output-body spike groups choose the FightingICE action using spike-count argmax;
+- no epsilon-greedy/random action injection is currently used;
+- all body-ID spike events are retained for post-hoc analysis.
 
-- official MaleCNS v1.0 inputs are provenance-checked and converted to the pinned Shiu input contract;
-- upstream Shiu LIF code is executed directly rather than replaced by a custom neural-network dynamics model;
-- the whole canonical runtime builds and advances successfully in CI.
+## Four-character baseline — PASS
 
-### 2. Canonical live FightingICE control
-
-- two independent MaleCNS+Shiu LIF worker processes have completed real FightingICE rounds;
-- each side has independent membrane/synaptic state and RNG;
-- game observations drive sensory Poisson inputs and MaleCNS output-body spike counts choose actions;
-- body-ID spike events and decision telemetry are logged for post-hoc analysis.
-
-### 3. Four-character continuous baseline
-
-`.github/workflows/malecns-baseline-batch.yml` runs every six hours:
+`.github/workflows/malecns-baseline-batch.yml` runs all six pairings:
 
 - GARNET–ZEN
 - GARNET–LUD
@@ -38,176 +90,112 @@ The old FlyWire v783 + custom sigmoid recurrent/PPO path is legacy engineering e
 - ZEN–NEZ
 - LUD–NEZ
 
-Each pair currently runs eight rounds, giving 48 rounds per scheduled chunk. Baseline learning remains **OFF**.
+Baseline weights remain unchanged. Logged results populate the four-fighter W/L/D display and analysis dataset.
 
-Scheduled chunks use the same Poisson mechanism but different deterministic seed blocks so the six-hour schedule does not simply replay one random sequence. Within a chunk, the same character uses the same character-specific seed across pairings.
+The rolling spectator uses the same Poisson mechanism but advances character seed blocks after a full six-pair spectator epoch, avoiding an indefinitely repeated stochastic trajectory.
 
-First confirmed four-character chunk: Actions run `34620984683`.
+## Spectator video — PASS
 
-- all six pair jobs: PASS
-- 48 rounds
-- 960 brain decision windows
-- 1/48 non-zero terminal outcomes
-- spike-count argmax strongly B-biased
+The primary video is not the older rectangle reconstruction.
 
-Independent-seed chunk: Actions run `34629644845`.
+- FightingICE headless rendering produces official `ScreenData` RGB frames;
+- a **separate** pyftg spectator stream receives them;
+- the controller never receives pixels;
+- ffmpeg encodes H.264;
+- six real 600-frame rounds create approximately one minute of footage;
+- stable rolling release assets are `latest-fight.mp4`, `previous-1.mp4`, `previous-2.mp4`.
 
-- all six pair jobs: PASS
-- 48/48 no-damage draws
-- demonstrates that terminal reward sparsity is not fixed by simply repeating more of the original policy.
+## Playback-synchronized neural activity — PASS
 
-### 4. Real FightingICE spectator video
+For each fighter, the public queue contains compact decision-window samples derived from the recorded spike log:
 
-The Pages spectator does not reconstruct the game with rectangles as the primary view.
+- total spikes;
+- unique active body IDs;
+- top `somaNeuromere`;
+- top `superclass`;
+- top `type`;
+- top active body IDs.
 
-- FightingICE headless renderer produces official `ScreenData` RGB frames;
-- a separate pyftg spectator socket receives those frames;
-- policy pixel access is explicitly `false`;
-- frames are encoded to H.264 MP4;
-- the lower rectangle view remains only a labeled telemetry schematic.
+There are typically **60 decision samples per side** for a six-round clip at the current 60-frame decision interval. The viewer selects the sample nearest the current video playback position.
 
-Validated ScreenData video run: Actions run `34625054830`.
+This time alignment is for visualization and does not affect action selection.
 
-Latest fully integrated render/deploy run: **`34628459203` — PASS**.
+## Released MaleCNS morphology — PASS
 
-Integrated artifact `rendered-fightingice-spectator`:
+The flat MaleCNS annotation table did not provide physical `pos_x/pos_y/pos_z` columns. Those coordinates were **not invented**.
 
-- artifact ID `10275496675`
-- SHA-256 digest `7ca104a49744ee7f3c7af9b8e4bb4d6f294a5a579efe2099f15d214250eb334f`
-- video: ZEN vs NEZ
-- 960×640 H.264
-- 10 fps
-- 103 ScreenData frames
-- 10.3 s
-- policy pixel access: false
+Instead, the spectator retrieves officially released centerline SWC skeletons after a match from:
 
-### 5. Structural activity visualization
+`https://storage.googleapis.com/flyem-male-cns/v1.0/segmentation/skeletons-malecns/skeletons-swc/<bodyId>.swc`
 
-A spectator-only structural index joins active MaleCNS body IDs to canonical metadata such as:
+Current viewer behavior:
 
-- `superclass`
-- `class`
-- `subclass`
-- `type`
-- `instance`
-- `somaNeuromere`
-- `rootSide`
-- `somaSide`
+- top six highly active bodies per fighter;
+- MaleCNS EM coordinate system;
+- released **8 nm** coordinate units;
+- compact X–Z projection;
+- up to 180 centerline segments/body;
+- bodies active in the current decision window are rendered brighter/thicker.
 
-Structure-index workflow run `34628145680`: PASS.
+SWC geometry is strictly spectator/post-hoc data and is never a policy input.
 
-In integrated run `34628459203`:
+## Vercel viewer — PASS
 
-- 97 requested active body IDs
-- 97/97 resolved
-- 240 top-active-body rows enriched with anatomical categories.
+Viewer repository: `Unjuno/live`.
 
-These are **categorical anatomical annotations**, not neuron XY coordinates or synapse locations. The unsupported coordinate assumption was removed rather than inventing geometry.
+Implemented routes:
 
-### 6. Offline reward-design characterization
+- `/connectome` — rolling arena UI
+- `/api/connectome/state` — dynamic no-store state proxy
 
-All reward comparisons below re-score identical logged trajectories; they do not alter actions or weights.
+UI currently provides:
 
-First chunk, run `34620984683`:
+- current clip + previous two clips;
+- next-clip countdown;
+- automatic current-clip switching;
+- actual FightingICE video;
+- four-character W/L/D + win rate;
+- recent experiment logs;
+- playback-synchronized P1/P2 MaleCNS structural activity;
+- released SWC morphology projection;
+- body IDs / cell types / anatomical categories;
+- direct Actions evidence links.
 
-- R0 terminal-sign non-zero decisions: **2/960 = 0.2083%**
-- local damage windows: **4/960 = 0.4167%** from the two player perspectives
-- R1 final-margin augmentation: same density as R0
-- R2a local damage + terminal: still very sparse.
+## Reward/plasticity smoke evidence — NOT production learning
 
-Independent-seed chunk, run `34629644845`:
+Earlier exploratory workflows established several engineering mechanisms:
 
-- R0/R1/R2a produced zero signal because all 48 rounds were no-damage draws.
+- offline reward re-scoring;
+- a project-defined MBON valence partition;
+- one-match KC→MBON multiplier updates;
+- durable checkpoint pack/restore across separate Actions runs.
 
-Cross-seed reward comparison: workflow run `34631037696` — PASS.
+Those experiments are useful implementation evidence, but they have **not** been promoted into the production fighter lineage. In particular, previously tested R2c/R2d variants and stalemate penalties are not the current accepted reward contract.
 
-Conservative engagement/stalemate candidate R2d (`contact=180 px`, potential weight `0.05`, `+0.1/10HP`, terminal `±1`, no-damage draw `-0.01`):
+## Current gate
 
-- chunk A non-zero decision rate: **17.5%** (71 positive / 97 negative)
-- chunk B: **13.33%** (32 positive / 96 negative)
+**P6 — freeze spectator/data contracts.**
 
-However, the no-damage negative signal is not automatically biologically appropriate when coupled to MBON valence plasticity; see below. R2d is therefore an engineering/checkpoint smoke reward, not the currently accepted continuous-learning reward.
+Before enabling production learning, hold fixed and regression-test:
 
-R2c removes the no-damage penalty and retains engagement potential + damage + terminal outcome. A paired learning A/B against R2d is currently the next reward-selection gate.
+1. queue schema and max-three rotation;
+2. stable video asset names;
+3. H.264 960×640 / 45–100 s video gate;
+4. body-ID spike schema;
+5. non-empty P1/P2 decision-window timelines;
+6. released SWC morphology available for at least one body/side;
+7. Vercel polling/current-clip switch without viewer redeploy;
+8. learning disabled throughout the gate.
 
-### 7. MBON valence partition for plasticity modeling
-
-Aso et al. 2014 motivates a population-level model partition in which glutamatergic MBON activity is avoidance-associated and GABAergic/cholinergic MBON activity is approach-associated. This is a **project modeling adapter**, not a MaleCNS-supplied fixed-valence annotation for every MBON.
-
-Valence partition workflow run `34630909774`: PASS.
-
-Real KC→MBON candidate edges: **33,496**.
-
-- approach-associated: **21,421 edges / 69 MBONs**
-  - acetylcholine: 11,854 edges
-  - GABA: 9,567 edges
-- avoidance-associated: **12,075 edges / 22 MBONs**
-  - glutamate: 12,075 edges
-- unresolved: 0
-
-No topology, weight or transmitter sign was changed while constructing the partition.
-
-### 8. Single-match valence-gated plasticity smoke
-
-Workflow run `34631587091`: **PASS**.
-
-GARNET was updated for one real canonical FightingICE match while ZEN remained unchanged.
-
-R2d-v0 smoke result:
-
-- 10 decision windows
-- 5 positive / 4 negative non-zero signals
-- 9,121/33,496 KC→MBON multipliers depressed
-  - 5,960 approach-associated edges
-  - 3,161 avoidance-associated edges
-- potentiated edges: **0**
-- multiplier range after the match: `[0.9999, 1.0]`
-- GARNET generation advanced 0 → 1
-- generation-1 GARNET adapter completed another audited FightingICE round against unchanged ZEN.
-
-This demonstrates the update mechanism/invariants, not behavioral improvement.
-
-### 9. Durable checkpoint resume across separate Actions runs
-
-Generation-1 state was promoted to prerelease `canonical-state-smoke-v1`, then restored by a **separate** workflow run.
-
-Seed/promotion workflow: `canonical-checkpoint-seed`.
-
-Resume workflow run `34632209463`: **PASS**.
-
-Exact-restore gate:
-
-- release manifest, packed manifest, state metadata and restored state SHA-256 agreed;
-- restored GARNET generation: 1;
-- restored state was materialized into the canonical Shiu input ordering;
-- a new audited FightingICE match completed;
-- post-match state advanced generation 1 → 2;
-- generation-2 state SHA-256: `509ba9a8025e511c4785d13481fa6d1d68f500eb507a10ab64dfd3845961f119`;
-- generation-2 update depressed 5,883 approach-associated edges, potentiated 0.
-
-The generation-2 match had only the R2d no-damage penalty (`-0.01`), which is direct evidence for the concern that treating stalemate as negative valence may push the model toward avoidance. This state is therefore smoke evidence only, not the production training lineage.
-
-## Current reward / learning state
-
-Baseline public experiment phase remains `canonical-baseline-no-weight-updates`.
-
-Continuous canonical learning is **still disabled**.
-
-Current work is a paired short learning experiment:
-
-- control: no plasticity
-- R2c: engagement potential + damage + terminal outcome, no no-damage penalty
-- R2d: same plus no-damage draw `-0.01`
-
-Both learning conditions use the same valence-gated depression rule and paired seeds. The purpose is to determine whether the extra stalemate penalty makes engagement better or worse before any long-running lineage is enabled.
+The latest run `34636959865` satisfies the substantive spectator conditions above. The hourly scheduled loop is left running to confirm repeated regression stability.
 
 ## Not yet demonstrated
 
-- reproducible behavioral improvement from reward-driven MaleCNS plasticity;
-- stable superiority of R2c or R2d;
+- a frozen production reward specification;
+- reproducible behavioral improvement caused by MaleCNS plasticity;
 - four durable learned character lineages advancing continuously;
-- league/champion learning;
-- biological-structure advantage over a matched null/control;
-- causal circuit mechanism from activity logs alone.
+- stable champion/archive league learning;
+- causal circuit mechanism from activity alone;
+- biological-structure advantage over matched controls.
 
-Those claims remain explicitly unproven.
+These claims remain explicitly unproven.
