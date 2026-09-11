@@ -1,437 +1,384 @@
 # Connectome Fighter Roadmap
 
-Primary product goal:
+Primary goal:
 
-> Keep a Drosophila-connectome-constrained fighter learning across many separate training jobs, preserve its lineage, and let people watch current and historical fights from GitHub Pages.
+> Run real MaleCNS-constrained fighters continuously in GitHub Actions, keep each FightingICE character as a separate brain lineage, preserve body-ID neural logs for circuit analysis, and publish actual FightingICE fight video plus neural activity on GitHub Pages.
 
-The scientific A/B test (biological topology vs matched rewires) is built on top of that operational system. Continuous learning is not itself evidence that biological wiring is superior.
-
-## Design principles
-
-1. **Persistent identity** — a fighter is a checkpoint lineage, not one CI process.
-2. **Bounded training chunks** — GitHub Actions jobs resume, train, checkpoint, evaluate, publish, and stop cleanly.
-3. **Train/eval separation** — evaluation never updates weights.
-4. **Reproducibility** — every checkpoint records code, graph, routing, optimizer, RNG, generation, and match counts.
-5. **Spectator-first telemetry** — every evaluation run can export browser-readable fight telemetry.
-6. **No silent biology invention** — artificial sensory/action routing is versioned and recorded separately from biological graph data.
-7. **One writer** — only one workflow may advance a lineage at a time.
-
----
-
-## Current baseline
-
-| Area | Status | Evidence / note |
-|---|---|---|
-| FightingICE 7.1 ↔ Python bridge | **PASS** | Audited Random-vs-Random headless round completed |
-| FlyWire/Shiu v783 graph import | **PASS / hardening** | 138,639 neurons and 15,091,983 directed edges normalized; compact representation/routing validation continues |
-| Connectome-driven live fight | **NOT YET GATED** | Next operational milestone |
-| Persistent RL across jobs | **NOT IMPLEMENTED** | Issue #3 |
-| Continuous league | **NOT IMPLEMENTED** | Issue #5 |
-| Pages spectator | **SKELETON EXISTS** | Static status page and spectator data contract exist |
-| Biological topology A/B | **NOT RUN** | Issue #4 |
-
----
-
-# Phase 0 — Stabilize the biological runtime
-
-**Objective:** make the real connectome cheap and deterministic enough to use repeatedly inside fight loops.
-
-### Work
-
-- Finalize compact graph format (`nodes` + compact edge arrays).
-- Validate pinned sensory and descending-neuron routing.
-- Cache immutable graph/runtime inputs between CI runs.
-- Reuse the fixed sparse graph object across both fighters when topology is identical.
-- Benchmark graph load, one neural update, one decision, and one full round.
-- Record peak RSS and wall-clock throughput.
-
-### Gate P0
-
-PASS only when:
-
-- the biological graph loads from provenance-checked inputs;
-- routing hashes are stable;
-- one controller step is deterministic for a fixed state/seed;
-- a full round can run without OOM;
-- runtime metrics are recorded in CI.
-
-**Output:** reproducible connectome runtime artifact + benchmark report.
-
----
-
-# Phase 1 — First connectome-controlled fight
-
-**Objective:** prove that the real graph is actually in the game-control path.
-
-### Architecture
+Canonical control path:
 
 ```text
-FightingICE observation
+FightingICE numeric observation
         ↓
-versioned feature encoder
+versioned artificial sensory interface
         ↓
-annotation-derived sensory pool
+MaleCNS v1.0 real body-ID connectivity
         ↓
-fixed Drosophila connectome dynamics
+pinned Shiu et al. LIF dynamics
         ↓
-annotation-derived descending pool
+versioned artificial output groups
         ↓
-untrained action readout
-        ↓
-FightingICE action
+FightingICE key action
 ```
 
-### Work
-
-- Add `ConnectomePolicy` to the live pyftg bridge.
-- Reset neural state at the documented episode boundary.
-- Export policy/checkpoint IDs into every trajectory.
-- Add an ablation that bypasses the connectome; it must produce detectably different execution provenance.
-- Run ConnectomePolicy vs RandomPolicy and ConnectomePolicy vs ConnectomePolicy.
-
-### Gate P1
-
-PASS only when:
-
-- at least one complete FightingICE round is controlled through the real graph;
-- both sides' traces pass the pair audit;
-- the trace contains graph hash + routing hash + controller version;
-- disconnect/truncation is never converted into a loss;
-- connectome bypass detection is tested.
-
-**Output:** first real `connectome → FightingICE` replay.
+No MLP/RNN/custom-sigmoid network replaces the fly neural substrate in the canonical path.
 
 ---
 
-# Phase 2 — Durable checkpoint lineage
+## Current state
 
-**Objective:** make one fighter survive across separate GitHub Actions jobs.
+| Stage | Status | Evidence / note |
+|---|---|---|
+| MaleCNS provenance + Shiu adapter | **PASS** | 156,675 neurons / 6,025,920 runtime synapses |
+| Pinned Shiu LIF reference gate | **PASS** | upstream `model.py` executes directly |
+| MaleCNS-controlled FightingICE round | **PASS** | independent per-character Brian2 workers |
+| 4-character continuous baseline | **PASS** | 6 pairs × 8 rounds, scheduled every 6 h |
+| Body-ID spike/decision logging | **PASS** | raw spike Parquet + decision/game traces |
+| Real FightingICE spectator video | **PASS** | official headless `ScreenData`, separate spectator socket |
+| Pages auto-deploy | **PASS** | render workflow deploys video + telemetry |
+| Structural activity annotation | **PASS** | body ID → cell/soma-neuromere categories, spectator-only |
+| Reward-driven plasticity | **NOT ENABLED** | next experiment |
+| Durable canonical learned lineage | **NOT RUN** | follows reward selection |
+| League/champion learning | **NOT RUN** | later |
+| Biological-vs-control causal comparison | **NOT RUN** | later |
 
-### Checkpoint schema
-
-Each checkpoint must contain at least:
-
-- schema version;
-- generation / lineage ID;
-- readout/value-head parameters;
-- optimizer state;
-- RNG states;
-- total training matches and update count;
-- code commit SHA;
-- connectome graph hash;
-- routing hash;
-- action/observation contract version;
-- training algorithm + hyperparameters;
-- SHA-256 of the checkpoint package.
-
-### Storage policy
-
-- Actions cache: immutable dependencies only.
-- Durable rolling checkpoint: repository-associated durable storage (initially a rolling Release asset or equivalent).
-- Champion/archive snapshots: immutable historical checkpoints.
-- Keep the latest known-good checkpoint so a corrupt write cannot destroy the lineage.
-
-### Gate P2
-
-PASS only when:
-
-1. workflow run A creates checkpoint `g=N`;
-2. a separate workflow run B restores exactly `g=N`;
-3. run B advances to `g=N+1` without restarting;
-4. split-run continuation matches uninterrupted continuation within documented determinism limits;
-5. checksum/metadata validation rejects a damaged or incompatible checkpoint.
-
-**Output:** persistent fighter identity independent of any one CI process.
+Latest fully integrated spectator pipeline: Actions run `34628459203` — PASS.
 
 ---
 
-# Phase 3 — First persistent reinforcement learning
+# P0 — Canonical biological substrate ✅
 
-**Objective:** make the fighter measurably improve while the biological graph remains fixed.
+**Goal:** freeze the distinction between anatomy, dynamics, and artificial game interface.
 
-### Initial learning scope
+Completed:
 
-For the first learning milestone:
+- MaleCNS v1.0 is the canonical anatomy.
+- Shiu et al. 2024 LIF reference code is pinned separately.
+- transmitter filtering/sign convention and connection threshold are manifest-recorded.
+- legacy FlyWire/custom-sigmoid/PPO path is excluded from canonical evidence.
 
-- connectome topology: **fixed**;
-- internal graph weights: **fixed**;
-- sensory routing: **fixed**;
-- trainable: action readout + value head only;
-- primary reward: win `+1`, loss `-1`, draw `0`;
-- evaluation: no weight update.
-
-Use one documented RL algorithm first. PPO is the current default candidate; changing algorithm is a later A/B, not part of initial pipeline debugging.
-
-### Opponents
-
-Start with a mixed opponent pool:
-
-- RandomPolicy;
-- a simple scripted baseline;
-- frozen earlier checkpoints;
-- current self-play peer.
-
-Do not evaluate progress only against the current co-evolving opponent.
-
-### Metrics
-
-- total training matches;
-- win/draw/loss vs fixed baselines;
-- Elo or another explicitly defined rating for league visualization;
-- learning-curve AUC;
-- action entropy;
-- checkpoint generation;
-- wall-clock throughput.
-
-### Gate P3
-
-PASS only when:
-
-- at least two independent Actions training jobs resume the same lineage;
-- later checkpoints outperform generation 0 on at least one frozen baseline under a predeclared evaluation protocol;
-- evaluation traces are marked non-trainable;
-- no evaluation fight updates model state;
-- all learning curves retain independent training seed identity.
-
-This gate proves **persistent learning**, not biological superiority.
-
-**Output:** the first continuously learning fly fighter.
+**Gate:** PASS.
 
 ---
 
-# Phase 4 — Continuous Actions training loop
+# P1 — Real MaleCNS → FightingICE control ✅
 
-**Objective:** make training recur automatically without requiring a manual restart.
+**Goal:** prove the biological substrate is actually in the game-control path.
 
-### Workflow cycle
+Completed:
+
+- numeric FightingICE observations stimulate selected real MaleCNS body IDs through Poisson input;
+- the pinned LIF network advances in biological simulation time;
+- action groups are read from real output body IDs;
+- action is selected from spike counts;
+- complete real FightingICE rounds finish with audited traces.
+
+**Gate:** PASS.
+
+---
+
+# P2 — Character-specific independent brains ✅
+
+**Goal:** ensure FightingICE characters do not share mutable neural state.
+
+Characters:
+
+- GARNET
+- ZEN
+- LUD
+- NEZ
+
+Completed:
+
+- separate Brian2 process/state per fighter;
+- separate RNG sequence per character seed;
+- separate recurrent state/reset history;
+- character identity carried into traces and future plasticity-state format;
+- immutable anatomy files may be shared as read-only assets only.
+
+Learning is currently off, so these are separate neural simulation states but not yet separate *learned* weight lineages.
+
+**Gate:** PASS for state isolation; learned divergence remains future work.
+
+---
+
+# P3 — Continuous baseline experiment ✅
+
+**Goal:** characterize behavior before changing reward/plasticity.
+
+Workflow: `.github/workflows/malecns-baseline-batch.yml`
+
+Current schedule:
 
 ```text
-restore latest checkpoint
+every 6 hours
+  ↓
+GARNET–ZEN       8 rounds
+GARNET–LUD       8 rounds
+GARNET–NEZ       8 rounds
+ZEN–LUD          8 rounds
+ZEN–NEZ          8 rounds
+LUD–NEZ          8 rounds
+  ↓
+48 rounds / chunk
+  ↓
+body-ID neural logs + public summary
+```
+
+Current fixed conditions:
+
+- no weight updates;
+- observation-driven Poisson randomness only;
+- spike-count argmax action readout;
+- decision interval: 60 FightingICE frames;
+- R0 terminal HP-sign reward is logged only.
+
+**Gate:** PASS.
+
+---
+
+# P4 — Analysis-grade logging ✅
+
+**Goal:** retain enough information to later ask which neural structures were recruited.
+
+Logged per decision/run:
+
+- game frame / observation / action;
+- sensory target body IDs + drive rates;
+- all spike event body IDs and times;
+- output-group contributions;
+- top active body IDs;
+- membrane summary;
+- HP/position/game outcome;
+- dataset/dynamics/interface provenance and hashes.
+
+Raw spike/event data stays in Actions artifacts. Compact replay data is published to Pages.
+
+**Gate:** PASS for post-hoc recruitment analysis.
+
+Boundary: logs can identify associations/candidate pathways; they do not by themselves establish causal circuit mechanisms.
+
+---
+
+# P5 — Real-game spectator + neural visualization ✅
+
+**Goal:** make the experiment watchable without confusing telemetry with the game itself.
+
+Completed pipeline:
+
+```text
+baseline data
+    ↓
+select current public matchup
+    ↓
+run fresh canonical one-round spectator match
+    ↓
+FightingICE official headless ScreenData
+    ↓ separate spectator socket
+H.264 MP4
+    ↓
+join active body IDs to structural annotations
+    ↓
+GitHub Pages deploy
+```
+
+Rules:
+
+- pixels are never exposed to the MaleCNS policy;
+- `policy_pixel_access=false` is recorded;
+- actual FightingICE video is the primary spectator view;
+- rectangle/canvas view is explicitly labeled telemetry schematic;
+- video metadata states when the video is a fresh same-character/seed spectator run rather than the exact stored telemetry trajectory.
+
+Structural activity currently uses categorical released/canonical metadata such as `somaNeuromere`, `superclass`, `class`, and `type`. It must not be represented as geometric neuron coordinates.
+
+**Gate:** PASS. Latest integrated run `34628459203`.
+
+---
+
+# P6 — Reward-design experiment ← NEXT
+
+**Goal:** choose a reward signal without changing current action randomness/readout at the same time.
+
+The current R0 control remains:
+
+```text
+higher final HP  +1
+same final HP     0
+lower final HP   -1
+```
+
+Observed problem: non-zero terminal reward is sparse under the current baseline, so terminal-only credit assignment is likely weak.
+
+Before enabling learning, define a small pre-registered comparison in which all of these stay fixed:
+
+- MaleCNS anatomy;
+- Shiu dynamics;
+- sensory interface;
+- action groups;
+- Poisson randomness mechanism;
+- decision interval;
+- character seeds;
+- opponent schedule;
+- plastic synapse class;
+- learning-rate scale and clipping policy where possible.
+
+Only the reward definition changes.
+
+Candidate families to evaluate:
+
+- **R0:** terminal HP-sign only — control.
+- **R1:** terminal outcome + normalized final HP difference.
+- **R2:** time-local damage differential (`damage dealt - damage taken`) plus a smaller terminal outcome bonus.
+
+Do not reward hand-selected actions such as “move forward” or “press attack”; that would encode the desired strategy externally.
+
+### Gate P6
+
+PASS only after:
+
+1. reward equations and scales are versioned;
+2. identical logged trajectories can be scored offline under every candidate reward;
+3. reward density/range/outlier behavior is measured on existing baseline logs;
+4. one reward family is selected before weight updates are enabled.
+
+**Output:** frozen reward specification for the first learning experiment.
+
+---
+
+# P7 — Canonical character-specific plasticity
+
+**Goal:** let each character accumulate its own learned neural state across CI jobs.
+
+Initial plasticity scope already prepared:
+
+- existing real KC→MBON candidate edges only;
+- 33,496 candidate edges;
+- no new edges;
+- topology immutable;
+- neurotransmitter sign immutable;
+- per-character multiplier/checkpoint state.
+
+Required persistent lineages:
+
+```text
+GARNET state
+ZEN state
+LUD state
+NEZ state
+```
+
+Each lineage must include generation, match count, update count, candidate/config hashes, state checksum, and reward-version ID.
+
+### Gate P7
+
+PASS only when two separate Actions runs demonstrate:
+
+1. character checkpoint generation `N` is restored exactly;
+2. a new audited match updates only that character's approved plastic state;
+3. generation advances to `N+1`;
+4. another character's state is unchanged;
+5. restart/recovery rejects incompatible or corrupt state.
+
+---
+
+# P8 — Continuous learning + evaluation
+
+**Goal:** turn the baseline scheduler into a continuous learning service after P6/P7 are frozen.
+
+Cycle:
+
+```text
+restore 4 character states
         ↓
-validate graph/routing/checkpoint hashes
+run bounded training matches
         ↓
-train for bounded wall-clock or match budget
+post-match plasticity update
         ↓
 atomic checkpoint save
         ↓
-evaluate vs league/fixed baselines
+frozen evaluation matches
         ↓
-export replay + metrics
+video + body-ID activity + metrics
         ↓
-publish spectator data
-        ↓
-job exits cleanly
+Pages
         ↓
 next scheduled job resumes
 ```
 
-### CI policy
-
-- Use a concurrency group with **one training writer**.
-- Do not cancel an in-progress run during checkpoint commit.
-- Leave safety margin below hosted-runner job limits.
-- Prefer a configurable training chunk (for example, a few hours or a fixed match count) rather than trying to keep one process alive forever.
-- Manual `workflow_dispatch` remains available for debugging.
-- Scheduled runs can be enabled only after checkpoint resume is proven.
-
-### Failure handling
-
-- no checkpoint advancement on failed audit;
-- no loss reward for transport failure;
-- keep last known-good generation;
-- surface stale/failed training status on Pages.
-
-### Gate P4
-
-PASS only when the lineage automatically advances through multiple scheduled workflow runs without manual state repair.
-
-**Output:** CI-hosted continuous training service.
+Train/eval must stay separate. Evaluation never changes plasticity state.
 
 ---
 
-# Phase 5 — GitHub Pages spectator
+# P9 — League / historical opponents
 
-**Objective:** make the system observable as a game, not just as logs.
+**Goal:** avoid learning only against one contemporary opponent.
 
-### Pages v1
+Later maintain:
 
-Show:
+- current character lineages;
+- champion snapshots;
+- historical snapshots;
+- fixed baseline opponents.
 
-- current generation;
-- lineage/checkpoint ID;
-- total matches;
-- current champion;
-- latest evaluation W/D/L;
-- Elo/rating history;
-- learning curve;
-- last successful training time;
-- graph/routing version;
-- latest fight replay.
-
-### Replay format
-
-Actions exports browser-readable telemetry, for example:
-
-```json
-{
-  "p1_checkpoint": "fly-g00421",
-  "p2_checkpoint": "champion-g00380",
-  "frames": [
-    {"frame": 0, "p1": {"hp": 400, "x": 100, "action": "NEUTRAL"}, "p2": {"hp": 400, "x": 300, "action": "NEUTRAL"}}
-  ]
-}
-```
-
-Pages replays telemetry in JavaScript; FightingICE/Java does not run in the browser.
-
-### Pages v2
-
-- timeline scrubber;
-- pause/speed controls;
-- current vs champion selector;
-- current vs archived generation selector;
-- matchup history;
-- checkpoint lineage graph;
-- downloadable evaluation metadata.
-
-Optional later feature: rendered MP4/GIF of selected evaluation fights. Telemetry replay remains the canonical reproducible representation.
-
-### Gate P5
-
-PASS only when a newly completed evaluation fight appears on Pages automatically, with both checkpoint IDs and a working replay.
-
-**Output:** public spectator arena.
+Selection and opponent-sampling rules must be logged and deterministic enough to reproduce evaluation.
 
 ---
 
-# Phase 6 — Population / league learning
+# P10 — Circuit analysis
 
-**Objective:** avoid one fighter overfitting to one contemporary opponent.
+**Goal:** use the accumulated logs to ask what neural structure was recruited during successful/unsuccessful behavior.
 
-### Start small
+Planned analyses include:
 
-Maintain several roles:
+- action-conditioned body/type/superclass recruitment;
+- reward-event-aligned activity;
+- soma-neuromere recruitment changes across generations;
+- KC→MBON multiplier changes;
+- persistent high-centrality/repeatedly recruited bodies;
+- character-lineage divergence;
+- candidate sensory→interneuron→descending/motor pathways.
 
-- **learner** — current trainable lineage;
-- **champion** — best frozen checkpoint by declared selection rule;
-- **archive** — periodic historical checkpoints;
-- **baselines** — fixed random/scripted policies.
-
-### Opponent sampling
-
-The exact mixture is a tunable experimental parameter. A starting policy can mix:
-
-- self-play/current peer;
-- champion;
-- archived generations;
-- fixed baselines.
-
-Do not hard-code a scientifically meaningful conclusion into the opponent distribution; record it per training run.
-
-### Gate P6
-
-PASS only when:
-
-- opponent identity/distribution is logged;
-- champion replacement is deterministic from declared metrics;
-- historical opponents remain reproducible;
-- catastrophic forgetting can be detected against the archive.
-
-**Output:** evolving fighter league rather than a single two-agent arms race.
+Causal claims require interventions/ablations, not activity correlation alone.
 
 ---
 
-# Phase 7 — Biological topology A/B
+# P11 — Controlled biological comparison
 
-**Objective:** answer the research question after the training platform is trustworthy.
+Only after the operational system and reward learning are stable, compare the biological substrate against declared controls.
 
-### Conditions
+Possible conditions:
 
-A. verified Drosophila-derived topology  
-B. degree/sign-preserving rewired topology  
-C. optional engineering baseline (RNN/MLP or other declared controller)
+- canonical MaleCNS structure;
+- matched structural null/rewire where technically and scientifically valid;
+- optional engineering controller as a separate benchmark.
 
-Hold constant:
+Hold observations, actions, reward, interface, opponent schedule, compute budget, and paired seeds fixed.
 
-- observations;
-- actions;
-- routing rule;
-- reward;
-- trainable parameter classes;
-- initialization rule;
-- training/evaluation opponents;
-- optimizer and hyperparameters;
-- match/compute budget;
-- paired seeds where applicable.
-
-### Primary outcomes
-
-- sample efficiency / matches-to-threshold;
-- learning-curve AUC;
-- held-out opponent performance;
-- robustness to action/sensory ablation;
-- transfer to changed action spaces/opponents.
-
-### Gate P7
-
-Report **PASS / FAIL / UNCERTAIN** against a prespecified practical effect threshold and uncertainty interval. Do not select only environments in which the biological graph wins.
-
-**Output:** first defensible topology result.
+Report PASS / FAIL / UNCERTAIN against predeclared practical thresholds.
 
 ---
 
-# Phase 8 — Scale beyond hosted CI
+# Immediate queue
 
-**Trigger:** hosted Actions becomes the bottleneck, not before.
-
-Keep GitHub Actions as orchestration and Pages as spectator UI, but move training execution to a self-hosted CPU/GPU runner or external compute node.
-
-The checkpoint, telemetry, evaluation, and Pages contracts must remain unchanged so infrastructure can be swapped without changing the experiment definition.
-
-**Output:** near-continuous higher-throughput training without redesigning the project.
-
----
-
-# Priority order
-
-| Priority | Phase | Why now? |
-|---|---|---|
-| **P0** | Stabilize connectome runtime | Training cannot be trusted or afforded otherwise |
-| **P1** | Real connectome-controlled fight | Proves the graph is genuinely in the control loop |
-| **P2** | Durable checkpoints | Required for any CI-based continuous identity |
-| **P3** | Persistent RL | First actual learning result |
-| **P4** | Scheduled continuous training | Turns experiments into a continuously evolving agent |
-| **P5** | Spectator Pages | Makes fights visible and operational state observable |
-| **P6** | League/population | Improves robustness and creates interesting matchups |
-| **P7** | Biological A/B | Scientific comparison only after pipeline validation |
-| **P8** | Self-hosted scale | Only when CI throughput becomes limiting |
+- [x] Canonical MaleCNS + pinned Shiu LIF runtime.
+- [x] Real canonical FightingICE match.
+- [x] Four-character independent simulation states.
+- [x] Six-pair scheduled baseline.
+- [x] Body-ID spike/event logging.
+- [x] Actual FightingICE ScreenData video on Pages.
+- [x] Structural activity annotation on Pages.
+- [ ] **Offline-score existing trajectories under R0/R1/R2.**
+- [ ] Freeze first reward design.
+- [ ] Demonstrate one character-specific plasticity update without enabling continuous learning.
+- [ ] Demonstrate checkpoint resume across two separate Actions runs.
+- [ ] Enable continuous canonical learning only after those gates pass.
 
 ---
 
-# Near-term execution queue
+# Definition of operational success
 
-The next implementation sequence is intentionally narrow:
+A visitor can open GitHub Pages and see an actual FightingICE match rendered by FightingICE itself, inspect current experiment metrics, and inspect which real MaleCNS body IDs / structural categories were active, while all heavy computation runs in GitHub/cloud infrastructure rather than a local PC.
 
-- [ ] **T1** Finish compact graph + routing validation.
-- [ ] **T2** Run one audited real-connectome-controlled FightingICE round.
-- [ ] **T3** Implement versioned/checksummed checkpoint save/load.
-- [ ] **T4** Prove resume across two separate workflow runs.
-- [ ] **T5** Add fixed-connectome PPO/readout training.
-- [ ] **T6** Train for two or more chunks and verify measurable progression against frozen baselines.
-- [ ] **T7** Export one evaluation replay to `site/data/`.
-- [ ] **T8** Make Pages automatically show the latest real fight.
-- [ ] **T9** Enable scheduled training with a single-writer concurrency lock.
-- [ ] **T10** Add champion/archive league.
-- [ ] **T11** Begin real-vs-rewired confirmatory A/B.
+# Definition of scientific success
 
-The project should not advance to T9 until T4 is proven. It should not make biological-topology claims before T11.
-
----
-
-# Definition of success
-
-The operational project is successful when a visitor can open GitHub Pages and see:
-
-> a named fly-fighter lineage that has accumulated real FightingICE training matches across multiple CI jobs, its current and historical performance, and a replay of a recent evaluation fight.
-
-The scientific project is successful only later, if controlled experiments establish a reproducible effect of the biological topology relative to matched alternatives.
+Scientific success requires controlled experiments showing reproducible behavioral/learning effects and, for circuit claims, interventions or ablations that distinguish causal mechanisms from correlated activity.
