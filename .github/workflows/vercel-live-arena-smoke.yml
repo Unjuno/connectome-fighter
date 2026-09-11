@@ -1,0 +1,96 @@
+name: vercel-live-arena-smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/vercel-live-arena-smoke.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vercel-live-arena-smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BASE: https://liveunjuno.vercel.app
+      EXPECTED_LIVE_SHA: 4439e02f36dc264af106df2a94aca20e84d6fafc
+    steps:
+      - name: Verify production runtime capability
+        run: |
+          set -euo pipefail
+          body="$(curl -fsS "$BASE/api/connectome/session")"
+          echo "$body" | jq '{ready, runtime_bundle_ready, auth_configured, build_commit, learning_enabled, policy_pixel_access}'
+          test "$(echo "$body" | jq -r '.ready')" = 'true'
+          test "$(echo "$body" | jq -r '.runtime_bundle_ready')" = 'true'
+          test "$(echo "$body" | jq -r '.auth_configured')" = 'true'
+          test "$(echo "$body" | jq -r '.learning_enabled')" = 'false'
+          test "$(echo "$body" | jq -r '.policy_pixel_access')" = 'false'
+          test "$(echo "$body" | jq -r '.build_commit')" = "$EXPECTED_LIVE_SHA"
+
+      - name: Launch real GARNET vs ZEN session
+        run: |
+          set -euo pipefail
+          body="$(curl -fsS -X POST "$BASE/api/connectome/session" \
+            -H 'content-type: application/json' \
+            --data '{"p1":"GARNET","p2":"ZEN"}')"
+          echo "$body" | jq '{mode, session_id, status, p1, p2, learning_enabled, policy_pixel_access, status_url}'
+          test "$(echo "$body" | jq -r '.learning_enabled')" = 'false'
+          test "$(echo "$body" | jq -r '.policy_pixel_access')" = 'false'
+          status_url="$(echo "$body" | jq -r '.status_url // empty')"
+          test -n "$status_url"
+          echo "STATUS_URL=$status_url" >> "$GITHUB_ENV"
+
+      - name: Wait for public telemetry route
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 120); do
+            body="$(curl -fsS "$BASE$STATUS_URL" || true)"
+            if [[ -n "$body" ]]; then
+              echo "$body" | jq '{session_id, status, telemetry_url, bootstrap}'
+              exit_code="$(echo "$body" | jq -r '.bootstrap.exit_code // empty')"
+              if [[ -n "$exit_code" && "$exit_code" != '0' ]]; then
+                echo "Sandbox bootstrap failed with exit code $exit_code" >&2
+                exit 1
+              fi
+              telemetry_url="$(echo "$body" | jq -r '.telemetry_url // empty')"
+              if [[ -n "$telemetry_url" ]]; then
+                echo "TELEMETRY_URL=$telemetry_url" >> "$GITHUB_ENV"
+                exit 0
+              fi
+            fi
+            sleep 5
+          done
+          echo 'Sandbox never published its telemetry route.' >&2
+          exit 1
+
+      - name: Require real FightingICE plus MaleCNS decision telemetry
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 120); do
+            body="$(curl -fsS "$TELEMETRY_URL" || true)"
+            if [[ -n "$body" ]]; then
+              echo "$body" | jq '{status, round, frame, p1: {character: .p1.character, hp: .p1.hp, action: .p1.action}, p2: {character: .p2.character, hp: .p2.hp, action: .p2.action}, p1_spikes: .brain.p1.total_spikes, p2_spikes: .brain.p2.total_spikes, learning_enabled, policy_pixel_access, error}'
+              test "$(echo "$body" | jq -r '.learning_enabled')" = 'false'
+              test "$(echo "$body" | jq -r '.policy_pixel_access')" = 'false'
+              if [[ "$(echo "$body" | jq -r '.status // empty')" == 'error' ]]; then
+                echo "$body" | jq . >&2
+                exit 1
+              fi
+              frame="$(echo "$body" | jq -r '.frame // 0')"
+              p1="$(echo "$body" | jq -r '.p1.character // empty')"
+              p2="$(echo "$body" | jq -r '.p2.character // empty')"
+              if [[ "$frame" -gt 0 && "$p1" == 'GARNET' && "$p2" == 'ZEN' ]]; then
+                exit 0
+              fi
+            fi
+            sleep 5
+          done
+          echo 'No real decision telemetry arrived before the deadline.' >&2
+          exit 1
