@@ -1,6 +1,7 @@
 name: vercel-live-arena-smoke
 
-# Current-definition smoke trigger for the prebuilt runtime v2 contract.
+# Warm the immutable runtime base for the current release SHA, then prove that
+# a forked production Sandbox emits real FightingICE + MaleCNS decisions.
 on:
   workflow_dispatch:
   workflow_run:
@@ -22,17 +23,16 @@ jobs:
   smoke:
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     env:
       BASE: https://liveunjuno.vercel.app
     steps:
-      - name: Verify production runtime capability
+      - name: Verify production runtime bundle and inference boundaries
         run: |
           set -euo pipefail
           body="$(curl -fsS "$BASE/api/connectome/session")"
-          echo "$body" | jq '{mode, ready, runtime_bundle_ready, runtime_schema_version, runtime_prebuilt, auth_configured, build_commit, runtime_manifest, learning_enabled, policy_pixel_access}'
+          echo "$body" | jq '{mode, ready, runtime_bundle_ready, runtime_schema_version, runtime_prebuilt, runtime_archive_sha256, runtime_base_name, runtime_base_ready, runtime_base_status, auth_configured, build_commit, runtime_manifest, learning_enabled, policy_pixel_access}'
           test "$(echo "$body" | jq -r '.mode')" = 'per-viewer-live-sandbox'
-          test "$(echo "$body" | jq -r '.ready')" = 'true'
           test "$(echo "$body" | jq -r '.runtime_bundle_ready')" = 'true'
           test "$(echo "$body" | jq -r '.runtime_schema_version')" -ge 2
           test "$(echo "$body" | jq -r '.runtime_prebuilt')" = 'true'
@@ -40,19 +40,82 @@ jobs:
           test "$(echo "$body" | jq -r '.learning_enabled')" = 'false'
           test "$(echo "$body" | jq -r '.policy_pixel_access')" = 'false'
           test "$(echo "$body" | jq -r '.runtime_manifest')" = 'https://github.com/Unjuno/connectome-fighter/releases/download/arena-runtime-latest/manifest.json'
+          runtime_sha="$(echo "$body" | jq -r '.runtime_archive_sha256 // empty')"
+          runtime_base="$(echo "$body" | jq -r '.runtime_base_name // empty')"
+          [[ "$runtime_sha" =~ ^[a-f0-9]{64}$ ]]
+          test -n "$runtime_base"
+          echo "RUNTIME_SHA=$runtime_sha" >> "$GITHUB_ENV"
+          echo "RUNTIME_BASE=$runtime_base" >> "$GITHUB_ENV"
 
-      - name: Launch real GARNET vs ZEN session
+      - name: Warm immutable runtime base snapshot
+        run: |
+          set -euo pipefail
+          ready=0
+          for i in $(seq 1 180); do
+            tmp="$(mktemp)"
+            code="$(curl -sS -o "$tmp" -w '%{http_code}' -X POST "$BASE/api/connectome/session" \
+              -H 'content-type: application/json' \
+              --data '{"operation":"warm-runtime"}' || true)"
+            body="$(cat "$tmp")"
+            rm -f "$tmp"
+            if [[ -n "$body" ]]; then
+              echo "$body" | jq '{mode, ready, runtime_base_name, runtime_base_status, runtime_archive_sha256, reason, learning_enabled, policy_pixel_access}'
+              test "$(echo "$body" | jq -r '.learning_enabled')" = 'false'
+              test "$(echo "$body" | jq -r '.policy_pixel_access')" = 'false'
+              base="$(echo "$body" | jq -r '.runtime_base_name // empty')"
+              sha="$(echo "$body" | jq -r '.runtime_archive_sha256 // empty')"
+              status="$(echo "$body" | jq -r '.runtime_base_status // empty')"
+              test "$base" = "$RUNTIME_BASE"
+              test "$sha" = "$RUNTIME_SHA"
+              if [[ "$code" == '200' && "$(echo "$body" | jq -r '.ready')" == 'true' ]]; then
+                ready=1
+                break
+              fi
+              case "$status" in
+                create-error|stage-start-error|stage-failed-reset|snapshot-stop-error|runtime-bundle-unavailable|inspect-error)
+                  echo "Runtime base hard failure: $status" >&2
+                  exit 1
+                  ;;
+              esac
+            fi
+            if [[ "$code" != '200' && "$code" != '202' ]]; then
+              echo "Runtime warm endpoint returned HTTP $code" >&2
+              [[ -n "$body" ]] && echo "$body" | jq . >&2 || true
+              exit 1
+            fi
+            sleep 6
+          done
+          test "$ready" -eq 1
+
+      - name: Require ready snapshot-backed production capability
+        run: |
+          set -euo pipefail
+          body="$(curl -fsS "$BASE/api/connectome/session")"
+          echo "$body" | jq '{ready, runtime_archive_sha256, runtime_base_name, runtime_base_ready, runtime_base_status, learning_enabled, policy_pixel_access}'
+          test "$(echo "$body" | jq -r '.ready')" = 'true'
+          test "$(echo "$body" | jq -r '.runtime_base_ready')" = 'true'
+          test "$(echo "$body" | jq -r '.runtime_base_status')" = 'ready'
+          test "$(echo "$body" | jq -r '.runtime_archive_sha256')" = "$RUNTIME_SHA"
+          test "$(echo "$body" | jq -r '.runtime_base_name')" = "$RUNTIME_BASE"
+          test "$(echo "$body" | jq -r '.learning_enabled')" = 'false'
+          test "$(echo "$body" | jq -r '.policy_pixel_access')" = 'false'
+
+      - name: Launch real GARNET vs ZEN session from runtime snapshot
         run: |
           set -euo pipefail
           body="$(curl -fsS -X POST "$BASE/api/connectome/session" \
             -H 'content-type: application/json' \
             --data '{"p1":"GARNET","p2":"ZEN"}')"
-          echo "$body" | jq '{mode, session_id, status, p1, p2, learning_enabled, policy_pixel_access, status_url}'
+          echo "$body" | jq '{mode, source_runtime_base, source_runtime_snapshot, session_id, status, p1, p2, learning_enabled, policy_pixel_access, status_url}'
           test "$(echo "$body" | jq -r '.learning_enabled')" = 'false'
           test "$(echo "$body" | jq -r '.policy_pixel_access')" = 'false'
+          test "$(echo "$body" | jq -r '.source_runtime_base')" = "$RUNTIME_BASE"
+          source_snapshot="$(echo "$body" | jq -r '.source_runtime_snapshot // empty')"
+          test -n "$source_snapshot"
           status_url="$(echo "$body" | jq -r '.status_url // empty')"
           test -n "$status_url"
           echo "STATUS_URL=$status_url" >> "$GITHUB_ENV"
+          echo "SOURCE_SNAPSHOT=$source_snapshot" >> "$GITHUB_ENV"
 
       - name: Wait for boot telemetry route
         run: |
@@ -74,13 +137,13 @@ jobs:
             fi
             sleep 2
           done
-          echo 'Sandbox never published its diagnostic telemetry route.' >&2
+          echo 'Snapshot fork never published its diagnostic telemetry route.' >&2
           exit 1
 
       - name: Require real FightingICE plus MaleCNS decision telemetry
         run: |
           set -euo pipefail
-          for i in $(seq 1 180); do
+          for i in $(seq 1 360); do
             body="$(curl -fsS "$TELEMETRY_URL" || true)"
             if [[ -n "$body" ]]; then
               echo "$body" | jq '{status, bootstrap, round, frame, p1: {character: .p1.character, hp: .p1.hp, action: .p1.action}, p2: {character: .p2.character, hp: .p2.hp, action: .p2.action}, p1_spikes: .brain.p1.total_spikes, p2_spikes: .brain.p2.total_spikes, learning_enabled, policy_pixel_access, error, exit_code}'
@@ -100,5 +163,5 @@ jobs:
             fi
             sleep 2
           done
-          echo 'No real decision telemetry arrived before the deadline.' >&2
+          echo 'No real decision telemetry arrived from the snapshot fork before the deadline.' >&2
           exit 1
