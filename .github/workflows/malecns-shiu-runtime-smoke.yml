@@ -58,13 +58,14 @@ jobs:
             "https://raw.githubusercontent.com/philshiu/Drosophila_brain_model/$SHIU_COMMIT/model.py"
           sha256sum external/shiu-reference/model.py > artifacts/malecns-runtime/model.py.sha256
 
-      - name: Construct and advance full strict MaleCNS network with Cython
+      - name: Measure compiled steady-state 20 ms windows
         run: |
           /usr/bin/time -v python scripts/shiu_malecns_runtime_smoke.py \
             --reference-model external/shiu-reference/model.py \
             --adapter-dir data/processed/malecns-shiu-strict-v1 \
             --codegen-target cython \
             --run-ms 20 \
+            --repeats 3 \
             --out artifacts/malecns-runtime/runtime-smoke.json \
             2> artifacts/malecns-runtime/time.txt
           cat artifacts/malecns-runtime/runtime-smoke.json
@@ -73,7 +74,9 @@ jobs:
           import json
           p=json.load(open('artifacts/malecns-runtime/runtime-smoke.json'))
           assert p['codegen_target']=='cython'
-          assert p['run_ms']==20.0
+          assert p['run_ms_per_window']==20.0
+          assert p['repeats']==3
+          assert len(p['window_wall_seconds'])==3
           PY
 
       - uses: actions/upload-artifact@v4
