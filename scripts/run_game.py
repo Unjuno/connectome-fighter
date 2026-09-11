@@ -82,13 +82,15 @@ def main() -> int:
         if args.policy == "random":
             policies = [RandomPolicy(seed, f"random-{characters[i]}-{seed}") for i, seed in enumerate(seeds)]
         else:
+            import numpy as np
             import torch
             from connectome_fighter.graph import load_graph
             from connectome_fighter.brain import ConnectomeActorCritic, NeuralPolicy, SparseGraphCore
             from connectome_fighter.checkpoint import load_checkpoint
             from connectome_fighter.routing import validate_routing
             torch.set_num_threads(args.torch_threads)
-            graph = load_graph(args.graph_dir, require_biological=True)
+            graph_dir = Path(args.graph_dir)
+            graph = load_graph(graph_dir, require_biological=True)
             routing = json.loads(Path(args.routing).read_text())
             validate_routing(graph, routing)
             graph_hash = graph.fingerprint()
@@ -98,6 +100,30 @@ def main() -> int:
             status["routing_annotation_version"] = routing.get("annotation_version")
             status["input_neurons"] = len(routing["input_nodes"])
             status["output_neurons"] = len(routing["output_nodes"])
+
+            node_positions = None
+            brain_bounds = None
+            coordinate_space = None
+            metadata_path = graph_dir / "node_metadata.npz"
+            if metadata_path.is_file():
+                with np.load(metadata_path, allow_pickle=False) as data:
+                    positions = np.asarray(data["positions"], dtype=np.float32)
+                    bounds_min = np.asarray(data["bounds_min"], dtype=np.float32)
+                    bounds_max = np.asarray(data["bounds_max"], dtype=np.float32)
+                    raw_space = np.asarray(data["coordinate_space"]).reshape(-1)
+                    if positions.shape != (graph.n_nodes, 3):
+                        raise ValueError("node_metadata.npz is not aligned to the graph")
+                    node_positions = positions.copy()
+                    brain_bounds = (bounds_min.copy(), bounds_max.copy())
+                    coordinate_space = str(raw_space[0]) if raw_space.size else "FlyWire annotation coordinates"
+                status["node_metadata"] = {
+                    "path": str(metadata_path),
+                    "positioned_nodes": int(np.isfinite(node_positions).all(axis=1).sum()),
+                    "coordinate_space": coordinate_space,
+                }
+            else:
+                status["node_metadata"] = None
+
             # The immutable anatomical matrix is shared only as a memory
             # optimization. Each character has a distinct recurrent state,
             # actor/critic parameters, RNG and checkpoint lineage.
@@ -133,7 +159,12 @@ def main() -> int:
                     version = f"untrained-{character.lower()}-{graph_hash[:10]}-{routing_hash[:8]}"
                     checkpoint_meta.append({"character": character, "checkpoint_id": version, "generation": 0})
                 policies.append(NeuralPolicy(
-                    model, version, seed, node_ids=graph.node_ids, activity_top_k=args.activity_top_k
+                    model, version, seed,
+                    node_ids=graph.node_ids,
+                    node_positions=node_positions,
+                    brain_bounds=brain_bounds,
+                    coordinate_space=coordinate_space,
+                    activity_top_k=args.activity_top_k,
                 ))
             status["checkpoints"] = checkpoint_meta
             status["immutable_core_shared_between_agents"] = True
