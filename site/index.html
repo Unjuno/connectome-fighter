@@ -3,116 +3,156 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
   <title>Connectome Fighter · MaleCNS Arena</title>
   <style>
-    :root { color-scheme:dark; font-family:ui-sans-serif,system-ui,sans-serif; }
-    * { box-sizing:border-box; }
-    body { margin:0; background:#0b0f14; color:#e7edf5; }
-    main { max-width:1180px; margin:0 auto; padding:34px 20px 72px; }
-    h1 { font-size:clamp(2.1rem,5vw,4.2rem); margin:.15em 0; }
-    h2 { margin-top:36px; }
-    .lead,.muted { color:#91a0b5; line-height:1.6; }
-    .lead { max-width:920px; }
-    .badge { display:inline-block; border:1px solid #39506b; border-radius:999px; padding:6px 10px; font-size:.84rem; }
-    .notice { border:1px solid #3b5a78; background:#101b27; border-radius:14px; padding:15px 17px; margin:18px 0; line-height:1.55; }
-    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin:18px 0; }
-    .card,.panel { border:1px solid #273242; border-radius:14px; background:#111822; }
-    .card { padding:15px; }
-    .panel { padding:18px; margin:14px 0; }
-    .metric { font-size:1.45rem; font-weight:800; }
-    .label { color:#91a0b5; font-size:.8rem; margin-bottom:4px; }
-    .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
-    .bar-row { display:grid; grid-template-columns:95px 1fr 78px; gap:10px; align-items:center; margin:7px 0; font-size:.86rem; }
-    .bar { height:10px; border-radius:999px; background:#223044; overflow:hidden; }
-    .bar > span { display:block; height:100%; background:#8ecbff; }
-    .brain-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:14px; }
-    .brain-row { display:grid; grid-template-columns:minmax(170px,1.4fr) 3fr 58px; gap:8px; align-items:center; font-size:.78rem; margin:6px 0; }
-    .brain-grid .panel:nth-child(2) .bar > span { background:#ff9f8e; }
-    .brain-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#b8c4d4; }
-    .structure-map { display:grid; grid-template-columns:repeat(auto-fit,minmax(88px,1fr)); gap:7px; margin:12px 0 16px; }
-    .structure-cell { min-height:54px; border:1px solid #344359; border-radius:9px; padding:8px; font-size:.72rem; display:flex; flex-direction:column; justify-content:space-between; }
-    .structure-cell strong { font-size:.82rem; }
-    button,select { background:#172231; color:#e7edf5; border:1px solid #39506b; border-radius:8px; padding:8px 11px; }
-    canvas,video { width:100%; display:block; border-radius:10px; background:#05080c; }
-    #fight-video { max-height:720px; }
-    #replay { height:330px; }
-    #history { height:220px; }
-    #replay-slider { width:100%; margin:12px 0; }
-    table { width:100%; border-collapse:collapse; font-size:.9rem; }
-    th,td { border-bottom:1px solid #273242; padding:9px 7px; text-align:right; }
-    th:first-child,td:first-child { text-align:left; }
-    a { color:#8ecbff; }
-    code { background:#171f2b; padding:.12em .35em; border-radius:4px; }
+    :root{
+      color-scheme:dark;
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      --bg:#080b10; --surface:#0f151e; --surface2:#131c28; --line:#263448;
+      --text:#ecf2fa; --muted:#91a0b5; --blue:#8ecbff; --red:#ff9f8e; --amber:#f0b65b;
+    }
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text)}
+    a{color:var(--blue);text-decoration:none} a:hover{text-decoration:underline}
+    main{max-width:1260px;margin:0 auto;padding:28px 20px 80px}
+    h1{font-size:clamp(2rem,5vw,4rem);line-height:1;margin:.18em 0 .28em;letter-spacing:-.04em}
+    h2{font-size:1.15rem;margin:0 0 14px} h3{font-size:.95rem;margin:0 0 10px}
+    .muted,.lead{color:var(--muted);line-height:1.6}.lead{max-width:850px;margin:0}
+    .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:32px;flex-wrap:wrap}
+    .brand{font-weight:800;letter-spacing:.02em}.nav{display:flex;gap:14px;font-size:.88rem;flex-wrap:wrap}
+    .badge,.pill{display:inline-flex;align-items:center;border:1px solid #39506b;border-radius:999px;padding:6px 10px;font-size:.78rem;color:#c9d6e6;background:#0e1722}
+    .pill.live{border-color:#426e5a;color:#a8e5c4}.pill.warn{border-color:#6b5735;color:#f2ca86}
+    .hero-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-end;margin-bottom:20px;flex-wrap:wrap}
+    .hero{display:grid;grid-template-columns:minmax(0,2.1fr) minmax(270px,.9fr);gap:16px;align-items:start}
+    .panel,.card{border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:0 10px 35px rgba(0,0,0,.14)}
+    .panel{padding:18px}.video-panel{padding:10px;overflow:hidden;background:#05070a}
+    video,canvas{width:100%;display:block;border-radius:11px;background:#030508}#fight-video{aspect-ratio:3/2;max-height:760px;object-fit:contain}
+    .matchup{padding:20px}.versus{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;margin:18px 0 22px}
+    .fighter{text-align:center}.fighter strong{display:block;font-size:1.35rem}.fighter span{font-size:.75rem;color:var(--muted)}
+    .vs{font-size:.78rem;color:var(--muted);font-weight:800}
+    .meta-list{display:grid;gap:9px;font-size:.87rem}.meta-row{display:flex;justify-content:space-between;gap:12px;border-top:1px solid #202c3c;padding-top:9px}.meta-row span:first-child{color:var(--muted)}
+    .grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:18px 0}.card{padding:15px}
+    .metric{font-size:1.5rem;font-weight:850;letter-spacing:-.03em}.label{color:var(--muted);font-size:.75rem;margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em}
+    .section{margin-top:34px}.section-head{display:flex;align-items:end;justify-content:space-between;gap:14px;margin-bottom:12px;flex-wrap:wrap}
+    .two-col{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.brain-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+    .bar-row{display:grid;grid-template-columns:92px 1fr 88px;gap:10px;align-items:center;margin:7px 0;font-size:.82rem}.bar{height:9px;border-radius:999px;background:#223044;overflow:hidden}.bar>span{display:block;height:100%;background:var(--blue)}
+    .brain-grid .panel:nth-child(2) .bar>span{background:var(--red)}
+    .brain-row{display:grid;grid-template-columns:minmax(170px,1.4fr) 3fr 60px;gap:8px;align-items:center;font-size:.75rem;margin:6px 0}.brain-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#b8c4d4}
+    .structure-map{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:7px;margin:10px 0 16px}.structure-cell{min-height:58px;border:1px solid #344359;border-radius:9px;padding:8px;font-size:.7rem;display:flex;flex-direction:column;justify-content:space-between}.structure-cell strong{font-size:.8rem}
+    table{width:100%;border-collapse:collapse;font-size:.86rem}th,td{border-bottom:1px solid #263448;padding:10px 8px;text-align:right}th:first-child,td:first-child{text-align:left}th{color:var(--muted);font-weight:600}
+    button,select{background:#172231;color:var(--text);border:1px solid #39506b;border-radius:8px;padding:8px 11px}button{cursor:pointer}
+    #replay{height:330px}#history{height:220px}#replay-slider{width:100%;margin:12px 0}.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .evidence{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.evidence a{display:block;border:1px solid var(--line);border-radius:12px;background:var(--surface2);padding:14px}.evidence strong{display:block;color:var(--text);margin-bottom:5px}.evidence span{font-size:.78rem;color:var(--muted)}
+    .notice{border-left:3px solid #4d79a4;background:#0d1722;border-radius:0 12px 12px 0;padding:12px 14px;color:#b8c6d8;font-size:.86rem;line-height:1.55}
+    .footer{margin-top:42px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:.8rem}
+    @media(max-width:900px){.hero,.two-col,.brain-grid{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,1fr)}.evidence{grid-template-columns:1fr}.hero-head{align-items:flex-start}.brain-row{grid-template-columns:minmax(120px,1fr) 2fr 52px}}
+    @media(max-width:520px){main{padding:18px 12px 60px}.grid{grid-template-columns:1fr 1fr}.metric{font-size:1.2rem}.panel{padding:14px}.versus{grid-template-columns:1fr auto 1fr}.fighter strong{font-size:1.05rem}}
   </style>
 </head>
 <body>
 <main>
-  <span class="badge">MaleCNS v1.0 + pinned Shiu LIF · canonical</span>
-  <h1>Connectome Fighter Arena</h1>
-  <p class="lead">GitHub Actions上でFightingICEを継続実行し、MaleCNSの実body IDを使ったShiu LIF活動から操作を決めています。現在は学習前baselineで、Poisson入力のランダム性とspike-count argmax readoutを固定しています。</p>
-  <div class="notice"><strong>現在の学習状態:</strong> <span id="phase">loading…</span>。weight更新はまだ無効です。生のspike/eventログはActions artifactへ保存し、ここには観戦映像・集計・解析用telemetryを表示します。</div>
+  <header class="topbar">
+    <div class="brand">CONNECTOME FIGHTER</div>
+    <nav class="nav"><a href="#watch">Watch</a><a href="#activity">Brain activity</a><a href="#metrics">Metrics</a><a href="#evidence">Logs</a><a href="https://github.com/Unjuno/connectome-fighter">GitHub</a></nav>
+  </header>
 
-  <div class="grid">
-    <div class="card"><div class="label">independent rounds</div><div id="independent-rounds" class="metric">—</div></div>
-    <div class="card"><div class="label">raw rounds</div><div id="raw-rounds" class="metric">—</div></div>
-    <div class="card"><div class="label">non-zero reward</div><div id="reward-rate" class="metric">—</div></div>
-    <div class="card"><div class="label">decisions</div><div id="decisions" class="metric">—</div></div>
-  </div>
-  <div class="row muted">Updated: <span id="updated">—</span> · <a id="source-run" href="#">source Actions run</a></div>
-
-  <h2>Rendered FightingICE fight</h2>
-  <div class="panel">
-    <p class="muted">FightingICE本体のheadless rendererが生成した公式960×640 ScreenDataを、policyとは別のspectator socketで録画しています。MaleCNS policyにはpixel情報を渡していません。</p>
-    <video id="fight-video" controls muted playsinline preload="metadata">
-      <source src="./data/latest-fight.mp4" type="video/mp4" />
-      Your browser cannot play the FightingICE recording.
-    </video>
-    <p id="video-note" class="muted">動画metadataを読み込み中…</p>
-  </div>
-
-  <h2>Character results</h2>
-  <div class="panel"><table><thead><tr><th>Character</th><th>Rounds</th><th>Win</th><th>Loss</th><th>Draw</th><th>Decisions</th></tr></thead><tbody id="character-table"></tbody></table></div>
-
-  <h2>Action distribution</h2>
-  <div class="panel"><div id="action-bars"></div><p class="muted">NEUTRALを含め、脳出力から実際に要求された操作を集計。外部ε-greedy等はまだ入れていません。</p></div>
-
-  <h2>Telemetry replay (not the game renderer)</h2>
-  <div class="panel">
-    <div id="replay-status" class="muted">Loading telemetry…</div>
-    <canvas id="replay"></canvas>
-    <input id="replay-slider" type="range" min="0" max="0" value="0" />
-    <div class="row"><button id="play">Play</button><button id="pause">Pause</button><label class="muted">speed <select id="speed"><option value="260">0.5×</option><option value="130" selected>1×</option><option value="65">2×</option><option value="32">4×</option></select></label><span id="frame-label" class="muted"></span></div>
-  </div>
-
-  <h2>MaleCNS activity</h2>
-  <p class="muted">各decision windowの上位発火bodyを表示します。「構造活性」はsomaNeuromere等の公式カテゴリを集計したもので、ニューロンのXY座標やsynapse位置ではありません。全spike parquetはActions artifactに保持します。</p>
-  <div class="brain-grid">
-    <div class="panel">
-      <strong id="brain-p1-title">P1 brain</strong><div id="brain-p1-summary" class="muted"></div>
-      <div class="label">active soma neuromeres / structural groups</div><div id="brain-p1-structure" class="structure-map"></div>
-      <div class="label">action readout groups</div><div id="brain-p1-groups"></div>
-      <div class="label">top active body IDs</div><div id="brain-p1"></div>
-    </div>
-    <div class="panel">
-      <strong id="brain-p2-title">P2 brain</strong><div id="brain-p2-summary" class="muted"></div>
-      <div class="label">active soma neuromeres / structural groups</div><div id="brain-p2-structure" class="structure-map"></div>
-      <div class="label">action readout groups</div><div id="brain-p2-groups"></div>
-      <div class="label">top active body IDs</div><div id="brain-p2"></div>
+  <div class="hero-head">
+    <div>
+      <div class="row"><span class="badge">MaleCNS v1.0 + pinned Shiu LIF</span><span class="pill warn" id="phase-pill">baseline</span></div>
+      <h1>MaleCNS Fighting Arena</h1>
+      <p class="lead">実Drosophila CNS connectomeをShiu LIFで動かし、そのspikeからFightingICEを操作します。観戦映像、body-ID活動、構造annotation、Actionsログを同じページで追跡します。</p>
     </div>
   </div>
 
-  <h2>Experiment history</h2>
-  <div class="panel"><canvas id="history"></canvas></div>
-  <p class="muted">青: 非0報酬ラウンド率。橙: B action率。継続runごとの変化を表示します。</p>
+  <section id="watch" class="hero">
+    <div class="panel video-panel">
+      <video id="fight-video" controls muted playsinline preload="metadata">
+        <source src="./data/latest-fight.mp4" type="video/mp4" />
+        Your browser cannot play the FightingICE recording.
+      </video>
+    </div>
+    <aside class="panel matchup">
+      <div class="label">LATEST SPECTATOR MATCH</div>
+      <div class="versus">
+        <div class="fighter"><strong id="video-p1">—</strong><span>P1</span></div>
+        <div class="vs">VS</div>
+        <div class="fighter"><strong id="video-p2">—</strong><span>P2</span></div>
+      </div>
+      <div class="meta-list">
+        <div class="meta-row"><span>Video</span><strong id="video-duration">—</strong></div>
+        <div class="meta-row"><span>Rounds</span><strong id="video-rounds">—</strong></div>
+        <div class="meta-row"><span>Renderer</span><strong>FightingICE ScreenData</strong></div>
+        <div class="meta-row"><span>Pixels to policy</span><strong id="pixel-access">NO</strong></div>
+        <div class="meta-row"><span>Updated</span><strong id="updated">—</strong></div>
+      </div>
+      <p id="video-note" class="muted" style="font-size:.78rem;margin:16px 0 0">動画metadataを読み込み中…</p>
+    </aside>
+  </section>
 
-  <h2>Reward</h2>
-  <div class="panel">
-    <p><strong>R0 baseline:</strong> ラウンド終了時の残HP比較だけで +1 / 0 / -1。現在はログ取得のみでplasticityは無効です。</p>
-    <p class="muted">報酬設計の変更は、観戦・ログ・構造可視化パイプラインを固定した後に比較条件として導入します。</p>
-  </div>
+  <section id="metrics" class="section">
+    <div class="section-head"><div><h2>Experiment status</h2><div class="muted">継続baselineの現在値。weight更新はまだ無効です。</div></div><span class="pill live">CI continuous</span></div>
+    <div class="grid">
+      <div class="card"><div class="label">independent rounds</div><div id="independent-rounds" class="metric">—</div></div>
+      <div class="card"><div class="label">raw rounds</div><div id="raw-rounds" class="metric">—</div></div>
+      <div class="card"><div class="label">non-zero reward</div><div id="reward-rate" class="metric">—</div></div>
+      <div class="card"><div class="label">decisions</div><div id="decisions" class="metric">—</div></div>
+    </div>
+    <div class="notice"><strong>現在:</strong> <span id="phase">loading…</span>。Poisson sensory randomnessとspike-count argmax readoutは固定。報酬候補はofflineで比較できますが、canonical plasticityはまだ有効化していません。</div>
+  </section>
+
+  <section class="section two-col">
+    <div class="panel">
+      <h2>Character results</h2>
+      <table><thead><tr><th>Character</th><th>Rounds</th><th>W</th><th>L</th><th>D</th><th>Decisions</th></tr></thead><tbody id="character-table"></tbody></table>
+    </div>
+    <div class="panel">
+      <h2>Action distribution</h2>
+      <div id="action-bars"></div>
+      <p class="muted" style="font-size:.78rem">NEUTRALを含む実要求操作。外部ε-greedyは未使用。</p>
+    </div>
+  </section>
+
+  <section id="activity" class="section">
+    <div class="section-head"><div><h2>MaleCNS activity</h2><div class="muted">選択decisionごとの上位発火bodyと公式構造annotation。XY座標ではなく、somaNeuromere / superclass / typeです。</div></div></div>
+    <div class="brain-grid">
+      <div class="panel"><h3 id="brain-p1-title">P1 brain</h3><div id="brain-p1-summary" class="muted"></div><div class="label" style="margin-top:12px">structural activity</div><div id="brain-p1-structure" class="structure-map"></div><div class="label">action readout</div><div id="brain-p1-groups"></div><div class="label" style="margin-top:14px">top body IDs</div><div id="brain-p1"></div></div>
+      <div class="panel"><h3 id="brain-p2-title">P2 brain</h3><div id="brain-p2-summary" class="muted"></div><div class="label" style="margin-top:12px">structural activity</div><div id="brain-p2-structure" class="structure-map"></div><div class="label">action readout</div><div id="brain-p2-groups"></div><div class="label" style="margin-top:14px">top body IDs</div><div id="brain-p2"></div></div>
+    </div>
+  </section>
+
+  <section class="section two-col">
+    <div class="panel">
+      <h2>Telemetry inspector</h2>
+      <div id="replay-status" class="muted">Loading telemetry…</div>
+      <canvas id="replay"></canvas>
+      <input id="replay-slider" type="range" min="0" max="0" value="0" />
+      <div class="row"><button id="play">Play</button><button id="pause">Pause</button><label class="muted">speed <select id="speed"><option value="260">0.5×</option><option value="130" selected>1×</option><option value="65">2×</option><option value="32">4×</option></select></label><span id="frame-label" class="muted"></span></div>
+      <p class="muted" style="font-size:.76rem">この四角表示は解析用schematicで、上のFightingICE実映像とは別です。</p>
+    </div>
+    <div class="panel">
+      <h2>Experiment history</h2>
+      <canvas id="history"></canvas>
+      <p class="muted" style="font-size:.78rem">青: 非0報酬率 · 橙: B action率</p>
+    </div>
+  </section>
+
+  <section id="evidence" class="section">
+    <div class="section-head"><div><h2>Logs & evidence</h2><div class="muted">公開ページは要約。生のtrace / spike parquet / server logsはGitHub Actions artifactに保持します。</div></div></div>
+    <div class="evidence">
+      <a id="source-run" href="https://github.com/Unjuno/connectome-fighter/actions"><strong>Baseline source run</strong><span>48-round canonical experiment / raw traces</span></a>
+      <a id="video-run" href="https://github.com/Unjuno/connectome-fighter/actions"><strong>Spectator render run</strong><span>~1 minute FightingICE ScreenData video / validation artifact</span></a>
+      <a href="https://github.com/Unjuno/connectome-fighter/actions"><strong>All GitHub Actions</strong><span>CI history, failed runs, artifacts and provenance</span></a>
+    </div>
+  </section>
+
+  <section class="section panel">
+    <h2>Reward status</h2>
+    <p><strong>Canonical R0:</strong> ラウンド終了時の残HP比較で +1 / 0 / -1。現在はbaseline取得中で、plasticityはOFF。</p>
+    <p class="muted">観戦・ログ・構造可視化パイプラインを固定した上で、次にreward候補を比較して学習条件を決めます。</p>
+  </section>
 
   <p id="error" class="muted"></p>
-  <p><a href="https://github.com/Unjuno/connectome-fighter">Repository</a> · <a href="https://github.com/Unjuno/connectome-fighter/blob/main/docs/SUBSTRATE_CONTRACT.ja.md">Substrate contract</a> · <a href="https://github.com/Unjuno/connectome-fighter/actions">Actions</a></p>
+  <footer class="footer"><div class="row"><a href="https://github.com/Unjuno/connectome-fighter">Repository</a><a href="https://github.com/Unjuno/connectome-fighter/blob/main/docs/SUBSTRATE_CONTRACT.ja.md">Substrate contract</a><a href="https://github.com/Unjuno/connectome-fighter/blob/main/ROADMAP.md">Roadmap</a></div></footer>
 </main>
 <script src="./app.js"></script>
 </body>
