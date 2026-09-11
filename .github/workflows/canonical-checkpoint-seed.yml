@@ -1,0 +1,107 @@
+name: canonical-checkpoint-seed
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/canonical-checkpoint-seed.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: canonical-checkpoint-seed
+  cancel-in-progress: true
+
+env:
+  SOURCE_RUN_ID: '34631587091'
+  RELEASE_TAG: canonical-state-smoke-v1
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download validated generation-1 smoke artifact
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.SOURCE_RUN_ID }}
+          name: malecns-valence-plasticity-smoke
+          path: runs/source
+
+      - name: Validate source state and package durable checkpoint
+        run: |
+          set -euo pipefail
+          STATE="$(find runs/source -type f -path '*/state/GARNET.npz' -print -quit)"
+          META="${STATE}.json"
+          UPDATE="$(find runs/source -type f -name garnet-update.json -print -quit)"
+          ADAPTER_MANIFEST="$(find runs/source -type f -path '*/garnet-g1-adapter/manifest.json' -print -quit)"
+          test -s "$STATE" && test -s "$META" && test -s "$UPDATE" && test -s "$ADAPTER_MANIFEST"
+          mkdir -p runs/checkpoint/state runs/checkpoint/evidence
+          cp "$STATE" runs/checkpoint/state/GARNET.npz
+          cp "$META" runs/checkpoint/state/GARNET.npz.json
+          cp "$UPDATE" runs/checkpoint/evidence/garnet-update.json
+          cp "$ADAPTER_MANIFEST" runs/checkpoint/evidence/garnet-g1-adapter-manifest.json
+          python - <<'PY'
+          import hashlib,json,pathlib
+          root=pathlib.Path('runs/checkpoint')
+          state=root/'state/GARNET.npz'
+          meta=json.load(open(str(state)+'.json'))
+          update=json.load(open(root/'evidence/garnet-update.json'))
+          sha=hashlib.sha256(state.read_bytes()).hexdigest()
+          assert meta['state_sha256']==sha
+          assert meta['character']=='GARNET'
+          assert meta['generation']==1 and meta['matches']==1
+          assert meta['model']=='KC-MBON-valence-depression-v0'
+          assert meta['reward_id']=='R2d-v0'
+          assert update['status']=='PASS'
+          assert update['updates']['potentiated_edges']==0
+          manifest={
+            'schema_version':1,
+            'kind':'canonical-character-checkpoint-smoke',
+            'character':'GARNET',
+            'generation':1,
+            'source_actions_run':34631587091,
+            'model':meta['model'],
+            'reward_id':meta['reward_id'],
+            'candidate_sha256':meta['candidate_sha256'],
+            'config_sha256':meta['config_sha256'],
+            'state_sha256':sha,
+            'n_candidates':meta['n_candidates'],
+            'purpose':'durable cross-Actions-run resume gate; not a production continuous-training lineage',
+          }
+          (root/'checkpoint-manifest.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n')
+          print(json.dumps(manifest,indent=2,sort_keys=True))
+          PY
+          tar -C runs/checkpoint -czf runs/garnet-g1.tar.gz .
+          sha256sum runs/garnet-g1.tar.gz | tee runs/garnet-g1.tar.gz.sha256
+
+      - name: Publish prerelease checkpoint assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --prerelease \
+              --title 'Canonical checkpoint resume smoke' \
+              --notes 'Non-production checkpoint assets used only to prove exact MaleCNS character-state resume across separate GitHub Actions runs.'
+          fi
+          gh release upload "$RELEASE_TAG" \
+            runs/garnet-g1.tar.gz \
+            runs/garnet-g1.tar.gz.sha256 \
+            runs/checkpoint/checkpoint-manifest.json \
+            --clobber
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: canonical-checkpoint-seed-evidence
+          path: |
+            runs/checkpoint/checkpoint-manifest.json
+            runs/garnet-g1.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 30
