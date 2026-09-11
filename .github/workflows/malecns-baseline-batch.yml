@@ -173,11 +173,18 @@ jobs:
 
       - name: Run canonical baseline matches
         run: |
-          RUN_ID="baseline-${{ matrix.label }}-${{ matrix.p1 }}-${{ matrix.p2 }}"
+          # Keep the stochastic mechanism fixed (Poisson sensory spikes), but
+          # use a new deterministic seed block for every workflow chunk so a
+          # six-hour schedule does not simply replay the same random sequence.
+          CHUNK_OFFSET=$(( ${{ github.run_number }} * 1000000 ))
+          SEED1=$(( ${{ matrix.seed1 }} + CHUNK_OFFSET ))
+          SEED2=$(( ${{ matrix.seed2 }} + CHUNK_OFFSET ))
+          RUN_ID="baseline-r${{ github.run_number }}-${{ matrix.label }}-${{ matrix.p1 }}-${{ matrix.p2 }}"
+          echo "chunk=${{ github.run_number }} p1_seed=$SEED1 p2_seed=$SEED2"
           PYTHONPATH=src python scripts/run_game_malecns_lif.py \
             --host 127.0.0.1 --port 31415 \
             --character-p1 ${{ matrix.p1 }} --character-p2 ${{ matrix.p2 }} \
-            --seed-p1 ${{ matrix.seed1 }} --seed-p2 ${{ matrix.seed2 }} \
+            --seed-p1 "$SEED1" --seed-p2 "$SEED2" \
             --reference-python "$PY310" \
             --reference-model external/shiu-reference/model.py \
             --adapter-dir data/processed/malecns-shiu-strict-v1 \
