@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "KC-MBON-valence-depression-R2c-v0",
+  "status": "paired-learning-ab-candidate",
+  "learning_rate_per_unit_modulatory_signal": 0.01,
+  "eligibility_decay_per_decision": 0.9,
+  "pair_count_cap": 25.0,
+  "normalization_percentile": 95.0,
+  "multiplier_min": 0.8,
+  "multiplier_max": 1.0,
+  "positive_signal_target": "avoidance_associated",
+  "negative_signal_target": "approach_associated",
+  "update_direction": "depression_only",
+  "reward_config": "R2c-v0",
+  "literature_basis": {
+    "doi": "10.7554/eLife.04580",
+    "summary": "Aso et al. 2014 reported avoidance-associated glutamatergic MBON activation and attraction-associated GABAergic/cholinergic MBON activation at population level."
+  },
+  "interpretation_boundary": "The game reward-to-valence-channel mapping is a project-defined model interface. R2c does not punish a no-damage draw; engagement signal is positive only when the horizontal potential improves, while actual damage/loss can supply negative signal."
+}
