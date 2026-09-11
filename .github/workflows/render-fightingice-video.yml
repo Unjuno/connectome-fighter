@@ -3,7 +3,7 @@ name: render-fightingice-video
 on:
   workflow_dispatch:
   workflow_run:
-    workflows: [malecns-baseline-batch]
+    workflows: [reward-design-offline]
     types: [completed]
   push:
     branches: [main]
