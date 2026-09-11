@@ -38,6 +38,7 @@ def _activity(t: dict[str, Any] | None) -> dict[str, Any] | None:
         "max": activation.get("max"),
         "fraction_gt_0_75": activation.get("fraction_gt_0_75"),
         "top_global": activation.get("top_global", []),
+        "top_change": activation.get("top_change", []),
         "top_descending": activation.get("top_descending", []),
     }
 
