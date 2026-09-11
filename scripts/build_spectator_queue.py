@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Build a 3-clip spectator queue from a canonical MaleCNS render run.
 
-The queue is a presentation artifact only. It summarizes recorded spike events
-by released MaleCNS structural annotations and never feeds data back into the
-policy or learning path.
+This is a presentation/export step only. Dynamic spike events are joined to
+released MaleCNS structural annotations after the policy has acted. Nothing
+produced here is fed back into the controller or learning path.
 """
 from __future__ import annotations
 
@@ -16,6 +16,17 @@ from urllib.parse import urljoin
 
 import pandas as pd
 
+ACTION_NAMES = {
+    0: "NEUTRAL",
+    1: "FORWARD",
+    2: "BACKWARD",
+    3: "UP",
+    4: "DOWN",
+    5: "A",
+    6: "B",
+    7: "C",
+}
+
 
 def read_json(path: Path | None, default):
     if path is None:
@@ -26,6 +37,22 @@ def read_json(path: Path | None, default):
         return default
 
 
+def read_jsonl(path: Path) -> list[dict]:
+    if not path.exists():
+        return []
+    out: list[dict] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(row, dict):
+            out.append(row)
+    return out
+
+
 def clean(value):
     if value is None or pd.isna(value):
         return None
@@ -33,24 +60,63 @@ def clean(value):
     return text if text and text.lower() not in {"<na>", "nan", "none"} else None
 
 
-def activity_summary(spikes_path: Path, structure_path: Path, top_n: int = 10) -> dict:
-    spikes = pd.read_parquet(spikes_path, columns=["body_id"])
+def top_categories(table: pd.DataFrame, column: str, top_n: int) -> list[dict]:
+    if column not in table.columns or table.empty:
+        return []
+    c: Counter[str] = Counter()
+    for value, n in zip(table[column], table["spikes"]):
+        key = clean(value)
+        if key:
+            c[key] += int(n)
+    total = sum(c.values())
+    return [
+        {
+            "name": name,
+            "spikes": int(spikes),
+            "fraction": (float(spikes) / total) if total else 0.0,
+        }
+        for name, spikes in c.most_common(top_n)
+    ]
+
+
+def activity_summary(
+    spikes_path: Path,
+    decisions_path: Path,
+    structure_path: Path,
+    *,
+    top_n: int = 10,
+    timeline_top_n: int = 6,
+) -> dict:
+    spikes = pd.read_parquet(spikes_path, columns=["decision_index", "body_id"])
     structure = pd.read_csv(structure_path, compression="gzip")
+    decisions = read_jsonl(decisions_path)
+
     if spikes.empty:
-        return {"total_spikes": 0, "unique_bodies": 0, "top_neuromeres": [], "top_superclasses": [], "top_types": [], "top_bodies": []}
+        timeline = []
+        for row in decisions:
+            action_id = int(row.get("action", 0))
+            timeline.append({
+                "decision_index": int(row.get("decision_index", len(timeline))),
+                "frame": int(row.get("frame", 0)),
+                "action": ACTION_NAMES.get(action_id, str(action_id)),
+                "total_spikes": 0,
+                "unique_bodies": 0,
+                "regions": [],
+                "superclasses": [],
+            })
+        return {
+            "total_spikes": 0,
+            "unique_bodies": 0,
+            "top_neuromeres": [],
+            "top_superclasses": [],
+            "top_types": [],
+            "top_bodies": [],
+            "timeline": timeline,
+            "interpretation": "MaleCNS somaNeuromere/category summary; not physical neuron coordinates.",
+        }
 
-    counts = spikes["body_id"].value_counts().rename_axis("bodyId").reset_index(name="spikes")
-    merged = counts.merge(structure, on="bodyId", how="left", validate="one_to_one")
-
-    def grouped(column: str) -> list[dict]:
-        if column not in merged.columns:
-            return []
-        c = Counter()
-        for value, n in zip(merged[column], merged["spikes"]):
-            key = clean(value)
-            if key:
-                c[key] += int(n)
-        return [{"name": k, "spikes": int(v)} for k, v in c.most_common(top_n)]
+    body_counts = spikes["body_id"].value_counts().rename_axis("bodyId").reset_index(name="spikes")
+    merged = body_counts.merge(structure, on="bodyId", how="left", validate="one_to_one")
 
     top_bodies = []
     for row in merged.sort_values("spikes", ascending=False).head(top_n).itertuples(index=False):
@@ -62,14 +128,43 @@ def activity_summary(spikes_path: Path, structure_path: Path, top_n: int = 10) -
                     record[column] = value
         top_bodies.append(record)
 
+    per_body = (
+        spikes.groupby(["decision_index", "body_id"], sort=True)
+        .size()
+        .rename("spikes")
+        .reset_index()
+        .rename(columns={"body_id": "bodyId"})
+        .merge(structure, on="bodyId", how="left", validate="many_to_one")
+    )
+    decision_by_index = {int(row.get("decision_index", i)): row for i, row in enumerate(decisions)}
+    indices = sorted(set(int(x) for x in per_body["decision_index"].unique()).union(decision_by_index))
+    timeline = []
+    for index in indices:
+        chunk = per_body[per_body["decision_index"] == index]
+        decision = decision_by_index.get(index, {})
+        action_id = int(decision.get("action", 0))
+        timeline.append({
+            "decision_index": int(index),
+            "frame": int(decision.get("frame", 0)),
+            "action": ACTION_NAMES.get(action_id, str(action_id)),
+            "total_spikes": int(chunk["spikes"].sum()) if not chunk.empty else 0,
+            "unique_bodies": int(chunk["bodyId"].nunique()) if not chunk.empty else 0,
+            "regions": top_categories(chunk, "somaNeuromere", timeline_top_n),
+            "superclasses": top_categories(chunk, "superclass", 4),
+        })
+
     return {
         "total_spikes": int(len(spikes)),
-        "unique_bodies": int(counts.shape[0]),
-        "top_neuromeres": grouped("somaNeuromere"),
-        "top_superclasses": grouped("superclass"),
-        "top_types": grouped("type"),
+        "unique_bodies": int(body_counts.shape[0]),
+        "top_neuromeres": top_categories(merged, "somaNeuromere", top_n),
+        "top_superclasses": top_categories(merged, "superclass", top_n),
+        "top_types": top_categories(merged, "type", top_n),
         "top_bodies": top_bodies,
-        "interpretation": "Categorical MaleCNS structural annotations; not physical neuron coordinates.",
+        "timeline": timeline,
+        "interpretation": (
+            "Region activity is a post-hoc count of real MaleCNS body-ID spikes grouped by "
+            "categorical somaNeuromere annotations; it is not a spatial coordinate reconstruction."
+        ),
     }
 
 
@@ -109,19 +204,33 @@ def main() -> int:
 
     base = args.public_base.rstrip("/") + "/"
     clip_id = f"{status.get('run_id','clip')}-{video.get('source_actions_run','run')}"
+    p1_activity = activity_summary(
+        args.run_dir / "p1-brain" / "spikes.parquet",
+        args.run_dir / "p1-brain" / "decisions.jsonl",
+        args.structure_index,
+    )
+    p2_activity = activity_summary(
+        args.run_dir / "p2-brain" / "spikes.parquet",
+        args.run_dir / "p2-brain" / "decisions.jsonl",
+        args.structure_index,
+    )
+    duration = float(video.get("duration_seconds", 0.0))
+    timeline_steps = max(len(p1_activity["timeline"]), len(p2_activity["timeline"]), 1)
     entry = {
         "clip_id": clip_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "video_url": urljoin(base, "latest-fight.mp4"),
-        "duration_seconds": float(video.get("duration_seconds", 0.0)),
+        "duration_seconds": duration,
         "frames": int(video.get("frames", 0)),
         "round_count": int(video.get("rounds", video.get("round_count", 6))),
         "p1": {"character": str(chars[0]), "seed": int(seeds[0])},
         "p2": {"character": str(chars[1]), "seed": int(seeds[1])},
         "outcomes": round_summary(status),
         "activity": {
-            "p1": activity_summary(args.run_dir / "p1-brain" / "spikes.parquet", args.structure_index),
-            "p2": activity_summary(args.run_dir / "p2-brain" / "spikes.parquet", args.structure_index),
+            "basis": "real MaleCNS body IDs grouped by somaNeuromere annotation",
+            "timeline_step_seconds": (duration / timeline_steps) if duration > 0 else 1.0,
+            "p1": p1_activity,
+            "p2": p2_activity,
         },
         "source_run_url": args.source_run_url,
         "policy_pixel_access": False,
@@ -150,7 +259,7 @@ def main() -> int:
         clip["queue_slot"] = index
 
     queue = {
-        "schema_version": 2,
+        "schema_version": 3,
         "mode": "rolling-pseudo-live",
         "learning_enabled": False,
         "poll_interval_seconds": 30,
@@ -158,11 +267,21 @@ def main() -> int:
         "clips": clips,
         "current_clip_id": clip_id,
         "source_run_url": args.source_run_url,
-        "note": "Each clip is a fresh canonical MaleCNS + pinned Shiu LIF simulation. Brain activity is post-hoc structural annotation and never enters policy input.",
+        "note": (
+            "Each clip is a fresh canonical MaleCNS + pinned Shiu LIF simulation. "
+            "Brain activity is post-hoc structural annotation and never enters policy input."
+        ),
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(queue, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(json.dumps({"status": "PASS", "clips": len(clips), "current": clip_id, "next_expected_at": args.next_expected_at}, indent=2))
+    print(json.dumps({
+        "status": "PASS",
+        "clips": len(clips),
+        "current": clip_id,
+        "next_expected_at": args.next_expected_at,
+        "p1_timeline_steps": len(p1_activity["timeline"]),
+        "p2_timeline_steps": len(p2_activity["timeline"]),
+    }, indent=2))
     return 0
 
 
