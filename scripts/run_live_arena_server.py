@@ -13,7 +13,6 @@ import json
 from pathlib import Path
 import signal
 import subprocess
-import sys
 import threading
 import time
 from typing import Any
@@ -186,7 +185,7 @@ def make_handler(state: ArenaState):
                             if state.sequence == last:
                                 state.lock.wait(timeout=10.0)
                             last = state.sequence
-                        payload = state.payload()
+                            payload = state.payload()
                         data = json.dumps(payload, separators=(",", ":"), allow_nan=False)
                         self.wfile.write(f"data: {data}\n\n".encode())
                         self.wfile.flush()
@@ -209,6 +208,13 @@ def wait_for_fightingice(log_path: Path, proc: subprocess.Popen, timeout: float 
             return
         time.sleep(0.5)
     raise TimeoutError("FightingICE socket did not start before timeout")
+
+
+def hold_observable(seconds: float, stopping: callable) -> None:
+    """Keep terminal/error state queryable long enough for external health checks."""
+    deadline = time.time() + max(0.0, float(seconds))
+    while time.time() < deadline and not stopping():
+        time.sleep(0.2)
 
 
 def main() -> int:
@@ -314,13 +320,11 @@ def main() -> int:
             except Exception:
                 error = None
         state.finish(code, error)
-        deadline = time.time() + max(0.0, args.post_fight_seconds)
-        while time.time() < deadline and not stopping:
-            time.sleep(0.2)
+        hold_observable(args.post_fight_seconds, lambda: stopping)
     except Exception as exc:
         state.finish(1, f"{type(exc).__name__}: {exc}")
         code = 1
-        time.sleep(2.0)
+        hold_observable(args.post_fight_seconds, lambda: stopping)
     finally:
         stop.set()
         server.shutdown()
