@@ -1,7 +1,4 @@
-"""Optional live adapter, written against pyftg 2.3 public source.
-
-Not yet end-to-end validated against the external pyftg/Java game server.
-"""
+"""Optional live adapter, written against pyftg 2.3 public source."""
 from __future__ import annotations
 import time
 from typing import Any, Callable
@@ -15,12 +12,34 @@ try:
 except ImportError as exc:
     raise ImportError("Live bridge requires pyftg==2.3. Install .[game] in Python 3.11 first.") from exc
 
+
+def _display_frame(frame_data) -> dict[str, Any] | None:
+    if frame_data is None or frame_data.empty_flag or len(frame_data.character_data) != 2:
+        return None
+    chars = frame_data.character_data
+    if chars[0] is None or chars[1] is None:
+        return None
+    result: dict[str, Any] = {"frame": int(frame_data.current_frame_number)}
+    for i, c in enumerate(chars, start=1):
+        result[f"p{i}"] = {
+            "hp": int(c.hp),
+            "energy": int(c.energy),
+            "x": int(c.x),
+            "y": int(c.y),
+            "speed_x": int(c.speed_x),
+            "speed_y": int(c.speed_y),
+            "front": bool(c.front),
+            "control": bool(c.control),
+        }
+    return result
+
+
 class FighterAI(AIInterface):
     def __init__(self, agent_name: str, policy: Policy, sink: Callable[[dict[str, Any]], None],
                  match_id: str, opponent_version: str, decision_interval: int = 4,
-                 scales: ObservationScales = ObservationScales()):
+                 scales: ObservationScales = ObservationScales(), *, trainable: bool = True):
         self.agent_name, self.policy = agent_name, policy
-        self.ledger = RoundLedger(sink)
+        self.ledger = RoundLedger(sink, trainable=trainable)
         self.match_prefix, self.opponent_version = match_id, opponent_version
         self.interval, self.scales = decision_interval, scales
         self.initializations = 0
@@ -63,7 +82,7 @@ class FighterAI(AIInterface):
             return
         started = time.perf_counter_ns()
         observation = encode_frame(self.frame_data, self.game_data, self.session.player, self.scales)
-        keys = self.session.process(observation)
+        keys = self.session.process(observation, display=_display_frame(self.frame_data))
         self.key = Key(**keys)
         self.inference_ns.append(time.perf_counter_ns()-started)
 
