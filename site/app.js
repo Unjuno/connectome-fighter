@@ -1,6 +1,7 @@
 const $ = (id) => document.getElementById(id);
 const ACTION_ORDER = ['NEUTRAL','FORWARD','BACKWARD','UP','DOWN','A','B','C'];
 let replayState = { replay:null, frames:[], timer:null };
+let experimentHistory = [];
 
 function fmt(v, fallback='—') { return v === null || v === undefined ? fallback : String(v); }
 function pct(v) { return `${(100*Number(v||0)).toFixed(2)}%`; }
@@ -34,7 +35,7 @@ function renderActionBars(counts={}, rates={}) {
   }
 }
 
-function drawHistory(history=[]) {
+function drawHistory(history=experimentHistory) {
   const {ctx,w,h}=setupCanvas($('history'),220);
   ctx.fillStyle='#0c121b'; ctx.fillRect(0,0,w,h); ctx.strokeStyle='#273242'; ctx.strokeRect(.5,.5,w-1,h-1);
   if(!history.length){ ctx.fillStyle='#91a0b5'; ctx.fillText('No scheduled experiment history yet.',18,30); return; }
@@ -111,13 +112,14 @@ async function loadReplay(url){
 async function main(){
   try{
     const status=await fetch('./data/status.json',{cache:'no-store'}).then(r=>{if(!r.ok) throw new Error(`HTTP ${r.status}`); return r.json();});
-    const m=status.metrics||{}; $('phase').textContent=fmt(status.phase); $('updated').textContent=fmt(status.updated_at);
+    const m=status.metrics||{}; experimentHistory=status.history||[];
+    $('phase').textContent=fmt(status.phase); $('updated').textContent=fmt(status.updated_at);
     $('independent-rounds').textContent=fmt(m.independent_rounds,0); $('raw-rounds').textContent=fmt(m.raw_rounds,0); $('reward-rate').textContent=`${fmt(m.independent_nonzero_reward_rounds,0)} / ${fmt(m.independent_rounds,0)} (${pct(m.independent_nonzero_reward_rate)})`; $('decisions').textContent=fmt(m.total_decisions,0);
-    renderCharacterTable(m.characters||{}); renderActionBars(m.action_counts||{},m.action_rates||{}); drawHistory(status.history||[]);
+    renderCharacterTable(m.characters||{}); renderActionBars(m.action_counts||{},m.action_rates||{}); drawHistory();
     const src=$('source-run'); if(status.source_run_url){ src.href=status.source_run_url; src.style.display='inline'; } else { src.style.display='none'; }
     await loadReplay(status.latest_match?.replay_url||null);
   } catch(err){ $('phase').textContent='status load failed'; $('error').textContent=err.message; }
 }
 
-$('replay-slider').addEventListener('input',e=>{stopReplay(); renderReplayIndex(e.target.value);}); $('play').addEventListener('click',playReplay); $('pause').addEventListener('click',stopReplay); $('speed').addEventListener('change',()=>{if(replayState.timer) playReplay();}); window.addEventListener('resize',()=>{if(replayState.frames.length){renderReplayIndex($('replay-slider').value); drawHistory([]);}});
+$('replay-slider').addEventListener('input',e=>{stopReplay(); renderReplayIndex(e.target.value);}); $('play').addEventListener('click',playReplay); $('pause').addEventListener('click',stopReplay); $('speed').addEventListener('change',()=>{if(replayState.timer) playReplay();}); window.addEventListener('resize',()=>{if(replayState.frames.length) renderReplayIndex($('replay-slider').value); drawHistory();});
 main();
