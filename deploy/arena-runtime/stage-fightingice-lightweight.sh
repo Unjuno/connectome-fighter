@@ -6,11 +6,12 @@ OUT_DIR="${2:?usage: stage-fightingice-lightweight.sh SOURCE_DIR OUT_DIR}"
 
 SOURCE_DIR="$(cd "$SOURCE_DIR" && pwd)"
 rm -rf "$OUT_DIR"
-mkdir -p "$OUT_DIR/lib/lwjgl" "$OUT_DIR/data/ai" "$OUT_DIR/data/characters"
+mkdir -p "$OUT_DIR/lib/lwjgl" "$OUT_DIR/data/characters"
 
-# FightingICE's official lightweight container only needs the main jar, Java
-# dependency jars, AI metadata and per-character logic tables.  Do not stage
-# LWJGL native render libraries or screen/image assets into the Vercel runtime.
+# Pyftg mode supplies both agents over gRPC. FightingICE's data/ai directory is
+# only needed for built-in/round-robin AI discovery, so it is intentionally not
+# shipped. Lightweight mode also does not need LWJGL native render libraries or
+# screen/image assets. Keep only Java dependencies and character logic tables.
 test -s "$SOURCE_DIR/FightingICE.jar"
 cp "$SOURCE_DIR/FightingICE.jar" "$OUT_DIR/FightingICE.jar"
 
@@ -25,10 +26,6 @@ cp "${root_jars[@]}" "$OUT_DIR/lib/"
 cp "${lwjgl_jars[@]}" "$OUT_DIR/lib/lwjgl/"
 shopt -u nullglob
 
-if [[ -d "$SOURCE_DIR/data/ai" ]]; then
-  cp -a "$SOURCE_DIR/data/ai/." "$OUT_DIR/data/ai/"
-fi
-
 for character in GARNET ZEN LUD NEZ; do
   src="$SOURCE_DIR/data/characters/$character"
   dst="$OUT_DIR/data/characters/$character"
@@ -39,7 +36,8 @@ for character in GARNET ZEN LUD NEZ; do
   done
 done
 
-# Fail closed if render-native payloads accidentally re-enter this bundle.
+# Fail closed if non-policy runtime payloads accidentally re-enter the bundle.
+test ! -d "$OUT_DIR/data/ai"
 if find "$OUT_DIR" -path '*/natives/*' -type f -print -quit | grep -q .; then
   echo "native render libraries must not be staged for lightweight mode" >&2
   exit 1
