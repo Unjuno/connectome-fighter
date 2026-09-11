@@ -1,13 +1,13 @@
 {
-  "schema_version": 1,
-  "phase": "trainer-not-connected",
+  "schema_version": 2,
+  "phase": "trainer-not-started",
   "updated_at": null,
-  "generation": 0,
-  "training_matches": 0,
-  "checkpoint_id": null,
-  "champion_id": null,
-  "elo": null,
-  "fixed_baseline_win_rate": null,
-  "latest_match": null,
-  "history": []
+  "chunk": 0,
+  "characters": {
+    "GARNET": {"character":"GARNET","generation":0,"training_matches":0,"elo":1500,"checkpoint_id":null,"history":[]},
+    "ZEN": {"character":"ZEN","generation":0,"training_matches":0,"elo":1500,"checkpoint_id":null,"history":[]},
+    "LUD": {"character":"LUD","generation":0,"training_matches":0,"elo":1500,"checkpoint_id":null,"history":[]},
+    "NEZ": {"character":"NEZ","generation":0,"training_matches":0,"elo":1500,"checkpoint_id":null,"history":[]}
+  },
+  "latest_match": null
 }
