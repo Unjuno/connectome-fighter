@@ -105,9 +105,11 @@ jobs:
           cat runs/lightweight-socket/fightingice.log || true
           test "$ready" -eq 1
 
+          # run_game.py never updates weights; omit --evaluation so its existing
+          # pair-audit contract validates the emitted trace as trainable-format data.
           PYTHONPATH=src python scripts/run_game.py \
             --host 127.0.0.1 --port 31415 \
-            --games 1 --policy random --evaluation \
+            --games 1 --policy random \
             --character-p1 GARNET --character-p2 ZEN \
             --seed-p1 10101 --seed-p2 20202 \
             --expected-rounds 1 --timeout 180 \
@@ -120,7 +122,8 @@ jobs:
           assert s['status']=='COMPLETED_WITH_VALIDATED_TRACES'
           assert s['completed_rounds_per_agent']==[1,1]
           assert s['learning_performed'] is False
-          print({'status':s['status'],'rounds':s['completed_rounds_per_agent']})
+          assert s['evaluation'] is False
+          print({'status':s['status'],'rounds':s['completed_rounds_per_agent'],'learning':s['learning_performed']})
           PY
 
       - name: Verify live arena defaults to lightweight mode
