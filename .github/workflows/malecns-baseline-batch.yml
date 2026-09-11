@@ -2,13 +2,21 @@ name: malecns-baseline-batch
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '23 */6 * * *'
   push:
     branches: [main]
     paths:
       - '.github/workflows/malecns-baseline-batch.yml'
 
 permissions:
-  contents: read
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: malecns-canonical-baseline
+  cancel-in-progress: false
 
 env:
   SHIU_COMMIT: 2a83ad611cd9768f8c9723fc613ed27761a5feb5
@@ -25,46 +33,36 @@ jobs:
       max-parallel: 4
       matrix:
         include:
-          - label: g1
+          - label: garnet-zen
             p1: GARNET
             p2: ZEN
             seed1: 10101
             seed2: 20202
-          - label: g2
+          - label: garnet-lud
             p1: GARNET
-            p2: ZEN
-            seed1: 11101
-            seed2: 21202
-          - label: g3
+            p2: LUD
+            seed1: 10101
+            seed2: 30303
+          - label: garnet-nez
             p1: GARNET
-            p2: ZEN
-            seed1: 12101
-            seed2: 22202
-          - label: g4
-            p1: GARNET
-            p2: ZEN
-            seed1: 13101
-            seed2: 23202
-          - label: z1
+            p2: NEZ
+            seed1: 10101
+            seed2: 40404
+          - label: zen-lud
             p1: ZEN
-            p2: GARNET
+            p2: LUD
             seed1: 20202
-            seed2: 10101
-          - label: z2
+            seed2: 30303
+          - label: zen-nez
             p1: ZEN
-            p2: GARNET
-            seed1: 21202
-            seed2: 11101
-          - label: z3
-            p1: ZEN
-            p2: GARNET
-            seed1: 22202
-            seed2: 12101
-          - label: z4
-            p1: ZEN
-            p2: GARNET
-            seed1: 23202
-            seed2: 13101
+            p2: NEZ
+            seed1: 20202
+            seed2: 40404
+          - label: lud-nez
+            p1: LUD
+            p2: NEZ
+            seed1: 30303
+            seed2: 40404
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -206,10 +204,10 @@ jobs:
           import json
           from pathlib import Path
           root = Path('runs/malecns-batch')
-          runs = [p for p in root.iterdir() if p.is_dir()]
-          if not runs:
+          run_dirs = [p for p in root.iterdir() if p.is_dir()]
+          if not run_dirs:
               raise SystemExit('no run directory')
-          run = runs[0]
+          run = run_dirs[0]
           status = json.load(open(run/'status.json'))
           summary = {
               'run_id': status['run_id'],
@@ -242,3 +240,46 @@ jobs:
             runs/malecns-batch/fightingice-${{ matrix.label }}.log
           if-no-files-found: warn
           retention-days: 14
+
+  publish-pages:
+    needs: baseline
+    if: ${{ always() && needs.baseline.result == 'success' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Fast-forward to latest main
+        run: git pull --ff-only origin main
+      - name: Download this chunk's evidence
+        uses: actions/download-artifact@v4
+        with:
+          pattern: malecns-baseline-*
+          path: runs/downloaded
+          merge-multiple: false
+      - name: Export compact canonical Pages data
+        run: |
+          python scripts/export_malecns_pages.py \
+            --artifacts-root runs/downloaded \
+            --site-data site/data \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --updated-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      - name: Persist rolling public summary
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add site/data/status.json site/data/replay-latest.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'Update canonical MaleCNS dashboard [skip ci]'
+            git push origin HEAD:main
+          fi
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - name: Deploy canonical experiment dashboard
+        id: deployment
+        uses: actions/deploy-pages@v4
