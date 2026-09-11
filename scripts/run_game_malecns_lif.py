@@ -1,10 +1,9 @@
-"""Run one FightingICE match with two independent MaleCNS+Shiu LIF brains.
+"""Run FightingICE with two independent MaleCNS+Shiu LIF brains.
 
 There is no learned artificial neural network in this control path. Each
 character owns a separate Brian2 worker process with independent membrane/
-synaptic state and RNG. Per-character adapter directories may contain only
-magnitude changes on the approved existing KC->MBON rows; pinned Shiu dynamics
-remain unchanged.
+synaptic state and RNG. Optional spectator video is captured through pyftg's
+separate StreamInterface and is never exposed to either policy.
 """
 from __future__ import annotations
 
@@ -48,7 +47,11 @@ def main() -> int:
     p.add_argument("--expected-rounds", type=int, default=1)
     p.add_argument("--timeout", type=float, default=900.0)
     p.add_argument("--trainable-trace", action="store_true",
-                   help="Mark round traces eligible for post-match reward plasticity; no weights change during play")
+                   help="Mark round traces eligible for post-match plasticity; no weights change during play")
+    p.add_argument("--spectator-video", type=Path,
+                   help="Optional MP4 written from official FightingICE ScreenData on a separate spectator socket")
+    p.add_argument("--spectator-fps", type=int, default=60)
+    p.add_argument("--ffmpeg", default="ffmpeg")
     p.add_argument("--run-id")
     p.add_argument("--out", type=Path, default=Path("runs/malecns-live"))
     args = p.parse_args()
@@ -58,8 +61,10 @@ def main() -> int:
     adapter_dirs = [args.adapter_dir_p1 or args.adapter_dir, args.adapter_dir_p2 or args.adapter_dir]
     if args.games <= 0 or args.expected_rounds <= 0 or args.timeout <= 0:
         p.error("games/rounds/timeout must be positive")
-    if args.decision_interval <= 0 or not 1 <= args.port <= 65535:
-        p.error("invalid decision interval or port")
+    if args.decision_interval <= 0 or not 1 <= args.port <= 65535 or args.spectator_fps <= 0:
+        p.error("invalid decision interval, port, or spectator fps")
+    if args.spectator_video is not None and args.games != 1:
+        p.error("spectator-video currently requires --games 1")
     run_id = args.run_id or ("malecns-" + uuid.uuid4().hex[:10])
     if re.fullmatch(r"[a-zA-Z0-9_-]{1,64}", run_id) is None:
         p.error("invalid run-id")
@@ -88,10 +93,13 @@ def main() -> int:
         "games_requested": args.games,
         "host": args.host,
         "port": args.port,
+        "spectator_requested": args.spectator_video is not None,
+        "spectator_policy_pixel_access": False,
     }
     write_json(out / "status.json", status)
     policies = []
     agents = []
+    recorder = None
     code = 1
 
     try:
@@ -110,16 +118,11 @@ def main() -> int:
         characters = [args.character_p1, args.character_p2]
         seeds = [args.seed_p1, args.seed_p2]
         status["character_adapters"] = []
-        for i, (character, seed, adapter_dir) in enumerate(
-            zip(characters, seeds, adapter_dirs), start=1
-        ):
+        for i, (character, seed, adapter_dir) in enumerate(zip(characters, seeds, adapter_dirs), start=1):
             adapter_manifest = json.loads((adapter_dir / "manifest.json").read_text(encoding="utf-8"))
             plasticity = adapter_manifest.get("plasticity") or {}
             generation = int(plasticity.get("generation", 0))
-            version = (
-                f"malecns-shiu-{character.lower()}-g{generation:06d}-"
-                f"{interface_hash[:10]}-seed{seed}"
-            )
+            version = f"malecns-shiu-{character.lower()}-g{generation:06d}-{interface_hash[:10]}-seed{seed}"
             policy = MaleCNSWorkerPolicy(
                 character=character,
                 seed=seed,
@@ -144,29 +147,51 @@ def main() -> int:
 
         agents = [
             FighterAI(
-                f"CF-{run_id}-P{i+1}-{characters[i]}",
-                policies[i],
-                JsonlSink(out / f"p{i+1}.jsonl"),
-                run_id,
-                policies[1-i].version,
+                f"CF-{run_id}-P{i+1}-{characters[i]}", policies[i],
+                JsonlSink(out / f"p{i+1}.jsonl"), run_id, policies[1-i].version,
                 decision_interval=args.decision_interval,
                 trainable=bool(args.trainable_trace),
             )
             for i in range(2)
         ]
 
+        if args.spectator_video is not None:
+            from connectome_fighter.fightingice_spectator import FightingICEScreenRecorder
+            recorder = FightingICEScreenRecorder(
+                args.spectator_video,
+                fps=args.spectator_fps,
+                ffmpeg=args.ffmpeg,
+            )
+
         async def run() -> None:
             gateway = Gateway(host=args.host, port=args.port)
             for ai in agents:
                 gateway.register_ai(ai.name(), ai)
+            stream_task = None
+            if recorder is not None:
+                gateway.register_stream(recorder)
+                stream_task = asyncio.create_task(gateway.start_stream(keep_alive=False))
+                # Give the spectator socket an opportunity to register before the game request.
+                await asyncio.sleep(0.25)
             try:
                 await asyncio.wait_for(
                     gateway.run_game(characters, [a.name() for a in agents], args.games),
                     timeout=args.timeout,
                 )
+                if stream_task is not None:
+                    try:
+                        await asyncio.wait_for(stream_task, timeout=30)
+                    except asyncio.TimeoutError:
+                        stream_task.cancel()
+                        await asyncio.gather(stream_task, return_exceptions=True)
             finally:
+                if stream_task is not None and not stream_task.done():
+                    stream_task.cancel()
+                    await asyncio.gather(stream_task, return_exceptions=True)
                 for ai in agents:
                     ai.close()
+                if recorder is not None:
+                    recorder.close()
                 await asyncio.wait_for(gateway.close(), timeout=5)
 
         asyncio.run(run())
@@ -176,6 +201,11 @@ def main() -> int:
             expected_trainable=bool(args.trainable_trace),
         )
         status["audit"] = audit
+        if recorder is not None:
+            status["spectator"] = recorder.summary()
+            recorder.write_summary(out / "spectator.json")
+            if recorder.frames <= 0 or not recorder.output.is_file() or recorder.output.stat().st_size <= 10_000:
+                raise RuntimeError(f"spectator recording is not usable: {recorder.summary()}")
         status["status"] = "COMPLETED_WITH_VALIDATED_CANONICAL_TRACES"
         code = 0
     except KeyboardInterrupt:
@@ -200,6 +230,12 @@ def main() -> int:
                 policy.close()
             except Exception:
                 pass
+        if recorder is not None:
+            try:
+                recorder.close()
+            except Exception as exc:
+                status["spectator_close_error"] = f"{type(exc).__name__}: {exc}"
+            status["spectator"] = recorder.summary()
         status["completed_rounds_per_agent"] = [a.ledger.completed for a in agents]
         status["finished_at_utc"] = now_utc()
         status["exit_code"] = code
@@ -208,6 +244,7 @@ def main() -> int:
             "status": status["status"],
             "path": str(out),
             "completed_rounds_per_agent": status["completed_rounds_per_agent"],
+            "spectator": status.get("spectator"),
             "error": status.get("error"),
         }, indent=2))
     return code
