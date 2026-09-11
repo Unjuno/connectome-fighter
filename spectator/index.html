@@ -15,6 +15,7 @@
     .hero{border:1px solid var(--line);border-radius:18px;overflow:hidden;background:#0a1018}.match{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:center;padding:16px 20px}.fighter{font-size:clamp(1.5rem,4vw,2.8rem);font-weight:950}.fighter:last-child{text-align:right}.vs{color:#78879b;font-weight:900}
     video{display:block;width:100%;background:#000;aspect-ratio:3/2}.meta{display:flex;gap:14px;flex-wrap:wrap;padding:11px 16px;border-top:1px solid var(--line);font-size:.84rem;color:var(--muted)}
     .brain-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.brain{border:1px solid var(--line);background:var(--surface);border-radius:16px;padding:15px}.brain-head{display:flex;justify-content:space-between;align-items:start;gap:12px}.brain-title{font-weight:900;font-size:1.05rem}.brain-time{font-size:1.1rem;font-weight:950;font-variant-numeric:tabular-nums}.brain-metrics{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0 12px;font-size:.8rem;color:var(--muted)}
+    .morph{display:block;width:100%;height:auto;aspect-ratio:2.1/1;margin:11px 0 12px;border:1px solid #1e3045;border-radius:12px;background:radial-gradient(circle at 50% 45%,#102238 0,#080d14 62%)}
     .bars{display:grid;gap:7px}.bar-row{display:grid;grid-template-columns:minmax(78px,120px) 1fr 46px;gap:8px;align-items:center;font-size:.78rem}.bar-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.track{height:9px;border-radius:999px;background:#182433;overflow:hidden}.fill{height:100%;background:linear-gradient(90deg,#5fa8ef,#9ce1ff);border-radius:inherit}.bar-value{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}.brain:nth-child(2) .fill{background:linear-gradient(90deg,#ef7d93,#ffc0ca)}
     .summary-line{margin-top:11px;padding-top:10px;border-top:1px solid var(--line);font-size:.76rem;color:var(--muted);line-height:1.5}
     .stats{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px;margin-top:14px}.card{padding:15px;border:1px solid var(--line);border-radius:13px;background:var(--surface)}.name{font-weight:900;font-size:1.05rem}.rate{font-size:1.8rem;font-weight:950;margin-top:5px}.small{font-size:.8rem;color:var(--muted);margin-top:3px}
@@ -39,18 +40,19 @@
 
   <section class="brain-grid" aria-label="MaleCNS activity">
     <article class="brain">
-      <div class="brain-head"><div><div id="brain-p1-title" class="brain-title">P1 MaleCNS</div><div class="tiny">somaNeuromere spike activity</div></div><div id="brain-p1-time" class="brain-time">—</div></div>
+      <div class="brain-head"><div><div id="brain-p1-title" class="brain-title">P1 MaleCNS</div><div class="tiny">released SWC skeletons · X–Z projection</div></div><div id="brain-p1-time" class="brain-time">—</div></div>
+      <canvas id="brain-p1-canvas" class="morph" width="720" height="340" aria-label="P1 MaleCNS morphology activity"></canvas>
       <div id="brain-p1-metrics" class="brain-metrics"></div><div id="brain-p1-bars" class="bars"></div><div id="brain-p1-summary" class="summary-line"></div>
     </article>
     <article class="brain">
-      <div class="brain-head"><div><div id="brain-p2-title" class="brain-title">P2 MaleCNS</div><div class="tiny">somaNeuromere spike activity</div></div><div id="brain-p2-time" class="brain-time">—</div></div>
+      <div class="brain-head"><div><div id="brain-p2-title" class="brain-title">P2 MaleCNS</div><div class="tiny">released SWC skeletons · X–Z projection</div></div><div id="brain-p2-time" class="brain-time">—</div></div>
+      <canvas id="brain-p2-canvas" class="morph" width="720" height="340" aria-label="P2 MaleCNS morphology activity"></canvas>
       <div id="brain-p2-metrics" class="brain-metrics"></div><div id="brain-p2-bars" class="bars"></div><div id="brain-p2-summary" class="summary-line"></div>
     </article>
   </section>
-  <div class="notice">脳活動は実MaleCNS body IDのspikeを公開構造注釈のsomaNeuromere別に集計した後解析です。物理的なXYZ座標表示ではなく、方策入力にも使っていません。</div>
+  <div class="notice">骨格表示はMaleCNS v1.0が公開する実ニューロンcenterline SWC（MaleCNS EM座標、8 nm単位）のうち、そのclipで最も発火したbodyを後解析で選んだX–Z投影です。明るさは現在時刻のspike活動に対応します。表示データは方策入力に使いません。下のsomaNeuromere集計も併記します。</div>
 
   <section class="panel"><h3>Round outcomes</h3><div id="rounds" class="rounds"></div></section>
-
   <section><h2 style="margin:20px 0 8px">Four-character record</h2><div id="cards" class="stats"></div></section>
 
   <div class="footer"><a href="https://unjuno.github.io/connectome-fighter/">Experiment logs</a><a href="https://github.com/Unjuno/connectome-fighter/actions">Actions / raw artifacts</a><span id="poll-note" class="muted"></span></div>
