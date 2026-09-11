@@ -31,84 +31,35 @@ jobs:
       max-parallel: 4
       matrix:
         include:
-          - label: garnet-zen
-            p1: GARNET
-            p2: ZEN
-            seed1: 10101
-            seed2: 20202
-          - label: garnet-lud
-            p1: GARNET
-            p2: LUD
-            seed1: 10101
-            seed2: 30303
-          - label: garnet-nez
-            p1: GARNET
-            p2: NEZ
-            seed1: 10101
-            seed2: 40404
-          - label: zen-lud
-            p1: ZEN
-            p2: LUD
-            seed1: 20202
-            seed2: 30303
-          - label: zen-nez
-            p1: ZEN
-            p2: NEZ
-            seed1: 20202
-            seed2: 40404
-          - label: lud-nez
-            p1: LUD
-            p2: NEZ
-            seed1: 30303
-            seed2: 40404
+          - {label: garnet-zen, p1: GARNET, p2: ZEN, seed1: 10101, seed2: 20202}
+          - {label: garnet-lud, p1: GARNET, p2: LUD, seed1: 10101, seed2: 30303}
+          - {label: garnet-nez, p1: GARNET, p2: NEZ, seed1: 10101, seed2: 40404}
+          - {label: zen-lud, p1: ZEN, p2: LUD, seed1: 20202, seed2: 30303}
+          - {label: zen-nez, p1: ZEN, p2: NEZ, seed1: 20202, seed2: 40404}
+          - {label: lud-nez, p1: LUD, p2: NEZ, seed1: 30303, seed2: 40404}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up reference Python 3.10
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.10'}
       - name: Install pinned Shiu/Brian2 runtime
         run: |
           python -m pip install --upgrade pip
-          python -m pip install \
-            'numpy==1.24.0' \
-            'pandas==1.5.3' \
-            'pyarrow==10.0.1' \
-            'joblib==1.2.0' \
-            'Cython==0.29.36' \
-            'brian2==2.5.1'
+          python -m pip install 'numpy==1.24.0' 'pandas==1.5.3' 'pyarrow==10.0.1' 'joblib==1.2.0' 'Cython==0.29.36' 'brian2==2.5.1'
           echo "PY310=$(which python)" >> "$GITHUB_ENV"
-
-      - name: Set up bridge Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
       - name: Install bridge dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install \
-            'numpy==2.3.5' \
-            'pandas==2.3.3' \
-            'pyarrow==23.0.1' \
-            'pyftg==2.3'
-
+        run: python -m pip install --upgrade pip && python -m pip install 'numpy==2.3.5' 'pandas==2.3.3' 'pyarrow==23.0.1' 'pyftg==2.3'
       - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '21'
-
+        with: {distribution: temurin, java-version: '21'}
       - name: Restore canonical MaleCNS adapter cache
         uses: actions/cache@v4
         with:
           path: data/processed/malecns-shiu-strict-v1
           key: ${{ env.ADAPTER_CACHE_KEY }}
           fail-on-cache-miss: true
-
       - name: Build fixed game interface
         run: |
           mkdir -p data/processed/malecns-interface-v1
@@ -116,26 +67,19 @@ jobs:
             --metadata data/processed/malecns-shiu-strict-v1/neuron_metadata.parquet \
             --manifest data/processed/malecns-shiu-strict-v1/manifest.json \
             --out data/processed/malecns-interface-v1/interface.json \
-            --seed 20260911 \
-            --input-bodies-per-polarity-feature 16 \
-            --max-poisson-rate-hz 150 \
-            --decision-window-ms 20 \
-            --neutral-min-spikes 1
-
+            --seed 20260911 --input-bodies-per-polarity-feature 16 \
+            --max-poisson-rate-hz 150 --decision-window-ms 20 --neutral-min-spikes 1
       - name: Fetch pinned Shiu model
         run: |
           mkdir -p external/shiu-reference
-          curl -fL --retry 3 -o external/shiu-reference/model.py \
-            "https://raw.githubusercontent.com/philshiu/Drosophila_brain_model/$SHIU_COMMIT/model.py"
+          curl -fL --retry 3 -o external/shiu-reference/model.py "https://raw.githubusercontent.com/philshiu/Drosophila_brain_model/$SHIU_COMMIT/model.py"
           echo 'fc45837d7122c6ce2a7f3f2f23c515992e4b232aadb919efabb72337fac88e4e  external/shiu-reference/model.py' | sha256sum -c -
-
       - name: Restore FightingICE v7.1 cache
         id: game-cache
         uses: actions/cache@v4
         with:
           path: external/v71
           key: fightingice-v71-510752a6-386fd713
-
       - name: Download verified FightingICE v7.1 on cache miss
         if: steps.game-cache.outputs.cache-hit != 'true'
         run: |
@@ -146,10 +90,8 @@ jobs:
           echo "$RESOURCE_SHA256  external/downloads/resource.zip" | sha256sum -c -
           unzip -q external/downloads/game.zip -d external/v71
           GAME_JAR="$(find external/v71 -type f -name FightingICE.jar -print -quit)"
-          test -n "$GAME_JAR"
           unzip -q -o external/downloads/resource.zip -d "$(dirname "$GAME_JAR")"
           rm -rf external/downloads
-
       - name: Start FightingICE headless server
         run: |
           mkdir -p runs/malecns-batch
@@ -158,76 +100,47 @@ jobs:
           (
             cd "$GAME_DIR"
             nohup java -cp 'FightingICE.jar:./lib/*:./lib/lwjgl/*:./lib/lwjgl/natives/linux/amd64/*:./lib/grpc/*' \
-              Main --headless-mode --pyftg-mode --input-sync --limithp 400 400 \
-              --port 31415 -r 1 -f 600 \
+              Main --headless-mode --pyftg-mode --input-sync --limithp 400 400 --port 31415 -r 1 -f 600 \
               > "$GITHUB_WORKSPACE/runs/malecns-batch/fightingice-${{ matrix.label }}.log" 2>&1 &
             echo $! > "$GITHUB_WORKSPACE/runs/malecns-batch/fightingice-${{ matrix.label }}.pid"
           )
-          ready=0
           for i in $(seq 1 90); do
-            if grep -q 'Socket server is started' runs/malecns-batch/fightingice-${{ matrix.label }}.log 2>/dev/null; then ready=1; break; fi
-            if ! kill -0 "$(cat runs/malecns-batch/fightingice-${{ matrix.label }}.pid)" 2>/dev/null; then break; fi
+            grep -q 'Socket server is started' runs/malecns-batch/fightingice-${{ matrix.label }}.log 2>/dev/null && exit 0
+            kill -0 "$(cat runs/malecns-batch/fightingice-${{ matrix.label }}.pid)" 2>/dev/null || exit 1
             sleep 1
           done
-          test "$ready" -eq 1
-
+          exit 1
       - name: Run canonical baseline matches
         run: |
-          # Keep the stochastic mechanism fixed (Poisson sensory spikes), but
-          # use a new deterministic seed block for every workflow chunk so a
-          # six-hour schedule does not simply replay the same random sequence.
           CHUNK_OFFSET=$(( ${{ github.run_number }} * 1000000 ))
           SEED1=$(( ${{ matrix.seed1 }} + CHUNK_OFFSET ))
           SEED2=$(( ${{ matrix.seed2 }} + CHUNK_OFFSET ))
           RUN_ID="baseline-r${{ github.run_number }}-${{ matrix.label }}-${{ matrix.p1 }}-${{ matrix.p2 }}"
-          echo "chunk=${{ github.run_number }} p1_seed=$SEED1 p2_seed=$SEED2"
           PYTHONPATH=src python scripts/run_game_malecns_lif.py \
             --host 127.0.0.1 --port 31415 \
             --character-p1 ${{ matrix.p1 }} --character-p2 ${{ matrix.p2 }} \
             --seed-p1 "$SEED1" --seed-p2 "$SEED2" \
-            --reference-python "$PY310" \
-            --reference-model external/shiu-reference/model.py \
+            --reference-python "$PY310" --reference-model external/shiu-reference/model.py \
             --adapter-dir data/processed/malecns-shiu-strict-v1 \
             --interface data/processed/malecns-interface-v1/interface.json \
-            --decision-interval 60 \
-            --games 8 --expected-rounds 8 --timeout 1800 \
-            --trainable-trace \
-            --run-id "$RUN_ID" \
-            --out runs/malecns-batch
-
+            --decision-interval 60 --games 8 --expected-rounds 8 --timeout 1800 \
+            --trainable-trace --run-id "$RUN_ID" --out runs/malecns-batch
       - name: Stop FightingICE
         if: always()
         run: |
-          if [ -f runs/malecns-batch/fightingice-${{ matrix.label }}.pid ]; then
-            kill "$(cat runs/malecns-batch/fightingice-${{ matrix.label }}.pid)" 2>/dev/null || true
-          fi
-
+          if [ -f runs/malecns-batch/fightingice-${{ matrix.label }}.pid ]; then kill "$(cat runs/malecns-batch/fightingice-${{ matrix.label }}.pid)" 2>/dev/null || true; fi
       - name: Summarize actions and outcome
         if: always()
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
-          root = Path('runs/malecns-batch')
-          run_dirs = [p for p in root.iterdir() if p.is_dir()]
-          if not run_dirs:
-              raise SystemExit('no run directory')
-          run = run_dirs[0]
-          status = json.load(open(run/'status.json'))
-          summary = {
-              'run_id': status['run_id'],
-              'status': status['status'],
-              'characters': status['characters'],
-              'seeds': status['seeds'],
-              'rounds': status.get('audit', {}).get('rounds', []),
-              'action_histograms': status.get('audit', {}).get('action_histograms', []),
-              'trace_trainable': status.get('trace_trainable'),
-              'learning_performed': status.get('learning_performed'),
-          }
-          (root/'summary.json').write_text(json.dumps(summary, indent=2)+'\n')
-          print(json.dumps(summary, indent=2))
+          root=Path('runs/malecns-batch'); run_dirs=[p for p in root.iterdir() if p.is_dir()]
+          if not run_dirs: raise SystemExit('no run directory')
+          status=json.load(open(run_dirs[0]/'status.json'))
+          summary={'run_id':status['run_id'],'status':status['status'],'characters':status['characters'],'seeds':status['seeds'],'rounds':status.get('audit',{}).get('rounds',[]),'action_histograms':status.get('audit',{}).get('action_histograms',[]),'trace_trainable':status.get('trace_trainable'),'learning_performed':status.get('learning_performed')}
+          (root/'summary.json').write_text(json.dumps(summary,indent=2)+'\n'); print(json.dumps(summary,indent=2))
           PY
-
       - name: Upload baseline evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -252,8 +165,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: main
+        with: {ref: main}
       - name: Fast-forward to latest main
         run: git pull --ff-only origin main
       - name: Download this chunk's evidence
@@ -262,19 +174,25 @@ jobs:
           pattern: malecns-baseline-*
           path: runs/downloaded
           merge-multiple: false
-      - name: Export compact canonical public data
+      - name: Export public summary and normalized match log
         run: |
+          UPDATED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           python scripts/export_malecns_pages.py \
+            --artifacts-root runs/downloaded --site-data site/data \
+            --run-url "$RUN_URL" --updated-at "$UPDATED_AT"
+          python scripts/export_normalized_match_log.py \
             --artifacts-root runs/downloaded \
-            --site-data site/data \
-            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
-            --updated-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-      - name: Persist rolling public summary
+            --out site/data/matches.json \
+            --source-run-url "$RUN_URL" \
+            --updated-at "$UPDATED_AT" \
+            --limit 500
+      - name: Persist rolling public data
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add site/data/status.json site/data/replay-latest.json
+          git add site/data/status.json site/data/replay-latest.json site/data/matches.json
           if ! git diff --cached --quiet; then
-            git commit -m 'Update canonical MaleCNS dashboard data [skip ci]'
+            git commit -m 'Update canonical MaleCNS public match data [skip ci]'
             git push origin HEAD:main
           fi
