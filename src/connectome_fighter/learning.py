@@ -115,7 +115,8 @@ def ppo_update(
     rounds: Iterable[dict[str, Any]],
     config: PPOConfig,
 ) -> dict[str, float | int]:
-    f_np, a_np, old_lp_np, old_v_np, ret_np = _samples(rounds, config.gamma)
+    round_list = list(rounds)
+    f_np, a_np, old_lp_np, old_v_np, ret_np = _samples(round_list, config.gamma)
     if f_np.shape[1] != heads.input_dim:
         raise ValueError("Checkpoint/readout dimension differs from trace")
     features = torch.from_numpy(f_np)
@@ -152,7 +153,7 @@ def ppo_update(
         }
     last.update({
         "transitions": int(features.shape[0]),
-        "rounds": int(sum(1 for _ in [])),  # retained key shape; caller records round count
+        "rounds": int(sum(1 for r in round_list if r.get("kind") == "round" and r.get("terminated"))),
         "mean_return": float(returns.mean()),
     })
     return last
