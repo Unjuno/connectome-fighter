@@ -135,18 +135,26 @@ class ConnectomeActorCritic(nn.Module):
 
 
 class NeuralPolicy:
-    """Inference wrapper. Separate recurrent state/random stream for each fighter."""
-    def __init__(self, model: ConnectomeActorCritic, version: str, seed: int = 0):
+    """Inference wrapper with private recurrent state and activity telemetry."""
+    def __init__(self, model: ConnectomeActorCritic, version: str, seed: int = 0,
+                 *, node_ids: tuple[str, ...] | None = None, activity_top_k: int = 12):
         if not version:
             raise ValueError("Policy version is required")
+        if activity_top_k <= 0:
+            raise ValueError("activity_top_k must be positive")
+        if node_ids is not None and len(node_ids) != model.core.n_nodes:
+            raise ValueError("node_ids length does not match model")
         self.model, self.version = model.eval(), version
+        self.node_ids = node_ids
+        self.activity_top_k = int(activity_top_k)
         device = next(model.parameters()).device
         self.generator = torch.Generator(device=device).manual_seed(seed)
+        self._last_telemetry: dict | None = None
         self.reset()
 
     def reset(self):
-        # Recurrent state remains private even when the immutable graph core is shared.
         self.state = self.model.core.base.new_zeros((1, self.model.core.n_nodes))
+        self._last_telemetry = None
 
     @torch.no_grad()
     def act(self, observation: np.ndarray) -> Decision:
@@ -155,4 +163,39 @@ class NeuralPolicy:
         logits, value, self.state = self.model(x, self.state)
         log_probs = torch.log_softmax(logits, dim=-1)
         action = int(torch.multinomial(log_probs.exp(), 1, generator=self.generator).item())
+
+        readout = self.state[0, self.model.output_nodes]
+        k = min(self.activity_top_k, self.state.shape[-1])
+        top_values, top_indices = torch.topk(self.state[0], k=k)
+        top = []
+        for idx, val in zip(top_indices.tolist(), top_values.tolist()):
+            item = {"node_index": int(idx), "value": float(val)}
+            if self.node_ids is not None:
+                item["node_id"] = self.node_ids[idx]
+            top.append(item)
+        dk = min(self.activity_top_k, readout.numel())
+        desc_values, desc_local = torch.topk(readout, k=dk)
+        descending = []
+        output_nodes = self.model.output_nodes.tolist()
+        for local_idx, val in zip(desc_local.tolist(), desc_values.tolist()):
+            global_idx = int(output_nodes[local_idx])
+            item = {"node_index": global_idx, "value": float(val)}
+            if self.node_ids is not None:
+                item["node_id"] = self.node_ids[global_idx]
+            descending.append(item)
+        self._last_telemetry = {
+            # These fixed-connectome features are the sufficient input for the
+            # trainable actor/critic heads in PPO-readout-v1.
+            "readout_features": readout.to(dtype=torch.float32).cpu().tolist(),
+            "activation": {
+                "mean": float(self.state.mean()),
+                "max": float(self.state.max()),
+                "fraction_gt_0_75": float((self.state > 0.75).float().mean()),
+                "top_global": top,
+                "top_descending": descending,
+            },
+        }
         return Decision(action, float(log_probs[0, action]), float(value[0]), self.version)
+
+    def telemetry(self) -> dict | None:
+        return self._last_telemetry
