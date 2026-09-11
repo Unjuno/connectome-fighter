@@ -30,7 +30,8 @@
     .brain-grid .panel:nth-child(2) .bar > span { background:#ff9f8e; }
     .brain-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#b8c4d4; }
     button,select { background:#172231; color:#e7edf5; border:1px solid #39506b; border-radius:8px; padding:8px 11px; }
-    canvas { width:100%; display:block; border-radius:10px; }
+    canvas,video { width:100%; display:block; border-radius:10px; background:#05080c; }
+    #fight-video { max-height:720px; }
     #replay { height:330px; }
     #history { height:220px; }
     #replay-slider { width:100%; margin:12px 0; }
@@ -56,15 +57,25 @@
   </div>
   <div class="row muted">Updated: <span id="updated">—</span> · <a id="source-run" href="#">source Actions run</a></div>
 
+  <h2>Rendered FightingICE fight</h2>
+  <div class="panel">
+    <p class="muted">これはFightingICE本体をGUIモードで描画して録画した映像です。下の四角い表示はゲーム映像ではなく、解析用telemetry schematicです。</p>
+    <video id="fight-video" controls muted playsinline preload="metadata">
+      <source src="./data/latest-fight.mp4" type="video/mp4" />
+      Your browser cannot play the FightingICE recording.
+    </video>
+    <p id="video-note" class="muted">最新の実レンダリング動画を読み込みます。未生成の場合は次のrender workflow完了後に表示されます。</p>
+  </div>
+
   <h2>Character results</h2>
   <div class="panel"><table><thead><tr><th>Character</th><th>Rounds</th><th>Win</th><th>Loss</th><th>Draw</th><th>Decisions</th></tr></thead><tbody id="character-table"></tbody></table></div>
 
   <h2>Action distribution</h2>
   <div class="panel"><div id="action-bars"></div><p class="muted">NEUTRALを含め、脳出力から実際に要求された操作を集計。現在は外部ε-greedy等を入れていません。</p></div>
 
-  <h2>Latest canonical fight</h2>
+  <h2>Telemetry replay (not the game renderer)</h2>
   <div class="panel">
-    <div id="replay-status" class="muted">Loading replay…</div>
+    <div id="replay-status" class="muted">Loading telemetry…</div>
     <canvas id="replay"></canvas>
     <input id="replay-slider" type="range" min="0" max="0" value="0" />
     <div class="row"><button id="play">Play</button><button id="pause">Pause</button><label class="muted">speed <select id="speed"><option value="260">0.5×</option><option value="130" selected>1×</option><option value="65">2×</option><option value="32">4×</option></select></label><span id="frame-label" class="muted"></span></div>
