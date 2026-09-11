@@ -26,6 +26,7 @@
     canvas { width:100%; display:block; border-radius:10px; }
     #history { height:240px; }
     #replay { height:330px; }
+    .brain-map { height:220px; margin-top:10px; background:#0c121b; }
     #replay-slider { width:100%; margin:12px 0; }
     .brain-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:14px; }
     .brain-list { display:grid; gap:6px; margin-top:10px; }
@@ -48,7 +49,7 @@
   <div id="characters" class="grid"></div>
 
   <section>
-    <h2>Latest evaluation fight</h2>
+    <h2>Latest fight</h2>
     <div class="panel">
       <div id="replay-status" class="muted">Loading replay…</div>
       <canvas id="replay"></canvas>
@@ -64,10 +65,10 @@
 
   <section>
     <h2>Brain activity at the selected decision</h2>
-    <p class="muted">The viewer shows the most active whole-brain nodes and descending/readout neurons exported by the fixed-connectome controller. Values are model activations, not measured biological firing rates.</p>
+    <p class="muted">Dots are real FlyWire annotation coordinates (XY projection) when available. The list shows decision-evoked increases (Δ) and descending/readout activity (D). Values are dimensionless model activations, not measured biological firing rates.</p>
     <div class="brain-grid">
-      <div class="panel"><strong id="brain-p1-title">P1</strong><div id="brain-p1-summary" class="muted"></div><div id="brain-p1" class="brain-list"></div></div>
-      <div class="panel"><strong id="brain-p2-title">P2</strong><div id="brain-p2-summary" class="muted"></div><div id="brain-p2" class="brain-list"></div></div>
+      <div class="panel"><strong id="brain-p1-title">P1</strong><div id="brain-p1-summary" class="muted"></div><canvas id="brain-map-p1" class="brain-map"></canvas><div id="brain-p1" class="brain-list"></div></div>
+      <div class="panel"><strong id="brain-p2-title">P2</strong><div id="brain-p2-summary" class="muted"></div><canvas id="brain-map-p2" class="brain-map"></canvas><div id="brain-p2" class="brain-list"></div></div>
     </div>
   </section>
 
