@@ -15,9 +15,18 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 from typing import Any
+
+PORTABLE_CYTHON_GCC_FLAGS = [
+    "-w",
+    "-O3",
+    "-ffast-math",
+    "-fno-finite-math-only",
+    "-std=c++11",
+]
 
 
 def stable_json_sha(payload: Any) -> str:
@@ -63,7 +72,7 @@ def run_worker(
     env.pop("CC", None)
     env.pop("CXX", None)
     if compilerless:
-        # The Python executable is absolute.  Any cache miss that asks distutils
+        # The Python executable is absolute. Any cache miss that asks distutils
         # to spawn cc/c++ will fail immediately because no compiler is on PATH.
         env["PATH"] = "/__connectome_no_compiler__"
 
@@ -94,8 +103,11 @@ def run_worker(
     )
     if result.returncode != 0:
         stderr_tail = "\n".join(result.stderr.splitlines()[-80:])
+        signal_note = ""
+        if result.returncode < 0:
+            signal_note = f" (signal={-result.returncode})"
         raise RuntimeError(
-            f"worker exited {result.returncode} (compilerless={compilerless})\n{stderr_tail}"
+            f"worker exited {result.returncode}{signal_note} (compilerless={compilerless})\n{stderr_tail}"
         )
     ready, _ = parse_worker_output(result.stdout)
     if ready.get("parameters", {}).get("codegen_target") != "cython":
@@ -166,7 +178,14 @@ def main() -> int:
         if not required.exists():
             raise SystemExit(f"required runtime asset missing: {required}")
 
+    # Never reuse compiled objects from the downloaded rolling release while
+    # rebuilding it. The previous cache may have been produced on another CPU
+    # with Brian2's historical -march=native default. Reusing such a .so can
+    # SIGILL before the new portable flags are ever applied.
+    if cache_dir.exists():
+        shutil.rmtree(cache_dir)
     cache_dir.mkdir(parents=True, exist_ok=True)
+
     first = run_worker(
         executable=executable,
         worker=worker,
@@ -210,12 +229,14 @@ def main() -> int:
         )
 
     manifest = {
-        "schema_version": 1,
+        "schema_version": 2,
         "kind": "connectome-fighter-brian2-cython-cache",
         "canonical_model": "MaleCNS v1.0 + pinned Shiu LIF",
         "codegen_target": "cython",
         "expected_sys_executable": str(executable),
         "compiler_key_environment": {"CC": None, "CXX": None},
+        "portable_compile_args": PORTABLE_CYTHON_GCC_FLAGS,
+        "host_specific_march_native": False,
         "versions": versions,
         "compilerless_reuse_verified": True,
         "proof_character": args.character,
