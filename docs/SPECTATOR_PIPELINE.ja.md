@@ -1,13 +1,41 @@
-# Rolling Spectator Pipeline
+# Historical Rolling Spectator Pipeline
 
-## 目的
+> **現在の production LIVE 仕様ではありません。**
+>
+> 現在の `/connectome` は Vercel 上の固定 `connectome-live-broadcast` Sandbox で動く **one shared real LIVE** を表示します。本書で説明する rolling MP4 / 3-clip queue は、公式 FightingICE ScreenData、activity timeline、SWC export の回帰検証用に保持している旧 spectator pipeline です。
 
-Connectome Fighter の観戦系は「真のリアルタイム配信」ではなく、**実際の FightingICE 対戦を約1分のクリップとして継続生成し、最新3本をキューで入れ替える擬似ライブ**として運用する。
+## 現在の production との関係
 
-重い神経シミュレーションは GitHub Actions、表示は Vercel に分離する。ローカルPCは不要。
+現在の production path:
 
 ```text
-GitHub Actions (hourly)
+SHA-addressed runtime snapshot
+        ↓
+connectome-live-broadcast
+        ↓
+FightingICE + MaleCNS/Shiu
+        ↓
+/state + /events
+        ↓
+全 viewer が同じ LIVE を観測
+```
+
+現在の LIVE では recorded clip を LIVE として代替しません。`learning_enabled=false`、`policy_pixel_access=false` を維持し、GARNET approved G2 vs ZEN canonical baseline を read-only inference として配信します。
+
+この文書の pipeline は以下の用途に限定します。
+
+- FightingICE 公式 renderer / ScreenData の回帰検証
+- H.264 export の検証
+- body-ID activity timeline export の検証
+- released MaleCNS SWC projection の検証
+- archival evidence の生成
+
+毎時 cron は停止済みで、手動 dispatch または実装変更時の regression verification に使います。
+
+## Historical pipeline
+
+```text
+GitHub Actions (manual/regression)
   ↓
 MaleCNS v1.0 + pinned Shiu LIF
   ↓
@@ -21,12 +49,10 @@ body-ID spike logs
   ├─ decision-window structural activity
   └─ released MaleCNS SWC skeleton projection
   ↓
-rolling Release assets + queue.json
-  ↓
-Vercel /connectome polls every 30 s
-  ↓
-NOW / PREVIOUS 1 / PREVIOUS 2
+archival Release assets + queue.json
 ```
+
+この経路は実対戦を録画しますが、現在の Vercel LIVE の入力ではありません。
 
 ## 実証済み条件
 
@@ -36,17 +62,13 @@ NOW / PREVIOUS 1 / PREVIOUS 2
 - approximately 56–61 s per clip
 - 960×640 H.264 video
 - `policy_pixel_access=false`
-- latest + previous two clips retained
-- Vercel polls state every 30 s; a new clip does not require a Vercel redeploy
-- countdown uses `next_expected_at`
-- all six character pairings rotate by workflow run number
-- after one six-pair epoch, character-specific Poisson seeds advance by 1,000,000 so later epochs do not replay exactly the same stochastic sequence
+- latest + previous two archival clips retained
+- all six character pairings can be rotated for regression evidence
+- character-specific Poisson seeds can advance between epochs
 
-## 脳活動表示
+## Decision-window activity
 
-### Decision-window activity
-
-For each P1/P2 brain, raw spike events are retained by real MaleCNS `body_id`. The public queue contains compact activity samples for each LIF decision window:
+P1/P2 の raw spike event は real MaleCNS `body_id` で保持されます。Archival queue には各 LIF decision window の compact activity sample を含めます。
 
 - total spike count
 - unique active bodies
@@ -55,32 +77,32 @@ For each P1/P2 brain, raw spike events are retained by real MaleCNS `body_id`. T
 - top `type`
 - top active body IDs
 
-The spectator maps each decision window over the video duration and selects the nearest activity sample from the current playback time. This is a visualization alignment; it does not modify the controller.
+Recorded video の playback time への対応付けは visualization alignment です。Controller 自体を変更しません。
 
-### Released SWC morphology
+## Released SWC morphology
 
-The flat MaleCNS annotation table does **not** contain physical `pos_x/pos_y/pos_z` fields, so coordinates are not invented.
+flat MaleCNS annotation table には物理 `pos_x/pos_y/pos_z` が存在しないため、座標を捏造していません。
 
-Instead, the spectator retrieves the officially released MaleCNS centerline SWC skeleton for the most active bodies after the fight:
+代わりに公式公開 MaleCNS centerline SWC skeleton を使います。
 
 `https://storage.googleapis.com/flyem-male-cns/v1.0/segmentation/skeletons-malecns/skeletons-swc/<bodyId>.swc`
 
-Current public visualization:
+Regression visualization の条件:
 
 - coordinate space: MaleCNS EM
 - coordinate units: 8 nm
 - projection: X–Z
 - up to 6 highly active bodies per fighter
-- up to 180 centerline segments per body for browser rendering
-- bodies active in the current decision window are drawn brighter/thicker
+- up to 180 centerline segments per body
+- current decision で active な body を brighter/thicker に描画
 
-This morphology is **post-hoc spectator data only**. It is never passed to the policy or plasticity code.
+Morphology は **spectator/post-hoc data only** で、policy/plasticity input には入りません。
 
-## Rolling storage contract
+## Archival storage contract
 
 GitHub prerelease tag: `spectator-latest`
 
-Stable assets:
+Legacy stable assets:
 
 - `latest-fight.mp4`
 - `previous-1.mp4`
@@ -88,46 +110,19 @@ Stable assets:
 - `video.json`
 - `queue.json`
 
-`site/data/queue.json` is also committed as a small public state pointer for the Vercel proxy.
-
-## Vercel viewer
-
-Viewer repository: `Unjuno/live`
-
-Routes:
-
-- `/connectome` — spectator UI
-- `/api/connectome/state` — no-store proxy for queue / match / status JSON
-
-Production viewer:
-
-`https://liveunjuno.vercel.app/connectome`
-
-UI includes:
-
-- current clip and previous two clips
-- countdown until next expected clip
-- 4-character W/L/D and win rate
-- FightingICE video
-- synchronized P1/P2 MaleCNS activity
-- released SWC morphology projection
-- body IDs / cell types / structural categories
-- recent experiment logs
-- Actions evidence links
+これらは regression / archival evidence であり、現在の production LIVE state の system of record ではありません。
 
 ## Scientific boundary
-
-The spectator must never be confused with the policy path.
 
 - Screen pixels: spectator only
 - SWC geometry: spectator only
 - structural annotations: post-hoc analysis only
 - action selection: numeric FightingICE observation → Poisson sensory input → MaleCNS/Shiu LIF → spike-count readout
 
-The visualization can identify recruited structures and candidate pathways. It does not establish causal circuit function without intervention/ablation.
+Visualization から recruitment/candidate pathway は観測できますが、activity correlation だけで causal circuit function は主張しません。因果主張には intervention / ablation が必要です。
 
 ## Learning state
 
-Continuous reward-driven learning remains **OFF** while this spectator contract is being frozen.
+Continuous production reward-driven learning は現在 **OFF** です。旧 rolling spectator の有無は training state と無関係です。
 
-Existing reward/plasticity/checkpoint workflows are engineering smoke evidence only unless explicitly promoted into the production learning lineage after the reward-design gate.
+現行 public/runtime contract は [`PUBLIC_SURFACE_SPLIT.md`](PUBLIC_SURFACE_SPLIT.md) と [`STATUS.md`](STATUS.md) を正とします。
