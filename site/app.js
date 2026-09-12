@@ -107,6 +107,27 @@ function renderPlasticity(cfg = {}) {
   $('plasticity-boundary').textContent = cfg.interpretation_boundary || '—';
 }
 
+function renderRuntimeProof(proof = {}) {
+  const telemetry = proof.proof_telemetry || {};
+  if ($('proof-verified-at')) $('proof-verified-at').textContent = `Verified ${dateLabel(proof.verified_at)}`;
+  if ($('proof-run')) {
+    $('proof-run').href = proof.precompile_e2e_run ? `https://github.com/Unjuno/connectome-fighter/actions/runs/${proof.precompile_e2e_run}` : '#';
+  }
+  if ($('proof-runtime')) {
+    $('proof-runtime').textContent = [
+      `proof runtime archive SHA-256: ${proof.runtime_archive_sha256 ?? '—'}`,
+      `runtime base: ${proof.runtime_base ?? '—'}`,
+      `snapshot: ${proof.runtime_snapshot_id ?? '—'}`,
+      `observed proof telemetry: round ${telemetry.round ?? '—'} · frame ${telemetry.frame ?? '—'} · GARNET decision ${telemetry.p1_decision_index ?? '—'} / ZEN decision ${telemetry.p2_decision_index ?? '—'} · P1 spikes ${telemetry.p1_total_spikes ?? '—'} / P2 spikes ${telemetry.p2_total_spikes ?? '—'}`,
+      `public broadcast target: ${proof.broadcast_target ?? '—'}`,
+      `learning_enabled=${proof.learning_enabled ?? '—'} · policy_pixel_access=${proof.policy_pixel_access ?? '—'}`,
+    ].join('\n');
+  }
+  if ($('proof-cache')) $('proof-cache').textContent = `verified · ${proof.shared_object_count ?? '—'} shared objects`;
+  if ($('proof-model-size')) $('proof-model-size').textContent = `${Number(proof.neurons || 0).toLocaleString()} neurons / ${Number(proof.recurrent_synapses || 0).toLocaleString()} synapses`;
+  if ($('proof-runtime-json')) $('proof-runtime-json').href = './data/runtime-proof.json';
+}
+
 async function json(url, fallback) {
   const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) return fallback;
@@ -115,11 +136,12 @@ async function json(url, fallback) {
 
 async function load() {
   try {
-    const [status, log, reward, plasticity] = await Promise.all([
+    const [status, log, reward, plasticity, runtimeProof] = await Promise.all([
       json('./data/status.json', {}),
       json('./data/matches.json', { matches: [], character_stats: {}, match_count: 0 }),
       json('./research-data/reward.json', {}),
       json('./research-data/plasticity.json', {}),
+      json('./data/runtime-proof.json', {}),
     ]);
 
     $('match-count').textContent = log.match_count ?? 0;
@@ -131,6 +153,7 @@ async function load() {
     renderMatches(log.matches || []);
     renderReward(reward);
     renderPlasticity(plasticity);
+    renderRuntimeProof(runtimeProof);
   } catch (error) {
     $('error').textContent = `load failed: ${error.message}`;
   }
