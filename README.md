@@ -2,7 +2,7 @@
 
 Connectome Fighter is a cloud research testbed that connects the **MaleCNS v1.0 Drosophila connectome** to FightingICE through a pinned implementation of the Shiu et al. leaky integrate-and-fire dynamics. The project records real MaleCNS body-ID activity, keeps game I/O mappings explicit, and separates biological structure from project-defined reinforcement and plasticity assumptions.
 
-**[Public arena](https://liveunjuno.vercel.app/connectome)** · [Research ledger](https://unjuno.github.io/connectome-fighter/) · [Status](docs/STATUS.md) · [Roadmap](ROADMAP.md) · [Public surface contract](docs/PUBLIC_SURFACE_SPLIT.md)
+**[Public LIVE](https://liveunjuno.vercel.app/connectome)** · [Research ledger](https://unjuno.github.io/connectome-fighter/) · [Status](docs/STATUS.md) · [Roadmap](ROADMAP.md) · [Public surface contract](docs/PUBLIC_SURFACE_SPLIT.md)
 
 ## Canonical control path
 
@@ -42,65 +42,88 @@ The canonical path does **not** replace the fly substrate with an MLP, RNN, PPO 
 - separate neural state and RNG per character: **PASS**
 - body-ID spike/event logs: **PASS**
 - released MaleCNS SWC X–Z morphology projection: **PASS**
-- exact cross-run checkpoint restore proof: **PASS for GARNET generation 2**
-- read-only arena inference snapshot handoff: **PASS for GARNET generation 2**
+- compilerless Brian2 Cython runtime bundle: **PASS**
+- SHA-addressed persistent Vercel runtime base: **PASS**
+- production single shared Vercel LIVE with real FightingICE + two MaleCNS workers: **PASS**
+- **GARNET generation 2**: approved read-only inference state
+- **ZEN / LUD / NEZ generation 2**: candidate cross-run lineages; not promoted to production learned fighters
 - four independently trained production fighter checkpoints: **NOT YET ESTABLISHED**
-- production per-viewer Vercel execution of FightingICE + MaleCNS: **NOT YET ACTIVE**
+- continuous production reward-driven learning: **OFF**
 
 Latest evidence and implementation gates are maintained in [`docs/STATUS.md`](docs/STATUS.md).
 
 ## Public surfaces
 
-### Vercel arena
+### Vercel public LIVE
 
-The intended public runtime is **per-viewer, read-only inference**:
+The production arena is one **single shared read-only LIVE broadcast**. All viewers observe the same fixed-name Vercel Sandbox, `connectome-live-broadcast`; audience size does not create additional FightingICE/MaleCNS sessions.
 
 ```text
-approved inference checkpoint(s)
+GitHub-approved inference state
         ↓
-short-lived viewer-specific runtime
+SHA-addressed persistent runtime snapshot
+        ↓
+fixed-name shared Vercel LIVE Sandbox
         ↓
 FightingICE + MaleCNS + pinned Shiu LIF
         ↓
-live fight telemetry + neural activity
+shared live telemetry / neural activity
         ↓
-browser visualization
+all viewers
 ```
 
-The Vercel surface must not perform learning or rewrite research checkpoints. It must also not substitute a recorded video and label it as a live session.
+Current LIVE matchup: **GARNET approved generation-2 checkpoint vs ZEN canonical baseline**. This must not be described as trained-vs-trained.
 
-The UI and session contract are implemented, but the production runtime image/service is still being provisioned. Until that runtime is available, the public arena reports the runtime as offline rather than fabricating a live fight.
+The Vercel surface:
+
+- performs read-only inference only;
+- exposes shared FightingICE HP, position, action, round and frame telemetry;
+- exposes decision-window MaleCNS activity for both sides;
+- renders released MaleCNS morphology and the fly-shaped fight visualization as spectator-only output;
+- never feeds screen pixels, morphology or decorative visualization back into the policy;
+- never mutates checkpoints or performs weight updates;
+- never substitutes a recorded fight and labels it LIVE.
+
+If the shared runtime is warming or unavailable, the public page reports that state instead of fabricating a fight.
 
 ### GitHub Pages / Actions
 
-GitHub is the research and provenance surface. It publishes or preserves:
+GitHub is the research, training and provenance surface. It publishes or preserves:
 
-- reward definitions;
-- plasticity assumptions;
-- checkpoint lineage and hashes;
-- experiment controls;
-- normalized evidence;
+- canonical substrate and dynamics;
+- training workflows and experiment controls;
+- reward and plasticity contracts;
+- normalized/public match logs;
+- checkpoint lineage, hashes and resume evidence;
+- approved inference handoff manifests;
+- arena runtime provenance and checksums;
 - raw Actions artifacts and logs.
+
+Vercel is not the system of record for learning history.
+
+## Runtime boundary
+
+The canonical runtime keeps **Brian2 Cython** code generation. Because Vercel Sandbox images do not provide a C compiler, GitHub Actions precompiles the required Cython extensions using the production path identity and proves compilerless cache reuse before publishing the runtime bundle. This is a deployment optimization; it does not replace the MaleCNS topology or Shiu dynamics.
+
+The runtime archive is staged once into a SHA-addressed persistent Sandbox and its filesystem snapshot is used as the source of the shared LIVE Sandbox. Mutable character state remains a separately hash-verified inference handoff.
 
 ## Learning status
 
-Continuous canonical learning is **not currently claimed as production-active**.
+Continuous canonical learning is **not production-active**.
 
-The repository contains reward/plasticity smoke contracts and a verified GARNET generation-2 resume/update proof. Before a four-character learned league is claimed, each character needs its own persistent checkpoint lineage, RNG history and independently updated state.
+GARNET generation 2 is the approved inference checkpoint. ZEN, LUD and NEZ have independent generation-2 cross-run candidate lineage evidence, but candidate lineage plumbing is not equivalent to a four-character production-trained league.
+
+Current scheduled baseline and spectator workflows produce evaluation/logging evidence without production weight updates. Reward tuning and continuous training remain downstream of the public-surface/runtime freeze.
 
 ## Reward experiments
 
-The recommended first comparison is deliberately simple:
+Reward design is intentionally not being promoted while the public/runtime contracts are still being frozen. Existing reward/plasticity workflows remain research or engineering evidence.
 
-1. **A — terminal only:** win `+1`, loss `-1`, draw `0`;
-2. **B — terminal + no-damage timeout penalty:** same terminal reward plus a small penalty only when a timeout/draw has no damage;
-3. **C — shaped candidate:** the existing versioned damage + engagement + terminal contract.
-
-Keep model, game version, observation/action interface, compute budget, seeds and evaluation opponents fixed across conditions. Compare decisive-match rate, nonzero-damage rate, time-to-first-hit, W/L/D, action diversity and recruited-circuit diversity.
+When reward experiments resume, model, game version, observation/action interface, compute budget, seeds and evaluation opponents must remain fixed so reward changes can be isolated from infrastructure changes.
 
 ## Repository language
 
-Canonical code, public UI, GitHub Pages and canonical research documentation are maintained in English. Historical non-English documents should not be linked as canonical specifications.
+Canonical code, public UI, GitHub Pages and canonical research documentation are maintained in English. Historical non-English documents may remain as translations or archival context but must not contradict the canonical contract.
 
 ## License
 
