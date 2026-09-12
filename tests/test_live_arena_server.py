@@ -15,12 +15,14 @@ def load_module():
     return module
 
 
-def test_brain_sample_preserves_action_group_spike_competition():
+def test_brain_sample_preserves_action_group_spike_competition_and_causal_edges():
     module = load_module()
     event = {
         "frame": 180,
         "brain": {
             "trace_decision_index": 3,
+            "biological_time_start_ms": 40.0,
+            "biological_time_end_ms": 60.0,
             "total_spikes": 9245,
             "unique_spike_bodies": 812,
             "group_spike_counts": {
@@ -33,33 +35,63 @@ def test_brain_sample_preserves_action_group_spike_competition():
                 "C": 4,
             },
             "top_spike_bodies": [[123, 11], [456, 7]],
+            "sensory_drive_top": [[111, 150.0], [222, 75.0]],
+            "output_contributions_top": [["B", 333, 9.0], ["BACKWARD", 444, 6.0]],
+            "membrane_summary": {"v_mean_mV": -50.2, "g_mean_mV": 1.4},
         },
     }
 
     sample = module.ArenaState._brain_sample(event)
 
     assert sample["decision_index"] == 3
+    assert sample["biological_time_start_ms"] == 40.0
+    assert sample["biological_time_end_ms"] == 60.0
     assert sample["total_spikes"] == 9245
     assert sample["unique_bodies"] == 812
     assert sample["group_spike_counts"]["B"] == 17
     assert sample["group_spike_counts"]["BACKWARD"] == 8
+    assert sample["sensory_drive"] == [
+        {"body_id": 111, "rate_hz": 150.0},
+        {"body_id": 222, "rate_hz": 75.0},
+    ]
+    assert sample["output_contributions"] == [
+        {"group": "B", "body_id": 333, "spikes": 9.0},
+        {"group": "BACKWARD", "body_id": 444, "spikes": 6.0},
+    ]
+    assert sample["membrane_summary"] == {"v_mean_mV": -50.2, "g_mean_mV": 1.4}
     assert sample["top_bodies"] == [
         {"body_id": 123, "spikes": 11},
         {"body_id": 456, "spikes": 7},
     ]
 
 
-def test_brain_sample_rejects_non_numeric_group_values():
+def test_brain_sample_rejects_malformed_spectator_values():
     module = load_module()
     event = {
         "frame": 60,
         "brain": {
             "group_spike_counts": {"B": 5, "bad": "not-a-number"},
+            "sensory_drive_top": [[123, 90.0], ["bad"]],
+            "output_contributions_top": [["B", 456, 4.0], ["bad"]],
+            "membrane_summary": {"v_mean_mV": -51.0, "bad": "x"},
         },
     }
 
     sample = module.ArenaState._brain_sample(event)
     assert sample["group_spike_counts"] == {"B": 5}
+    assert sample["sensory_drive"] == [{"body_id": 123, "rate_hz": 90.0}]
+    assert sample["output_contributions"] == [{"group": "B", "body_id": 456, "spikes": 4.0}]
+    assert sample["membrane_summary"] == {"v_mean_mV": -51.0}
+
+
+def test_live_payload_schema_three_exposes_round_reuse():
+    module = load_module()
+    state = module.ArenaState(session_id="s", p1="GARNET", p2="ZEN", max_hp=400, rounds_per_session=6)
+    payload = state.payload()
+    assert payload["schema_version"] == 3
+    assert payload["rounds_per_session"] == 6
+    assert payload["learning_enabled"] is False
+    assert payload["policy_pixel_access"] is False
 
 
 def test_shared_public_broadcast_defaults_to_six_rounds(monkeypatch):
