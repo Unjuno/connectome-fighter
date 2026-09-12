@@ -77,7 +77,11 @@ def main() -> int:
         os.environ.pop("CXX", None)
         raw_cache = os.environ.get("CONNECTOME_BRIAN_CYTHON_CACHE_DIR", "").strip()
         if raw_cache:
-            cython_cache_dir = Path(raw_cache).expanduser().resolve()
+            # Preserve the caller-visible path instead of resolving symlinks.
+            # The release builder intentionally invokes the portable Python via
+            # the exact Vercel absolute path so this value and the logged
+            # initial-state identity match production.
+            cython_cache_dir = Path(raw_cache).expanduser().absolute()
             cython_cache_dir.mkdir(parents=True, exist_ok=True)
         else:
             cython_cache_dir = bundled_cython_cache_dir()
