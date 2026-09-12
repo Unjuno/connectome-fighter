@@ -2,6 +2,11 @@ name: publish-malecns-context-atlas
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/build_malecns_context_atlas.py'
+      - 'scripts/build_malecns_skeleton_projection.py'
+      - '.github/workflows/publish-malecns-context-atlas.yml'
   push:
     branches: [main]
     paths:
@@ -13,7 +18,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: publish-malecns-context-atlas
+  group: publish-malecns-context-atlas-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -84,6 +89,7 @@ jobs:
           PY
 
       - name: Publish versioned atlas release
+        if: ${{ github.event_name != 'pull_request' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
