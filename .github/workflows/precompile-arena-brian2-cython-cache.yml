@@ -48,10 +48,10 @@ jobs:
             --pattern arena-runtime.tar.gz \
             --pattern arena-runtime.tar.gz.sha256 \
             --dir runs/cache-postprocess/source
-          (
-            cd runs/cache-postprocess/source
-            sha256sum -c arena-runtime.tar.gz.sha256
-          )
+          expected="$(grep -Eo '[a-f0-9]{64}' runs/cache-postprocess/source/arena-runtime.tar.gz.sha256 | head -1)"
+          test -n "$expected"
+          actual="$(sha256sum runs/cache-postprocess/source/arena-runtime.tar.gz | awk '{print $1}')"
+          test "$actual" = "$expected"
           tar -C runs/cache-postprocess -xzf runs/cache-postprocess/source/arena-runtime.tar.gz
           ROOT="$(realpath runs/cache-postprocess/arena-runtime)"
           test -x "$ROOT/$(cat "$ROOT/runtime/python310.path")"
