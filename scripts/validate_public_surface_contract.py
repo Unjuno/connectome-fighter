@@ -70,12 +70,12 @@ def main() -> int:
         "single-shared-live-broadcast",
         "shared-global",
         "connectome-live-broadcast",
+        "shared_broadcast_only",
     )
     forbid(
         ".github/workflows/vercel-live-arena-smoke.yml",
         "per-viewer-live-sandbox",
         "Launch real GARNET vs ZEN session from runtime snapshot",
-        "-X POST \"$BASE/api/connectome/session\"",
     )
 
     print("public-surface contract: PASS")
