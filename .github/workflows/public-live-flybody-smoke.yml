@@ -4,6 +4,10 @@ on:
   workflow_run:
     workflows: [publish-flybody-runtime-addon]
     types: [completed]
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/public-live-flybody-smoke.yml'
   workflow_dispatch:
 
 permissions:
