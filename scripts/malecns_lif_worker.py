@@ -24,6 +24,13 @@ from brian2 import (
 )
 
 ACTIVE_ACTIONS = ["FORWARD", "BACKWARD", "UP", "DOWN", "A", "B", "C"]
+PORTABLE_CYTHON_GCC_FLAGS = [
+    "-w",
+    "-O3",
+    "-ffast-math",
+    "-fno-finite-math-only",
+    "-std=c++11",
+]
 
 
 def stable_hash(payload: Any) -> str:
@@ -87,6 +94,18 @@ def main() -> int:
             cython_cache_dir = bundled_cython_cache_dir()
         if cython_cache_dir is not None:
             prefs.codegen.runtime.cython.cache_dir = str(cython_cache_dir)
+            if any(cython_cache_dir.rglob("*.so")):
+                # CythonCodeObject.__init__ calls get_compiler_and_args even on
+                # a cache hit.  An empty explicit list prevents Brian2 from
+                # probing compiler support for each default GCC flag, which is
+                # essential in Vercel Sandbox where cc/gcc/clang are absent.
+                prefs.codegen.cpp.extra_compile_args = []
+            else:
+                # Brian2 2.5.1 defaults include -march=native.  A release cache
+                # compiled on GitHub Actions must run on a potentially different
+                # Vercel x86_64 host, so retain the canonical optimization flags
+                # except for the host-specific instruction-set selection.
+                prefs.codegen.cpp.extra_compile_args = list(PORTABLE_CYTHON_GCC_FLAGS)
 
     interface = json.loads(args.interface.read_text(encoding="utf-8"))
     structural = json.loads((args.adapter_dir / "manifest.json").read_text(encoding="utf-8"))
