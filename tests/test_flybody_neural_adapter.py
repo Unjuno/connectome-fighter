@@ -46,11 +46,11 @@ def test_flybody_action_is_bounded_and_lateralized():
     assert action[-1] == 0.0
 
 
-def test_empty_motor_activity_keeps_leg_targets_at_neutral_centers():
-    names = ["coxa_T1_left", "femur_T2_right"]
-    lo = [-2.0, -4.0]
-    hi = [2.0, 4.0]
+def test_empty_motor_activity_keeps_leg_targets_neutral_and_adhesion_off():
+    names = ["adhere_claw_T1_left", "coxa_T1_left", "femur_T2_right"]
+    lo = [0.0, -2.0, -4.0]
+    hi = [1.0, 2.0, 4.0]
     command = neural_fly_command([], activity_scale_spikes=16)
     action = flybody_action(names, lo, hi, command, phase=1.2)
-    assert np.allclose(action, [0.0, 0.0])
+    assert np.allclose(action, [0.0, 0.0, 0.0])
     assert command.drive == 0.0
