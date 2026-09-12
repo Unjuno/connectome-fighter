@@ -51,21 +51,26 @@ jobs:
 
           if gh release view "$TRAINING_TAG" >/dev/null 2>&1; then
             source_kind='rolling-candidate'
-            gh release download "$TRAINING_TAG" \
-              --pattern 'garnet-training-latest.tar.gz' \
-              --pattern 'garnet-training-latest.tar.gz.sha256' \
-              --dir runs/continuous-training/source
-            (cd runs/continuous-training/source && sha256sum -c garnet-training-latest.tar.gz.sha256)
-            tar -C runs/continuous-training/checkpoint -xzf runs/continuous-training/source/garnet-training-latest.tar.gz
+            archive='garnet-training-latest.tar.gz'
+            checksum='garnet-training-latest.tar.gz.sha256'
+            source_tag="$TRAINING_TAG"
           else
             source_kind='approved-g2-seed'
-            gh release download "$SEED_TAG" \
-              --pattern 'garnet-g2.tar.gz' \
-              --pattern 'garnet-g2.tar.gz.sha256' \
-              --dir runs/continuous-training/source
-            (cd runs/continuous-training/source && sha256sum -c garnet-g2.tar.gz.sha256)
-            tar -C runs/continuous-training/checkpoint -xzf runs/continuous-training/source/garnet-g2.tar.gz
+            archive='garnet-g2.tar.gz'
+            checksum='garnet-g2.tar.gz.sha256'
+            source_tag="$SEED_TAG"
           fi
+
+          gh release download "$source_tag" \
+            --pattern "$archive" \
+            --pattern "$checksum" \
+            --dir runs/continuous-training/source
+
+          expected="$(grep -Eo '[a-f0-9]{64}' "runs/continuous-training/source/$checksum" | head -1)"
+          test -n "$expected"
+          actual="$(sha256sum "runs/continuous-training/source/$archive" | awk '{print $1}')"
+          test "$actual" = "$expected"
+          tar -C runs/continuous-training/checkpoint -xzf "runs/continuous-training/source/$archive"
 
           python - <<'PY'
           import hashlib, json, pathlib
@@ -243,6 +248,7 @@ jobs:
           cp runs/continuous-training/match/candidate-match/status.json runs/continuous-training/package/evidence/match-status.json
           python - <<'PY'
           import hashlib,json,os,pathlib
+          from datetime import datetime, timezone
           state=pathlib.Path('runs/continuous-training/package/state/GARNET.npz')
           meta=json.load(open(str(state)+'.json',encoding='utf-8'))
           update=json.load(open('runs/continuous-training/update.json',encoding='utf-8'))
@@ -268,7 +274,7 @@ jobs:
           pathlib.Path('runs/continuous-training/package/training-manifest.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n',encoding='utf-8')
           status={
             **manifest,
-            'updated_at':os.environ.get('RUN_TIMESTAMP'),
+            'updated_at':datetime.now(timezone.utc).isoformat().replace('+00:00','Z'),
             'match_status':match.get('status'),
             'signal_summary':update['signals'],
             'update_summary':update['updates'],
@@ -278,10 +284,9 @@ jobs:
           print(json.dumps(status,indent=2,sort_keys=True))
           PY
           tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner \
-            -C runs/continuous-training/package -czf runs/continuous-training/garnet-training-latest.tar.gz .
+            -czf runs/continuous-training/garnet-training-latest.tar.gz \
+            -C runs/continuous-training/package .
           (cd runs/continuous-training && sha256sum garnet-training-latest.tar.gz > garnet-training-latest.tar.gz.sha256)
-        env:
-          RUN_TIMESTAMP: ${{ github.event.repository.pushed_at || '' }}
 
       - name: Publish the rolling candidate checkpoint without promoting it to LIVE
         env:
