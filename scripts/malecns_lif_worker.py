@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import sys
 from typing import Any
@@ -55,6 +56,17 @@ def main() -> int:
     args = p.parse_args()
 
     prefs.codegen.target = args.codegen_target
+    cython_cache_dir: Path | None = None
+    if args.codegen_target == "cython":
+        raw_cache = os.environ.get("CONNECTOME_BRIAN_CYTHON_CACHE_DIR", "").strip()
+        if raw_cache:
+            cython_cache_dir = Path(raw_cache).expanduser().resolve()
+            cython_cache_dir.mkdir(parents=True, exist_ok=True)
+            # Brian2's Cython extension manager keys compiled modules by code,
+            # package versions, compiler settings and sys.executable.  The arena
+            # bundle precompiles this cache under the exact Vercel Python path.
+            prefs.codegen.runtime.cython.cache_dir = str(cython_cache_dir)
+
     interface = json.loads(args.interface.read_text(encoding="utf-8"))
     structural = json.loads((args.adapter_dir / "manifest.json").read_text(encoding="utf-8"))
     completeness = pd.read_csv(args.adapter_dir / "completeness.csv", index_col=0)
@@ -142,6 +154,7 @@ def main() -> int:
         "f_poi": int(params["f_poi"]),
         "stimulated_target_rfc_ms": 0.0,
         "codegen_target": str(prefs.codegen.target),
+        "cython_cache_dir": str(cython_cache_dir) if cython_cache_dir is not None else None,
         "precompiled_before_ready": True,
     }
     initial_identity = {
