@@ -1,0 +1,111 @@
+name: publish-malecns-context-atlas
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/build_malecns_context_atlas.py'
+      - 'scripts/build_malecns_skeleton_projection.py'
+      - '.github/workflows/publish-malecns-context-atlas.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/build_malecns_context_atlas.py'
+      - 'scripts/build_malecns_skeleton_projection.py'
+      - '.github/workflows/publish-malecns-context-atlas.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-malecns-context-atlas-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  STRUCTURE_CACHE_KEY: malecns-v1.0-structure-index-v1
+  TARGET_TAG: malecns-context-atlas-v1
+
+jobs:
+  atlas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore spectator structural annotations
+        uses: actions/cache@v4
+        with:
+          path: data/processed/malecns-structure-v1
+          key: ${{ env.STRUCTURE_CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: Build deterministic released-SWC context atlas
+        run: |
+          set -euo pipefail
+          mkdir -p runs/context-atlas
+          python scripts/build_malecns_context_atlas.py \
+            --structure-index data/processed/malecns-structure-v1/body_structure.csv.gz \
+            --out runs/context-atlas/malecns-context-atlas-xz.json \
+            --seed 20260912 \
+            --per-neuromere-side 4 \
+            --per-superclass 6 \
+            --max-bodies 128 \
+            --max-segments-per-body 48 \
+            --min-loaded-bodies 48 \
+            --timeout 20 \
+            --retries 3
+
+      - name: Validate atlas scientific and payload boundaries
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, pathlib
+          path=pathlib.Path('runs/context-atlas/malecns-context-atlas-xz.json')
+          m=json.loads(path.read_text())
+          assert m['schema_version']==1
+          assert m['kind']=='male-cns-context-atlas-xz'
+          assert m['dataset']=='male-cns:v1.0'
+          assert m['policy_access'] is False
+          assert m['atlas_kind']=='deterministic-stratified-released-skeleton-sample'
+          assert m['projection']=='x-z'
+          assert m['coordinate_space']=='MaleCNS EM'
+          assert m['coordinate_units']=='8 nm'
+          assert m['coverage']['loaded_bodies'] >= 48
+          assert len(m['segments']) >= m['coverage']['loaded_bodies']
+          assert len(m['segments']) <= 128*48
+          b=m['bounds']
+          assert b['x_min'] < b['x_max'] and b['z_min'] < b['z_max']
+          text=m['interpretation_boundary'].lower()
+          assert 'not an all-neuron rendering' in text
+          assert 'policy input' in text
+          print(json.dumps({
+            'loaded_bodies':m['coverage']['loaded_bodies'],
+            'segments':len(m['segments']),
+            'soma_neuromeres':len(m['coverage']['soma_neuromeres']),
+            'superclasses':len(m['coverage']['superclasses']),
+            'root_sides':m['coverage']['root_sides'],
+            'bytes':path.stat().st_size,
+          },indent=2))
+          PY
+
+      - name: Publish versioned atlas release
+        if: ${{ github.event_name != 'pull_request' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TARGET_TAG" >/dev/null 2>&1; then
+            gh release create "$TARGET_TAG" --prerelease \
+              --title 'MaleCNS spectator X-Z context atlas v1' \
+              --notes 'Deterministic stratified sample of official released MaleCNS v1.0 SWC centerlines for spectator-only anatomical context. Not an all-neuron rendering and never a policy input.'
+          fi
+          gh release upload "$TARGET_TAG" \
+            runs/context-atlas/malecns-context-atlas-xz.json \
+            --clobber
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: malecns-context-atlas-xz
+          path: runs/context-atlas/malecns-context-atlas-xz.json
+          if-no-files-found: error
+          retention-days: 30
