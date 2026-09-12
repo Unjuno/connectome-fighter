@@ -2,40 +2,40 @@
   "canonical_model": "MaleCNS v1.0 + pinned Shiu LIF",
   "character_stats": {
     "GARNET": {
-      "decisive_win_rate": null,
-      "draws": 48,
-      "losses": 0,
-      "rounds": 48,
+      "decisive_win_rate": 0.0,
+      "draws": 71,
+      "losses": 1,
+      "rounds": 72,
       "win_rate": 0.0,
       "wins": 0
     },
     "LUD": {
-      "decisive_win_rate": 0.0,
-      "draws": 47,
+      "decisive_win_rate": 0.5,
+      "draws": 70,
       "losses": 1,
-      "rounds": 48,
-      "win_rate": 0.0,
-      "wins": 0
+      "rounds": 72,
+      "win_rate": 0.013888888888888888,
+      "wins": 1
     },
     "NEZ": {
       "decisive_win_rate": null,
-      "draws": 48,
+      "draws": 72,
       "losses": 0,
-      "rounds": 48,
+      "rounds": 72,
       "win_rate": 0.0,
       "wins": 0
     },
     "ZEN": {
       "decisive_win_rate": 1.0,
-      "draws": 47,
+      "draws": 71,
       "losses": 0,
-      "rounds": 48,
-      "win_rate": 0.020833333333333332,
+      "rounds": 72,
+      "win_rate": 0.013888888888888888,
       "wins": 1
     }
   },
   "kind": "normalized-fightingice-match-log",
-  "match_count": 96,
+  "match_count": 144,
   "matches": [
     {
       "distance_reduction_px": 310.0,
@@ -3801,10 +3801,1908 @@
       "run_id": "baseline-r6-zen-nez-ZEN-NEZ",
       "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34647469429",
       "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-garnet-lud-GARNET-LUD:r1",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 8,
+          "BACKWARD": 1,
+          "UP": 1
+        },
+        "character": "GARNET",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7010101
+      },
+      "p2": {
+        "action_counts": {
+          "B": 9,
+          "BACKWARD": 1
+        },
+        "character": "LUD",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7030303
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 1,
+      "run_id": "baseline-r7-garnet-lud-GARNET-LUD",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 415.0,
+      "draw": false,
+      "hp_margin_p1": -5,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-garnet-lud-GARNET-LUD:r2",
+      "min_distance_px": 65.0,
+      "p1": {
+        "action_counts": {
+          "B": 3,
+          "BACKWARD": 3,
+          "C": 2,
+          "DOWN": 1,
+          "FORWARD": 1
+        },
+        "character": "GARNET",
+        "damage_dealt_hp": 10.0,
+        "decisions": 10,
+        "final_hp": 385,
+        "reward": -1.0,
+        "seed": 7010101
+      },
+      "p2": {
+        "action_counts": {
+          "B": 9,
+          "FORWARD": 1
+        },
+        "character": "LUD",
+        "damage_dealt_hp": 15.0,
+        "decisions": 10,
+        "final_hp": 390,
+        "reward": 1.0,
+        "seed": 7030303
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 2,
+      "run_id": "baseline-r7-garnet-lud-GARNET-LUD",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "LUD"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-garnet-lud-GARNET-LUD:r3",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 7,
+          "BACKWARD": 2,
+          "UP": 1
+        },
+        "character": "GARNET",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7010101
+      },
+      "p2": {
+        "action_counts": {
+          "B": 6,
+          "BACKWARD": 3,
+          "DOWN": 1
+        },
+        "character": "LUD",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7030303
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 3,
+      "run_id": "baseline-r7-garnet-lud-GARNET-LUD",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-garnet-lud-GARNET-LUD:r4",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 2,
+          "BACKWARD": 7,
+          "UP": 1
+        },
+        "character": "GARNET",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7010101
+      },
+      "p2": {
+        "action_counts": {
+          "B": 2,
+          "BACKWARD": 6,
+          "DOWN": 1,
+          "UP": 1
+        },
+        "character": "LUD",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7030303
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 4,
+      "run_id": "baseline-r7-garnet-lud-GARNET-LUD",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 310.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-garnet-lud-GARNET-LUD:r5",
+      "min_distance_px": 170.0,
+      "p1": {
+        "action_counts": {
+          "B": 8,
+          "DOWN": 1,
+          "FORWARD": 1
+        },
+        "character": "GARNET",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7010101
+      },
+      "p2": {
+        "action_counts": {
+          "B": 4,
+          "BACKWARD": 3,
+          "C": 1,
+          "DOWN": 1,
+          "UP": 1
+        },
+        "character": "LUD",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7030303
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 5,
+      "run_id": "baseline-r7-garnet-lud-GARNET-LUD",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-garnet-lud-GARNET-LUD:r6",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 7,
+          "DOWN": 3
+        },
+        "character": "GARNET",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7010101
+      },
+      "p2": {
+        "action_counts": {
+          "B": 7,
+          "BACKWARD": 1,
+          "DOWN": 2
+        },
+        "character": "LUD",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7030303
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 6,
+      "run_id": "baseline-r7-garnet-lud-GARNET-LUD",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-garnet-lud-GARNET-LUD:r7",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 6,
+          "BACKWARD": 1,
+          "C": 1,
+          "DOWN": 2
+        },
+        "character": "GARNET",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7010101
+      },
+      "p2": {
+        "action_counts": {
+          "B": 7,
+          "DOWN": 3
+        },
+        "character": "LUD",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7030303
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 7,
+      "run_id": "baseline-r7-garnet-lud-GARNET-LUD",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-garnet-lud-GARNET-LUD:r8",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 8,
+          "DOWN": 2
+        },
+        "character": "GARNET",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7010101
+      },
+      "p2": {
+        "action_counts": {
+          "B": 7,
+          "BACKWARD": 3
+        },
+        "character": "LUD",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7030303
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 8,
+      "run_id": "baseline-r7-garnet-lud-GARNET-LUD",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-garnet-nez-GARNET-NEZ:r1",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "A": 1,
+          "B": 7,
+          "BACKWARD": 1,
+          "UP": 1
+        },
+        "character": "GARNET",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7010101
+      },
+      "p2": {
+        "action_counts": {
+          "B": 7,
+          "BACKWARD": 1,
+          "DOWN": 1,
+          "UP": 1
+        },
+        "character": "NEZ",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7040404
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 1,
+      "run_id": "baseline-r7-garnet-nez-GARNET-NEZ",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 310.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-garnet-nez-GARNET-NEZ:r2",
+      "min_distance_px": 170.0,
+      "p1": {
+        "action_counts": {
+          "B": 4,
+          "BACKWARD": 3,
+          "C": 1,
+          "DOWN": 1,
+          "FORWARD": 1
+        },
+        "character": "GARNET",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7010101
+      },
+      "p2": {
+        "action_counts": {
+          "B": 3,
+          "BACKWARD": 7
+        },
+        "character": "NEZ",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7040404
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 2,
+      "run_id": "baseline-r7-garnet-nez-GARNET-NEZ",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-garnet-nez-GARNET-NEZ:r3",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 6,
+          "BACKWARD": 3,
+          "UP": 1
+        },
+        "character": "GARNET",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7010101
+      },
+      "p2": {
+        "action_counts": {
+          "B": 5,
+          "BACKWARD": 2,
+          "C": 2,
+          "DOWN": 1
+        },
+        "character": "NEZ",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7040404
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 3,
+      "run_id": "baseline-r7-garnet-nez-GARNET-NEZ",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-garnet-nez-GARNET-NEZ:r4",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 3,
+          "BACKWARD": 6,
+          "UP": 1
+        },
+        "character": "GARNET",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7010101
+      },
+      "p2": {
+        "action_counts": {
+          "B": 7,
+          "BACKWARD": 2,
+          "DOWN": 1
+        },
+        "character": "NEZ",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7040404
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 4,
+      "run_id": "baseline-r7-garnet-nez-GARNET-NEZ",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 310.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-garnet-nez-GARNET-NEZ:r5",
+      "min_distance_px": 170.0,
+      "p1": {
+        "action_counts": {
+          "B": 7,
+          "C": 1,
+          "DOWN": 1,
+          "FORWARD": 1
+        },
+        "character": "GARNET",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7010101
+      },
+      "p2": {
+        "action_counts": {
+          "B": 8,
+          "BACKWARD": 1,
+          "DOWN": 1
+        },
+        "character": "NEZ",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7040404
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 5,
+      "run_id": "baseline-r7-garnet-nez-GARNET-NEZ",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-garnet-nez-GARNET-NEZ:r6",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 7,
+          "BACKWARD": 2,
+          "DOWN": 1
+        },
+        "character": "GARNET",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7010101
+      },
+      "p2": {
+        "action_counts": {
+          "B": 6,
+          "BACKWARD": 3,
+          "DOWN": 1
+        },
+        "character": "NEZ",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7040404
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 6,
+      "run_id": "baseline-r7-garnet-nez-GARNET-NEZ",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-garnet-nez-GARNET-NEZ:r7",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 7,
+          "BACKWARD": 1,
+          "DOWN": 2
+        },
+        "character": "GARNET",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7010101
+      },
+      "p2": {
+        "action_counts": {
+          "B": 5,
+          "BACKWARD": 3,
+          "DOWN": 1,
+          "UP": 1
+        },
+        "character": "NEZ",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7040404
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 7,
+      "run_id": "baseline-r7-garnet-nez-GARNET-NEZ",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 310.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-garnet-nez-GARNET-NEZ:r8",
+      "min_distance_px": 170.0,
+      "p1": {
+        "action_counts": {
+          "B": 7,
+          "BACKWARD": 1,
+          "DOWN": 1,
+          "FORWARD": 1
+        },
+        "character": "GARNET",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7010101
+      },
+      "p2": {
+        "action_counts": {
+          "B": 3,
+          "BACKWARD": 5,
+          "C": 1,
+          "DOWN": 1
+        },
+        "character": "NEZ",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7040404
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 8,
+      "run_id": "baseline-r7-garnet-nez-GARNET-NEZ",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-garnet-zen-GARNET-ZEN:r1",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "A": 1,
+          "B": 8,
+          "UP": 1
+        },
+        "character": "GARNET",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7010101
+      },
+      "p2": {
+        "action_counts": {
+          "A": 1,
+          "B": 8,
+          "DOWN": 1
+        },
+        "character": "ZEN",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7020202
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 1,
+      "run_id": "baseline-r7-garnet-zen-GARNET-ZEN",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 310.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-garnet-zen-GARNET-ZEN:r2",
+      "min_distance_px": 170.0,
+      "p1": {
+        "action_counts": {
+          "B": 6,
+          "BACKWARD": 1,
+          "C": 1,
+          "DOWN": 1,
+          "FORWARD": 1
+        },
+        "character": "GARNET",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7010101
+      },
+      "p2": {
+        "action_counts": {
+          "B": 7,
+          "BACKWARD": 2,
+          "DOWN": 1
+        },
+        "character": "ZEN",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7020202
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 2,
+      "run_id": "baseline-r7-garnet-zen-GARNET-ZEN",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-garnet-zen-GARNET-ZEN:r3",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 7,
+          "BACKWARD": 2,
+          "UP": 1
+        },
+        "character": "GARNET",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7010101
+      },
+      "p2": {
+        "action_counts": {
+          "B": 8,
+          "BACKWARD": 1,
+          "DOWN": 1
+        },
+        "character": "ZEN",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7020202
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 3,
+      "run_id": "baseline-r7-garnet-zen-GARNET-ZEN",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-garnet-zen-GARNET-ZEN:r4",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 3,
+          "BACKWARD": 6,
+          "UP": 1
+        },
+        "character": "GARNET",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7010101
+      },
+      "p2": {
+        "action_counts": {
+          "B": 7,
+          "C": 1,
+          "DOWN": 2
+        },
+        "character": "ZEN",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7020202
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 4,
+      "run_id": "baseline-r7-garnet-zen-GARNET-ZEN",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 310.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-garnet-zen-GARNET-ZEN:r5",
+      "min_distance_px": 170.0,
+      "p1": {
+        "action_counts": {
+          "B": 7,
+          "DOWN": 2,
+          "FORWARD": 1
+        },
+        "character": "GARNET",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7010101
+      },
+      "p2": {
+        "action_counts": {
+          "B": 5,
+          "BACKWARD": 4,
+          "UP": 1
+        },
+        "character": "ZEN",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7020202
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 5,
+      "run_id": "baseline-r7-garnet-zen-GARNET-ZEN",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-garnet-zen-GARNET-ZEN:r6",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 7,
+          "BACKWARD": 2,
+          "DOWN": 1
+        },
+        "character": "GARNET",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7010101
+      },
+      "p2": {
+        "action_counts": {
+          "B": 5,
+          "BACKWARD": 3,
+          "DOWN": 2
+        },
+        "character": "ZEN",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7020202
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 6,
+      "run_id": "baseline-r7-garnet-zen-GARNET-ZEN",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 310.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-garnet-zen-GARNET-ZEN:r7",
+      "min_distance_px": 170.0,
+      "p1": {
+        "action_counts": {
+          "B": 7,
+          "BACKWARD": 1,
+          "DOWN": 2
+        },
+        "character": "GARNET",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7010101
+      },
+      "p2": {
+        "action_counts": {
+          "B": 8,
+          "DOWN": 1,
+          "FORWARD": 1
+        },
+        "character": "ZEN",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7020202
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 7,
+      "run_id": "baseline-r7-garnet-zen-GARNET-ZEN",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 310.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-garnet-zen-GARNET-ZEN:r8",
+      "min_distance_px": 170.0,
+      "p1": {
+        "action_counts": {
+          "B": 7,
+          "BACKWARD": 1,
+          "DOWN": 1,
+          "FORWARD": 1
+        },
+        "character": "GARNET",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7010101
+      },
+      "p2": {
+        "action_counts": {
+          "B": 6,
+          "BACKWARD": 2,
+          "DOWN": 2
+        },
+        "character": "ZEN",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7020202
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 8,
+      "run_id": "baseline-r7-garnet-zen-GARNET-ZEN",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-lud-nez-LUD-NEZ:r1",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 6,
+          "BACKWARD": 3,
+          "DOWN": 1
+        },
+        "character": "LUD",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7030303
+      },
+      "p2": {
+        "action_counts": {
+          "A": 1,
+          "B": 7,
+          "BACKWARD": 1,
+          "UP": 1
+        },
+        "character": "NEZ",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7040404
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 1,
+      "run_id": "baseline-r7-lud-nez-LUD-NEZ",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 310.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-lud-nez-LUD-NEZ:r2",
+      "min_distance_px": 170.0,
+      "p1": {
+        "action_counts": {
+          "B": 9,
+          "FORWARD": 1
+        },
+        "character": "LUD",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7030303
+      },
+      "p2": {
+        "action_counts": {
+          "B": 4,
+          "BACKWARD": 5,
+          "C": 1
+        },
+        "character": "NEZ",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7040404
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 2,
+      "run_id": "baseline-r7-lud-nez-LUD-NEZ",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-lud-nez-LUD-NEZ:r3",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 4,
+          "BACKWARD": 6
+        },
+        "character": "LUD",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7030303
+      },
+      "p2": {
+        "action_counts": {
+          "B": 6,
+          "BACKWARD": 2,
+          "C": 1,
+          "DOWN": 1
+        },
+        "character": "NEZ",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7040404
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 3,
+      "run_id": "baseline-r7-lud-nez-LUD-NEZ",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 100.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-lud-nez-LUD-NEZ:r4",
+      "min_distance_px": 380.0,
+      "p1": {
+        "action_counts": {
+          "B": 6,
+          "C": 1,
+          "DOWN": 1,
+          "FORWARD": 1,
+          "UP": 1
+        },
+        "character": "LUD",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7030303
+      },
+      "p2": {
+        "action_counts": {
+          "B": 7,
+          "BACKWARD": 2,
+          "DOWN": 1
+        },
+        "character": "NEZ",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7040404
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 4,
+      "run_id": "baseline-r7-lud-nez-LUD-NEZ",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-lud-nez-LUD-NEZ:r5",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 5,
+          "BACKWARD": 4,
+          "UP": 1
+        },
+        "character": "LUD",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7030303
+      },
+      "p2": {
+        "action_counts": {
+          "B": 7,
+          "BACKWARD": 1,
+          "C": 1,
+          "DOWN": 1
+        },
+        "character": "NEZ",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7040404
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 5,
+      "run_id": "baseline-r7-lud-nez-LUD-NEZ",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-lud-nez-LUD-NEZ:r6",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 5,
+          "BACKWARD": 3,
+          "C": 1,
+          "DOWN": 1
+        },
+        "character": "LUD",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7030303
+      },
+      "p2": {
+        "action_counts": {
+          "B": 6,
+          "BACKWARD": 3,
+          "C": 1
+        },
+        "character": "NEZ",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7040404
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 6,
+      "run_id": "baseline-r7-lud-nez-LUD-NEZ",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-lud-nez-LUD-NEZ:r7",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 8,
+          "C": 1,
+          "DOWN": 1
+        },
+        "character": "LUD",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7030303
+      },
+      "p2": {
+        "action_counts": {
+          "A": 1,
+          "B": 6,
+          "BACKWARD": 2,
+          "C": 1
+        },
+        "character": "NEZ",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7040404
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 7,
+      "run_id": "baseline-r7-lud-nez-LUD-NEZ",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-lud-nez-LUD-NEZ:r8",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 7,
+          "BACKWARD": 3
+        },
+        "character": "LUD",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7030303
+      },
+      "p2": {
+        "action_counts": {
+          "B": 6,
+          "BACKWARD": 2,
+          "C": 1,
+          "DOWN": 1
+        },
+        "character": "NEZ",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7040404
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 8,
+      "run_id": "baseline-r7-lud-nez-LUD-NEZ",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-zen-lud-ZEN-LUD:r1",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 9,
+          "DOWN": 1
+        },
+        "character": "ZEN",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7020202
+      },
+      "p2": {
+        "action_counts": {
+          "B": 6,
+          "BACKWARD": 3,
+          "DOWN": 1
+        },
+        "character": "LUD",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7030303
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 1,
+      "run_id": "baseline-r7-zen-lud-ZEN-LUD",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 310.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-zen-lud-ZEN-LUD:r2",
+      "min_distance_px": 170.0,
+      "p1": {
+        "action_counts": {
+          "B": 7,
+          "BACKWARD": 2,
+          "UP": 1
+        },
+        "character": "ZEN",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7020202
+      },
+      "p2": {
+        "action_counts": {
+          "B": 8,
+          "BACKWARD": 1,
+          "FORWARD": 1
+        },
+        "character": "LUD",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7030303
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 2,
+      "run_id": "baseline-r7-zen-lud-ZEN-LUD",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 310.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-zen-lud-ZEN-LUD:r3",
+      "min_distance_px": 170.0,
+      "p1": {
+        "action_counts": {
+          "B": 6,
+          "BACKWARD": 1,
+          "C": 1,
+          "DOWN": 1,
+          "FORWARD": 1
+        },
+        "character": "ZEN",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7020202
+      },
+      "p2": {
+        "action_counts": {
+          "B": 4,
+          "BACKWARD": 5,
+          "C": 1
+        },
+        "character": "LUD",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7030303
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 3,
+      "run_id": "baseline-r7-zen-lud-ZEN-LUD",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-zen-lud-ZEN-LUD:r4",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 5,
+          "BACKWARD": 1,
+          "C": 1,
+          "DOWN": 3
+        },
+        "character": "ZEN",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7020202
+      },
+      "p2": {
+        "action_counts": {
+          "B": 7,
+          "DOWN": 1,
+          "UP": 2
+        },
+        "character": "LUD",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7030303
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 4,
+      "run_id": "baseline-r7-zen-lud-ZEN-LUD",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-zen-lud-ZEN-LUD:r5",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 3,
+          "BACKWARD": 6,
+          "UP": 1
+        },
+        "character": "ZEN",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7020202
+      },
+      "p2": {
+        "action_counts": {
+          "B": 3,
+          "BACKWARD": 4,
+          "C": 1,
+          "DOWN": 1,
+          "UP": 1
+        },
+        "character": "LUD",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7030303
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 5,
+      "run_id": "baseline-r7-zen-lud-ZEN-LUD",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-zen-lud-ZEN-LUD:r6",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 8,
+          "BACKWARD": 1,
+          "DOWN": 1
+        },
+        "character": "ZEN",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7020202
+      },
+      "p2": {
+        "action_counts": {
+          "B": 6,
+          "BACKWARD": 3,
+          "DOWN": 1
+        },
+        "character": "LUD",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7030303
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 6,
+      "run_id": "baseline-r7-zen-lud-ZEN-LUD",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-zen-lud-ZEN-LUD:r7",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 7,
+          "BACKWARD": 2,
+          "DOWN": 1
+        },
+        "character": "ZEN",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7020202
+      },
+      "p2": {
+        "action_counts": {
+          "B": 8,
+          "C": 1,
+          "DOWN": 1
+        },
+        "character": "LUD",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7030303
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 7,
+      "run_id": "baseline-r7-zen-lud-ZEN-LUD",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-zen-lud-ZEN-LUD:r8",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 4,
+          "BACKWARD": 3,
+          "C": 1,
+          "DOWN": 2
+        },
+        "character": "ZEN",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7020202
+      },
+      "p2": {
+        "action_counts": {
+          "B": 7,
+          "BACKWARD": 3
+        },
+        "character": "LUD",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7030303
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 8,
+      "run_id": "baseline-r7-zen-lud-ZEN-LUD",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 120.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-zen-nez-ZEN-NEZ:r1",
+      "min_distance_px": 360.0,
+      "p1": {
+        "action_counts": {
+          "A": 1,
+          "B": 6,
+          "BACKWARD": 1,
+          "DOWN": 2
+        },
+        "character": "ZEN",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7020202
+      },
+      "p2": {
+        "action_counts": {
+          "B": 7,
+          "C": 1,
+          "FORWARD": 1,
+          "UP": 1
+        },
+        "character": "NEZ",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7040404
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 1,
+      "run_id": "baseline-r7-zen-nez-ZEN-NEZ",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-zen-nez-ZEN-NEZ:r2",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 7,
+          "BACKWARD": 2,
+          "UP": 1
+        },
+        "character": "ZEN",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7020202
+      },
+      "p2": {
+        "action_counts": {
+          "B": 3,
+          "BACKWARD": 6,
+          "C": 1
+        },
+        "character": "NEZ",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7040404
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 2,
+      "run_id": "baseline-r7-zen-nez-ZEN-NEZ",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-zen-nez-ZEN-NEZ:r3",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 8,
+          "BACKWARD": 1,
+          "DOWN": 1
+        },
+        "character": "ZEN",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7020202
+      },
+      "p2": {
+        "action_counts": {
+          "B": 4,
+          "BACKWARD": 2,
+          "C": 1,
+          "DOWN": 2,
+          "UP": 1
+        },
+        "character": "NEZ",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7040404
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 3,
+      "run_id": "baseline-r7-zen-nez-ZEN-NEZ",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-zen-nez-ZEN-NEZ:r4",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 6,
+          "BACKWARD": 2,
+          "DOWN": 2
+        },
+        "character": "ZEN",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7020202
+      },
+      "p2": {
+        "action_counts": {
+          "A": 1,
+          "B": 6,
+          "BACKWARD": 2,
+          "DOWN": 1
+        },
+        "character": "NEZ",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7040404
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 4,
+      "run_id": "baseline-r7-zen-nez-ZEN-NEZ",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-zen-nez-ZEN-NEZ:r5",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 6,
+          "BACKWARD": 3,
+          "UP": 1
+        },
+        "character": "ZEN",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7020202
+      },
+      "p2": {
+        "action_counts": {
+          "B": 6,
+          "BACKWARD": 1,
+          "C": 2,
+          "DOWN": 1
+        },
+        "character": "NEZ",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7040404
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 5,
+      "run_id": "baseline-r7-zen-nez-ZEN-NEZ",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-zen-nez-ZEN-NEZ:r6",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 8,
+          "BACKWARD": 1,
+          "DOWN": 1
+        },
+        "character": "ZEN",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7020202
+      },
+      "p2": {
+        "action_counts": {
+          "B": 6,
+          "BACKWARD": 3,
+          "C": 1
+        },
+        "character": "NEZ",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7040404
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 6,
+      "run_id": "baseline-r7-zen-nez-ZEN-NEZ",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 0.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-zen-nez-ZEN-NEZ:r7",
+      "min_distance_px": 480.0,
+      "p1": {
+        "action_counts": {
+          "B": 7,
+          "DOWN": 3
+        },
+        "character": "ZEN",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7020202
+      },
+      "p2": {
+        "action_counts": {
+          "B": 7,
+          "BACKWARD": 2,
+          "C": 1
+        },
+        "character": "NEZ",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7040404
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 7,
+      "run_id": "baseline-r7-zen-nez-ZEN-NEZ",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
+    },
+    {
+      "distance_reduction_px": 310.0,
+      "draw": true,
+      "hp_margin_p1": 0,
+      "initial_distance_px": 480.0,
+      "match_id": "baseline-r7-zen-nez-ZEN-NEZ:r8",
+      "min_distance_px": 170.0,
+      "p1": {
+        "action_counts": {
+          "B": 7,
+          "BACKWARD": 1,
+          "DOWN": 2
+        },
+        "character": "ZEN",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": 0.0,
+        "seed": 7020202
+      },
+      "p2": {
+        "action_counts": {
+          "B": 6,
+          "BACKWARD": 2,
+          "DOWN": 1,
+          "FORWARD": 1
+        },
+        "character": "NEZ",
+        "damage_dealt_hp": 0.0,
+        "decisions": 10,
+        "final_hp": 400,
+        "reward": -0.0,
+        "seed": 7040404
+      },
+      "recorded_at": "2026-09-12T04:50:25Z",
+      "round": 8,
+      "run_id": "baseline-r7-zen-nez-ZEN-NEZ",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34673810733",
+      "winner": "DRAW"
     }
   ],
   "public_log_policy": "match summaries only; raw spike and membrane data are excluded",
   "raw_neural_log_location": "GitHub Actions artifacts",
   "schema_version": 1,
-  "updated_at": "2026-09-11T21:08:49Z"
+  "updated_at": "2026-09-12T04:50:25Z"
 }
