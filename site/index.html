@@ -37,24 +37,25 @@
   <div class="notice"><span class="statusline"><span class="dot"></span><strong>Important:</strong></span> The reward and plasticity configurations shown here are audited smoke/candidate contracts. This page does not claim that continuous canonical learning is enabled until a production lineage is explicitly promoted and its checkpoint provenance is published.</div>
 
   <section class="panel" id="arena-runtime-proof">
-    <div class="section-title"><div><div class="eyebrow">production inference proof</div><h2>Real Vercel Sandbox + dual MaleCNS decisions</h2></div><a class="muted" href="https://github.com/Unjuno/connectome-fighter/actions/runs/34663496545">proof run ↗</a></div>
-    <div class="proof"><span class="statusline"><span class="dot live"></span><strong>Verified 2026-09-12:</strong></span> the runtime path forked a SHA-addressed Vercel runtime snapshot, started FightingICE v7.1, loaded the approved GARNET generation-2 inference state, started two MaleCNS/Shiu workers, and returned real decisions from both brains. The public arena now exposes one fixed shared broadcast target to every viewer. This is a deployment/runtime proof, not evidence that both fighters are trained.</div>
+    <div class="section-title"><div><div class="eyebrow">production inference proof</div><h2>Real Vercel Sandbox + dual MaleCNS decisions</h2></div><a id="proof-run" class="muted" href="https://github.com/Unjuno/connectome-fighter/actions/runs/34690428080">proof run ↗</a></div>
+    <div class="proof"><span class="statusline"><span class="dot live"></span><strong id="proof-verified-at">Verified Sep 12, 2026, 11:15:11 AM UTC</strong></span>: the runtime path forked a SHA-addressed Vercel runtime snapshot, started FightingICE v7.1, loaded the approved GARNET generation-2 inference state, started two MaleCNS/Shiu workers, and returned real decisions from both brains. The public arena exposes one fixed shared broadcast target to every viewer. This is a deployment/runtime proof, not evidence that both fighters are trained.</div>
     <div class="grid" style="margin:12px 0 0">
       <div class="card"><div class="label">LIVE matchup</div><div class="value small">GARNET checkpoint vs ZEN baseline</div></div>
       <div class="card"><div class="label">broadcast scope</div><div class="value small">one global shared target</div></div>
       <div class="card"><div class="label">Brian2 backend</div><div class="value small">Cython 2.5.1 runtime path</div></div>
-      <div class="card"><div class="label">compilerless cache</div><div class="value small">verified · 15 shared objects</div></div>
-      <div class="card"><div class="label">runtime model size</div><div class="value small">156,675 neurons / 6,025,920 synapses</div></div>
+      <div class="card"><div class="label">compilerless cache</div><div id="proof-cache" class="value small">verified · 15 shared objects</div></div>
+      <div class="card"><div class="label">runtime model size</div><div id="proof-model-size" class="value small">156,675 neurons / 6,025,920 synapses</div></div>
     </div>
-    <div class="formula" style="margin-top:12px">proof runtime archive SHA-256: b4511a0d5287384d2ca130ef58b40adb2786c6b0968ec961d5b41af13441d510
-runtime base: connectome-runtime-b4511a0d5287384d
-snapshot: snap_W1KOgl6TIUSgK4k8D6lpR29wcAhX
-observed proof telemetry: round 1 · frame 61 · GARNET decision 1 / ZEN decision 1 · P1 spikes 5458 / P2 spikes 4965
+    <div id="proof-runtime" class="formula" style="margin-top:12px">proof runtime archive SHA-256: f4016e3a2f79968a3305818ad3b4ef2197802e36c647660c1ab524b098f27205
+runtime base: connectome-runtime-f4016e3a2f79968a
+snapshot: snap_s5HpePEfgiNNAsLgE9UKsvOVwY5u
+observed proof telemetry: round 1 · frame 181 · GARNET decision 3 / ZEN decision 3 · P1 spikes 9245 / P2 spikes 9098
 public broadcast target: connectome-live-broadcast
 learning_enabled=false · policy_pixel_access=false</div>
     <p class="boundary">The canonical backend remains Brian2 Cython. GitHub Actions rebuilds the extension cache without <code>-march=native</code>, proves reuse with the compiler removed from <code>PATH</code>, and only then publishes the runtime. Vercel performs read-only inference only. Training, reward/plasticity experiments and public research logs stay on GitHub. ZEN is not an approved learned arena checkpoint in this proof.</p>
     <div class="actions">
       <a class="btn" href="https://github.com/Unjuno/connectome-fighter/releases/tag/arena-runtime-latest">runtime release ↗</a>
+      <a id="proof-runtime-json" class="btn" href="./data/runtime-proof.json">proof JSON ↗</a>
       <a class="btn" href="https://github.com/Unjuno/connectome-fighter/blob/main/docs/PUBLIC_SURFACE_SPLIT.ja.md">public-surface contract ↗</a>
     </div>
   </section>
@@ -121,11 +122,13 @@ learning_enabled=false · policy_pixel_access=false</div>
     <div class="files">
       <a href="./data/matches.json"><strong>matches.json</strong><br><span class="muted">normalized/public match ledger</span></a>
       <a href="./data/status.json"><strong>status.json</strong><br><span class="muted">current aggregate phase and stats</span></a>
+      <a href="./data/runtime-proof.json"><strong>runtime-proof.json</strong><br><span class="muted">current production runtime SHA/base/snapshot and observed dual-brain proof telemetry</span></a>
       <a href="./research-data/reward.json"><strong>reward.json</strong><br><span class="muted">deployed reward contract copied from configs/</span></a>
       <a href="./research-data/plasticity.json"><strong>plasticity.json</strong><br><span class="muted">deployed plasticity contract copied from configs/</span></a>
       <a href="https://github.com/Unjuno/connectome-fighter/releases/tag/arena-runtime-latest"><strong>arena-runtime-latest</strong><br><span class="muted">portable compilerless Brian2 Cython runtime release</span></a>
       <a href="https://github.com/Unjuno/connectome-fighter/releases/tag/malecns-context-atlas-v1"><strong>MaleCNS context atlas</strong><br><span class="muted">representative spectator-only released-SWC anatomical context; not all-neuron rendering</span></a>
-      <a href="https://github.com/Unjuno/connectome-fighter/actions/runs/34663496545"><strong>Vercel production E2E proof</strong><br><span class="muted">runtime SHA → persistent snapshot → real FightingICE + dual MaleCNS decisions</span></a>
+      <a href="https://github.com/Unjuno/connectome-fighter/actions/runs/34690428080"><strong>Vercel production E2E proof</strong><br><span class="muted">runtime SHA → persistent snapshot → shared LIVE → real FightingICE + dual MaleCNS decisions</span></a>
+      <a href="https://github.com/Unjuno/connectome-fighter/actions/runs/34690567057"><strong>Independent production smoke</strong><br><span class="muted">exact runtime adoption, public POST rejection, real telemetry and public provenance UI</span></a>
       <a href="https://github.com/Unjuno/connectome-fighter/releases/tag/canonical-state-smoke-v1"><strong>GARNET checkpoint smoke</strong><br><span class="muted">approved-lineage generation resume evidence</span></a>
       <a href="https://github.com/Unjuno/connectome-fighter/releases/tag/canonical-missing-lineage-smoke-v1"><strong>ZEN / LUD / NEZ candidate checkpoint smoke</strong><br><span class="muted">generation-2 cross-Actions-run resume evidence; not arena-promoted</span></a>
       <a href="https://github.com/Unjuno/connectome-fighter/actions"><strong>GitHub Actions</strong><br><span class="muted">training workflows, raw artifacts, checksums, logs and provenance</span></a>
