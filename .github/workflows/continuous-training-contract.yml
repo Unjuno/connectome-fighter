@@ -5,11 +5,13 @@ on:
     paths:
       - '.github/workflows/continuous-training.yml'
       - '.github/workflows/continuous-training-contract.yml'
+      - 'site/app.js'
   push:
     branches: [main]
     paths:
       - '.github/workflows/continuous-training.yml'
       - '.github/workflows/continuous-training-contract.yml'
+      - 'site/app.js'
   workflow_dispatch:
 
 permissions:
@@ -64,6 +66,19 @@ jobs:
           found=[needle for needle in forbidden_mutations if needle in text]
           if found:
               raise SystemExit(f'forbidden auto-promotion/Vercel mutation returned: {found}')
+
+          app=Path('site/app.js').read_text(encoding='utf-8')
+          page_required=[
+              "json('./data/training-status.json', {})",
+              'background candidate learning',
+              'not the state currently served by Vercel',
+              'canonical-training-latest',
+              'served_by_vercel=',
+              'auto_promotion=',
+          ]
+          page_missing=[needle for needle in page_required if needle not in app]
+          if page_missing:
+              raise SystemExit(f'missing candidate learning research-ledger boundary: {page_missing}')
 
           print('continuous candidate training contract: PASS')
           PY
