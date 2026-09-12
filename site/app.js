@@ -124,7 +124,9 @@ async function load() {
 
     $('match-count').textContent = log.match_count ?? 0;
     $('updated').textContent = `updated ${dateLabel(log.updated_at || status.updated_at)}`;
-    $('phase').textContent = status.phase || reward.status || '—';
+    const dataPhase = status.phase || reward.status || 'unknown-data-phase';
+    $('phase').textContent = `Public Surface Freeze · data: ${dataPhase}`;
+    $('phase').title = `Project gate: Public Surface Freeze; latest baseline data phase: ${dataPhase}`;
     renderCharacters(log.character_stats || status.character_stats || {});
     renderMatches(log.matches || []);
     renderReward(reward);
