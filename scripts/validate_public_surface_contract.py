@@ -43,6 +43,21 @@ def main() -> int:
     )
 
     require(
+        "docs/STATUS.md",
+        "Production public LIVE — PASS",
+        "single-shared-live-broadcast",
+        "connectome-live-broadcast",
+        "Historical rolling-video spectator — RETAINED EVIDENCE, NOT PRIMARY LIVE",
+        "Current gate — Public Surface Freeze",
+    )
+    forbid(
+        "docs/STATUS.md",
+        "Current production spectator — PASS",
+        "Vercel viewer polls every 30 s",
+        "P6 — freeze spectator/data contracts",
+    )
+
+    require(
         "docs/PUBLIC_SURFACE_SPLIT.md",
         "single shared live broadcast",
         "connectome-live-broadcast",
@@ -76,6 +91,18 @@ def main() -> int:
         ".github/workflows/vercel-live-arena-smoke.yml",
         "per-viewer-live-sandbox",
         "Launch real GARNET vs ZEN session from runtime snapshot",
+    )
+
+    require(
+        ".github/workflows/render-fightingice-video.yml",
+        "Historical ScreenData/video regression workflow",
+        "workflow_dispatch:",
+        "never substituted for LIVE",
+    )
+    forbid(
+        ".github/workflows/render-fightingice-video.yml",
+        "cron: '17 * * * *'",
+        "schedule:",
     )
 
     print("public-surface contract: PASS")
