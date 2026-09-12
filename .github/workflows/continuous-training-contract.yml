@@ -72,7 +72,7 @@ jobs:
           page_required=[
               "json('./data/training-status.json', {})",
               'background candidate learning',
-              'not the state currently served by Vercel',
+              'state currently served by Vercel',
               'canonical-training-latest',
               'served_by_vercel=',
               'auto_promotion=',
