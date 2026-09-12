@@ -13,6 +13,9 @@ const upstreamPort = Number(arg('--upstream', '18080'));
 const statusFile = arg('--status-file');
 const screenFile = arg('--screen-file');
 const activityFile = arg('--activity-file');
+const flybodyP1File = arg('--flybody-p1-file');
+const flybodyP2File = arg('--flybody-p2-file');
+const flybodyStateFile = arg('--flybody-state-file');
 const sessionId = arg('--session-id', 'unknown');
 const p1 = arg('--p1', 'GARNET');
 const p2 = arg('--p2', 'ZEN');
@@ -70,6 +73,20 @@ function bootPayload() {
       path: '/activity.json',
       policy_access: false,
     },
+    flybody_embodiment: {
+      available: Boolean(
+        flybodyStateFile && fs.existsSync(flybodyStateFile) &&
+        flybodyP1File && fs.existsSync(flybodyP1File) &&
+        flybodyP2File && fs.existsSync(flybodyP2File)
+      ),
+      p1_path: '/flybody-p1.png',
+      p2_path: '/flybody-p2.png',
+      state_path: '/flybody.json',
+      source: 'TuragaLab/flybody MuJoCo physics',
+      neural_drive: 'MaleCNS annotated motor output',
+      policy_access: false,
+      game_telemetry_position_used: false,
+    },
     bootstrap: {
       phase: String(boot.phase ?? 'booting'),
       exit_code: Number.isInteger(boot.exit_code) ? boot.exit_code : null,
@@ -92,15 +109,15 @@ function writeJson(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-function writeScreen(res) {
-  if (!screenFile) {
-    writeJson(res, 404, { error: 'screen_not_configured' });
+function writePng(res, path, notConfigured, notReady) {
+  if (!path) {
+    writeJson(res, 404, { error: notConfigured });
     return;
   }
   try {
-    const frame = fs.readFileSync(screenFile);
+    const frame = fs.readFileSync(path);
     if (frame.length < 32 || frame.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a') {
-      writeJson(res, 503, { error: 'screen_not_ready' });
+      writeJson(res, 503, { error: notReady });
       return;
     }
     res.statusCode = 200;
@@ -108,21 +125,21 @@ function writeScreen(res) {
     res.setHeader('content-length', String(frame.length));
     res.end(frame);
   } catch {
-    writeJson(res, 503, { error: 'screen_not_ready' });
+    writeJson(res, 503, { error: notReady });
   }
 }
 
-function writeActivity(res) {
-  if (!activityFile) {
-    writeJson(res, 404, { error: 'activity_not_configured' });
+function writeJsonFile(res, path, notConfigured, notReady) {
+  if (!path) {
+    writeJson(res, 404, { error: notConfigured });
     return;
   }
   try {
-    const text = fs.readFileSync(activityFile, 'utf8');
+    const text = fs.readFileSync(path, 'utf8');
     const payload = JSON.parse(text);
     writeJson(res, 200, payload);
   } catch {
-    writeJson(res, 503, { error: 'activity_not_ready' });
+    writeJson(res, 503, { error: notReady });
   }
 }
 
@@ -181,11 +198,23 @@ const server = http.createServer((req, res) => {
   }
   const url = new URL(req.url ?? '/', 'http://127.0.0.1');
   if (url.pathname === '/screen.png') {
-    writeScreen(res);
+    writePng(res, screenFile, 'screen_not_configured', 'screen_not_ready');
     return;
   }
   if (url.pathname === '/activity.json') {
-    writeActivity(res);
+    writeJsonFile(res, activityFile, 'activity_not_configured', 'activity_not_ready');
+    return;
+  }
+  if (url.pathname === '/flybody-p1.png') {
+    writePng(res, flybodyP1File, 'flybody_not_configured', 'flybody_not_ready');
+    return;
+  }
+  if (url.pathname === '/flybody-p2.png') {
+    writePng(res, flybodyP2File, 'flybody_not_configured', 'flybody_not_ready');
+    return;
+  }
+  if (url.pathname === '/flybody.json') {
+    writeJsonFile(res, flybodyStateFile, 'flybody_not_configured', 'flybody_not_ready');
     return;
   }
   if (url.pathname === '/state' || url.pathname === '/health' || url.pathname === '/events') {
@@ -196,7 +225,17 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(listen, '0.0.0.0', () => {
-  console.log(JSON.stringify({ kind: 'arena-bootstrap-proxy-ready', listen, upstreamPort, sessionId, screenFile, activityFile }));
+  console.log(JSON.stringify({
+    kind: 'arena-bootstrap-proxy-ready',
+    listen,
+    upstreamPort,
+    sessionId,
+    screenFile,
+    activityFile,
+    flybodyP1File,
+    flybodyP2File,
+    flybodyStateFile,
+  }));
 });
 
 function stop() {
