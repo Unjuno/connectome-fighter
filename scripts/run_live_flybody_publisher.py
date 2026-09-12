@@ -45,8 +45,9 @@ def atomic_json(path: Path, payload: dict[str, Any]) -> None:
 
 class FlyBodySide:
     def __init__(self, *, seed: int, width: int, height: int) -> None:
-        # dm_control/MuJoCo must see the backend choice before import.
-        os.environ.setdefault("MUJOCO_GL", "egl")
+        # dm_control/MuJoCo must see the backend choice before import. OSMesa is
+        # the default because the shared Vercel Sandbox has no GPU/display.
+        os.environ.setdefault("MUJOCO_GL", "osmesa")
         from flybody.fly_envs import template_task
 
         self.env = template_task(
@@ -229,6 +230,7 @@ def main() -> int:
                 "kind": "malecns-flybody-live-physics",
                 "policy_access": False,
                 "game_telemetry_position_used": False,
+                "mujoco_gl": os.environ.get("MUJOCO_GL", "osmesa"),
                 "upstream": {"repository": FLYBODY_UPSTREAM, "commit": FLYBODY_COMMIT},
                 "adapter": "malecns-annotated-motor-to-flybody-tripod-v1",
                 "render": {"width": args.width, "height": args.height, "frames": frame_count, "fps_target": args.fps},
