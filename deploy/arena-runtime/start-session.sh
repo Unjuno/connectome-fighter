@@ -9,6 +9,17 @@ UPSTREAM_PORT=18080
 SESSION_ID=""
 FIGHTINGICE_MODE="${CONNECTOME_FIGHTINGICE_MODE:-lightweight}"
 
+# One-shot diagnostics intentionally remain observable for 30 seconds.  The
+# fixed public broadcast is supervised continuously, so keeping an ended bout
+# alive for a full minute only creates avoidable viewer downtime.
+if [[ "${CONNECTOME_PUBLIC_BROADCAST:-false}" == "true" ]]; then
+  POST_FIGHT_SECONDS="${CONNECTOME_POST_FIGHT_SECONDS:-1}"
+  POST_SESSION_SECONDS="${CONNECTOME_POST_SESSION_SECONDS:-1}"
+else
+  POST_FIGHT_SECONDS="${CONNECTOME_POST_FIGHT_SECONDS:-30}"
+  POST_SESSION_SECONDS="${CONNECTOME_POST_SESSION_SECONDS:-30}"
+fi
+
 while (($#)); do
   case "$1" in
     --p1) P1="$2"; shift 2 ;;
@@ -24,6 +35,9 @@ done
 case "$P1" in GARNET|ZEN|LUD|NEZ) ;; *) echo "invalid P1" >&2; exit 2;; esac
 case "$P2" in GARNET|ZEN|LUD|NEZ) ;; *) echo "invalid P2" >&2; exit 2;; esac
 case "$FIGHTINGICE_MODE" in lightweight|headless) ;; *) echo "invalid FightingICE mode" >&2; exit 2;; esac
+for duration in "$POST_FIGHT_SECONDS" "$POST_SESSION_SECONDS"; do
+  [[ "$duration" =~ ^[0-9]+([.][0-9]+)?$ ]] || { echo "invalid hold duration: $duration" >&2; exit 2; }
+done
 if [[ "$P1" == "$P2" ]]; then echo "fighters must differ" >&2; exit 2; fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -244,6 +258,7 @@ CMD=(
   --game-jar "$ROOT/fightingice/FightingICE.jar"
   --fightingice-mode "$FIGHTINGICE_MODE"
   --decision-interval 60
+  --post-fight-seconds "$POST_FIGHT_SECONDS"
   --out "$WORK/live"
 )
 if [[ -n "$P1_ADAPTER" ]]; then CMD+=(--adapter-dir-p1 "$P1_ADAPTER"); fi
@@ -259,7 +274,7 @@ if [[ "$RC" -eq 0 ]]; then
 else
   write_error "$RC" 0
 fi
-sleep 30
+sleep "$POST_SESSION_SECONDS"
 cleanup_proxy
 trap - EXIT INT TERM ERR
 exit "$RC"
