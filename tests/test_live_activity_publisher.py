@@ -48,3 +48,4 @@ def test_compact_brain_preserves_real_body_annotations_and_region_loads():
         {"name": "T1", "value": 4.0},
     ]
     assert row["superclasses"][0] == {"name": "descending", "value": 13.0}
+    assert "not an all-neuron activity map" in row["interpretation_boundary"]
