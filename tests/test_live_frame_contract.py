@@ -9,7 +9,12 @@ def test_official_frame_publisher_is_spectator_only():
     proxy = (root / "deploy/arena-runtime/bootstrap-proxy.mjs").read_text(encoding="utf-8")
 
     assert "StreamInterface" in frame
-    assert "policy" not in frame.split("class FightingICELiveFramePublisher", 1)[1].lower()
+    class_source = frame.split("class FightingICELiveFramePublisher", 1)[1]
+    # The explicit negative safety flag is expected; control-policy APIs are not.
+    assert '"policy_pixel_access": False' in class_source
+    assert "Decision(" not in class_source
+    assert "def act(" not in class_source
+    assert "observation" not in class_source.lower()
     assert "gateway.register_stream" in runner
     assert "run_live_screen_publisher.py" in start
     assert "--screen-file" in start
