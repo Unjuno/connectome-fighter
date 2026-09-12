@@ -15,8 +15,6 @@ from pathlib import Path
 import urllib.error
 import urllib.request
 
-import pandas as pd
-
 BASE = (
     "https://storage.googleapis.com/flyem-male-cns/v1.0/segmentation/"
     "skeletons-malecns/skeletons-swc"
@@ -24,6 +22,8 @@ BASE = (
 
 
 def top_bodies(path: Path, count: int) -> list[tuple[int, int]]:
+    import pandas as pd
+
     frame = pd.read_parquet(path, columns=["body_id"])
     counts = frame["body_id"].value_counts().head(count)
     return [(int(body), int(n)) for body, n in counts.items()]
