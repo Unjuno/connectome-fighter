@@ -4,140 +4,151 @@
 
 Connectome Fighter の公開面を2つに分離する。
 
-1. **Vercel public LIVE** — 全viewerが同じ1本のFightingICE対戦を見る共有配信面。Vercelではread-only推論のみを行う。
-2. **GitHub Pages / Actions research ledger** — 学習、報酬、plasticity、checkpoint lineage、runtime provenance、実験条件、normalized/public logs、raw evidenceを公開する研究面。
+1. **Vercel public LIVE** — 全 viewer が同じ1本の FightingICE/MaleCNS process を見る共有 read-only inference 面。
+2. **GitHub Pages / Actions research ledger** — training、reward、plasticity、checkpoint lineage、runtime provenance、実験条件、normalized/public logs、raw evidence を保持する研究面。
 
-Vercelを学習ログや研究履歴の保存先にしない。研究上の説明可能性・再現性・学習の証拠はGitHub側で担保する。
+Vercel を学習ログや研究履歴の system of record にしない。研究上の再現性・学習証拠・provenance は GitHub 側で担保する。
 
 ## Vercel public LIVE
 
 公開URL: `https://liveunjuno.vercel.app/connectome`
 
-現行のprimary arenaは **single shared live broadcast** である。viewerごとに対戦を作らない。固定名 `connectome-live-broadcast` のVercel Sandboxを1つだけ配信対象とし、全viewerが同じstream / telemetryを見る。
+現行 primary arena は **single shared live broadcast** である。viewer ごとに対戦を作らない。固定名 `connectome-live-broadcast` の Vercel Sandbox を1つだけ配信対象とし、全 viewer が同じ stream / telemetry を見る。
 
-共有LIVEのcontract:
+共有 LIVE contract:
 
-- public broadcast targetは常に1つ
-- viewer数に応じてFightingICE / MaleCNS Sandboxを増やさない
-- public viewerから個別matchをPOST生成しない
+- public broadcast target は常に1つ
+- viewer 数に応じて FightingICE / MaleCNS Sandbox を増やさない
+- public viewer から個別 match を POST 生成できない
 - `learning_enabled=false`
 - `policy_pixel_access=false`
-- immutable runtimeはruntime archive SHAに対応するpersistent runtime snapshotから供給する
-- bout終了後は同じ共有Sandbox内で次boutを開始する
-- Vercel上では重み更新を行わない
+- immutable runtime は runtime archive SHA に対応する persistent runtime snapshot から供給する
+- terminal/stopped shared Sandbox は current runtime base から recycle する
+- Vercel 上では checkpoint/weight を更新しない
+- recorded fight を LIVE として代替しない
 
-現行LIVE matchupは **GARNET approved generation-2 checkpoint vs ZEN canonical baseline**。ZENはapproved learned checkpointではないため、trained-vs-trainedとは表現しない。
+現行 LIVE matchup は **GARNET approved generation-2 inference vs ZEN canonical baseline**。ZEN generation-2 candidate は production LIVE に serve していないため、trained-vs-trained とは表現しない。
 
-Vercelで表示するもの:
+Vercel で表示するもの:
 
-- 共有LIVEのP1/P2、HP、position、action、round/frame telemetry
-- 両側MaleCNSのdecision-window spike activity
-- released MaleCNS SWC由来のX–Z morphology / anatomical context atlas
-- 共有LIVEの接続・warming状態
+- 共有 LIVE の P1/P2、HP、position、action、round/frame telemetry
+- 両側 MaleCNS の decision-window activity
+- released MaleCNS SWC 由来の X–Z morphology / anatomical context
+- connection / warming / error state
+- runtime SHA / runtime-base / supervisor state
+- GARNET approved と ZEN/LUD/NEZ candidate の明示的な provenance 区分
+- FightingICE telemetry に同期した fly-shaped visualization
 
-Vercelで研究履歴として保持・表示しないもの:
+fly visualization の position / facing / action は live FightingICE telemetry 由来。wingbeat は presentation-only であり、実 Drosophila locomotor biomechanics の再現とは主張しない。
 
-- 長期match ledger
-- reward formula
-- plasticity rationale
-- checkpoint training history
-- optimizer / experiment history
-- Actions raw logs
+Vercel で行わないもの:
 
-録画clipをLIVEの代替として偽装しない。LIVEが利用不能ならwarming/errorを表示する。
+- learning / weight update
+- long-term match ledger の保存
+- reward/plasticity rationale を runtime state として扱うこと
+- optimizer/training history の保持
+- screen pixels / SWC geometry / decorative graphics の policy input 化
 
-### spectator morphology boundary
-
-背景の `malecns-context-atlas-v1` は、official MaleCNS v1.0 released SWCから決定論的に層化した**代表サンプル**である。128 bodies / 6,087 X–Z segmentsを含み、21 soma neuromeres、17 superclasses、左右root sideをカバーする。
-
-これは156k neuronsの完全描画ではない。liveで強調する神経活動もspectator-onlyであり、policy inputには入れない。
+LIVE が利用不能なら warming/error を表示し、架空の活動や録画を LIVE として補わない。
 
 ## GitHub research / training ledger
 
 公開URL: `https://unjuno.github.io/connectome-fighter/`
 
-GitHubを以下の公開元とする。
+GitHub を以下の公開元とする。
 
 - canonical substrate / dynamics
-- training workflows
-- reward contract (`R2d-v0`)
-- plasticity contract (`KC-MBON-valence-depression-v0`)
-- 固定比較条件
+- baseline/evaluation workflows
+- reward / plasticity experiment contracts
 - normalized/public match logs
 - checkpoint lineage / resume evidence
 - approved inference handoff
-- arena runtime provenance
-- GitHub Actions artifacts / checksums / logs
+- arena runtime provenance / checksums
+- GitHub Actions artifacts / logs
 - interpretation boundaries
 
-学習処理はGitHub Actions側で行う。Vercelは学習済みとして承認されたstateをread-only inferenceへ渡すだけで、学習履歴を持たない。
-
-GitHub Pages deploy時には `configs/` のcanonical JSONを `site/research-data/` へコピーし、公開説明と実設定の乖離を防ぐ。
+Production reward-driven learning は現在 **OFF**。reward/plasticity/checkpoint の既存 workflow は、明示的に昇格されない限り research / engineering evidence であり continuous production learning lineage ではない。
 
 ## Training → LIVE inference handoff
 
-研究checkpointをそのままVercelの内部状態として扱わない。
+研究 checkpoint を mutable Vercel state として直接扱わない。
 
-GitHub Actionsの `publish-arena-inference-snapshot` が、承認済みcanonical checkpointから**推論に必要なstateのみ**を抽出して `arena-inference-latest` releaseへ公開する。
+`publish-arena-inference-snapshot` が approved canonical checkpoint から read-only inference に必要な state を抽出し、`arena-inference-latest` release へ公開する。
 
-handoff manifestに含めるもの:
+handoff manifest では最低限以下を検証する。
 
 - character
 - generation
-- state file name
+- state filename
 - state SHA-256
 - canonical model identifier
 - read-only inference contract
 
-reward式、plasticity rationale、match ledger、研究履歴はhandoffに埋め込まない。
+reward formula、plasticity rationale、match ledger、研究履歴は handoff と分離する。
 
 ### checkpoint lineage の現在地
 
-- **GARNET generation 2** — `arena-inference-latest` のapproved read-only inference state。現行共有LIVEで利用する学習済みstate。
-- **ZEN / LUD / NEZ generation 2** — `canonical-missing-lineage-smoke-v1` で独立state・RNG・履歴とcross-run generation resumeを実証済み。ただしcandidate lineageでありproduction LIVEへ未昇格。
+- **GARNET generation 2** — approved read-only inference state。現行 production LIVE で使用。
+- **ZEN generation 2** — candidate cross-run lineage。production learned inference へ未昇格。
+- **LUD generation 2** — candidate cross-run lineage。production learned inference へ未昇格。
+- **NEZ generation 2** — candidate cross-run lineage。production learned inference へ未昇格。
 
-したがって「4キャラすべてにcross-run resume可能なcandidate lineageがある」とは言えるが、「4キャラproduction-trained leagueが成立した」とは言わない。
+したがって「4キャラすべてに cross-run-resumable lineage evidence がある」とは言えるが、「4キャラ production-trained league が成立した」とは言わない。
 
 ## Runtime snapshot / compilerless Cython boundary
 
-Vercel runtimeはGitHub Releaseのruntime bundleをviewerごとに再取得しない。runtime archive SHA-addressed persistent Sandboxへ一度stageし、そのfilesystem snapshotを共有LIVE Sandboxの起点にする。
+Vercel runtime bundle を viewer ごとに再取得・再構築しない。runtime archive SHA-addressed persistent Sandbox へ stage し、その filesystem snapshot を固定 shared LIVE Sandbox の起点にする。
 
-runtime baseにはimmutable runtimeだけを置き、character stateは `arena-inference-latest` のmanifest/SHAで別途検証する。
+runtime base には immutable runtime を置き、character inference state は `arena-inference-latest` の manifest/SHA で別途検証する。
 
-Brian2のcanonical codegen targetは **Cython**。Vercel SandboxにC compilerがないため、GitHub ActionsでVercelと同一の`sys.executable` pathを再現してCython extension cacheを事前compileし、compilerをPATHから除いた再起動でも同じMaleCNS workerがreadyになることをrelease gateで検証する。
+Brian2 canonical codegen target は **Cython**。Vercel Sandbox に C compiler が無いため、GitHub Actions で production executable path identity を再現して Cython extension cache を事前 compile し、compiler を利用不能にした再起動でも同じ MaleCNS worker が `ready` になることを release gate にする。
 
-CPU固有命令による移植性事故を避けるため、Brian2 2.5.1の既定GCC flagsから `-march=native` を除外してcacheを再生成する。既存host-specific cacheは再pack前に破棄する。
-
-これはdeployment/cold-start/portability対策であり、MaleCNS topologyやShiu dynamicsの変更ではない。
+これは deployment/cold-start/portability 対策であり、MaleCNS topology や Shiu dynamics の変更ではない。
 
 ## Production inference proof — 2026-09-12
 
-GitHub Actions `precompile-arena-brian2-cython-cache` run **34663496545** で、portable compilerless runtimeからVercel実機end-to-end inferenceを確認した。
-
-検証されたruntime evidence:
+検証済み runtime evidence:
 
 - archive SHA-256: `b4511a0d5287384d2ca130ef58b40adb2786c6b0968ec961d5b41af13441d510`
-- Vercel runtime base: `connectome-runtime-b4511a0d5287384d`
-- Vercel snapshot: `snap_W1KOgl6TIUSgK4k8D6lpR29wcAhX`
+- runtime base: `connectome-runtime-b4511a0d5287384d`
 - Brian2 `2.5.1` / Cython `0.29.36` / NumPy `1.24.0`
 - included neurons: `156675`
-- runtime synapses: `6025920`
-- precompiled Cython shared objects: `15`
-- `compilerless_reuse_verified: true`
-- `host_specific_march_native: false`
+- runtime recurrent synapses: `6025920`
+- compilerless cache reuse verified
+- host-specific `-march=native` excluded
+- real FightingICE frame advancement verified
+- P1/P2 の MaleCNS decision index > 0 を verified
 
-proof boutは **GARNET approved generation-2 checkpoint vs ZEN canonical baseline**。round 1 / frame 61、P1 decision index 1、P2 decision index 1、P1 spikes 5458、P2 spikes 4965を確認した。これはVercel上でFightingICEと2つのMaleCNS workerが実decisionを生成したruntime proofであり、trained-vs-trainedの証拠ではない。
+proof bout は **GARNET approved generation-2 inference vs ZEN canonical baseline**。これは Vercel 上の production inference plumbing の証拠であり trained-vs-trained performance の証拠ではない。
 
-2026-09-12にはVercel公開面も固定名 `connectome-live-broadcast` の**single shared live broadcast**へ変更し、`ready=true` / `status=running` / shared `/events` streamを確認した。viewerごとのmatch作成endpointは無効化している。
+## Public Surface Freeze gate
+
+Reward tuning / continuous learning を進める前に以下を固定する。
+
+1. `/api/connectome/live` が `single-shared-live-broadcast` / `shared-global` を返す
+2. `connectome-live-broadcast` だけが public broadcast target である
+3. public individual-session POST が拒否される
+4. `learning_enabled=false` / `policy_pixel_access=false`
+5. runtime archive SHA と runtime-base identity が一致する
+6. `frame > 0`、両 MaleCNS decision、x/y/action telemetry を production smoke で確認する
+7. GARNET approved と ZEN/LUD/NEZ candidate を UI/README/STATUS/ROADMAP/Pages で混同しない
+8. stopped shared Sandbox から自動復旧できる
+9. failure/warming state を明示し fake LIVE fallback を作らない
+
+## Historical recorded spectator
+
+以前の `latest-fight.mp4 / previous-1 / previous-2 / queue.json` rolling spectator は renderer / H.264 / activity timeline / SWC export の regression evidence として残す。
+
+これは現行 production LIVE ではない。毎時 schedule は停止済みで、必要時の manual/regression workflow としてのみ使う。
 
 ## Scientific boundary
 
 - MaleCNS anatomy: canonical biological structure
 - pinned Shiu LIF: canonical dynamics layer
-- Brian2 Cython precompile/cache: deployment optimization; dynamicsの置換ではない
+- Brian2 Cython precompile/cache: deployment optimization
 - game observation → sensory input: project-defined experimental interface
 - FightingICE reward: project-defined reinforcement signal
-- game reward → valence/plasticity mapping: project-defined learning assumption
-- SWC/context-atlas/live visualization: spectator only
+- game reward → plasticity mapping: project-defined learning assumption
+- SWC/context-atlas/fly visualization: spectator only
 
-Vercelへ推論stateを渡しても、この境界は変わらない。
+Vercel へ inference state を渡しても、この境界は変わらない。
