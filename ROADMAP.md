@@ -2,14 +2,14 @@
 
 Primary goal:
 
-> Run real MaleCNS-constrained FightingICE fighters entirely in cloud infrastructure, retain analysis-grade neural logs, expose a rolling watchable arena, and only then enable controlled reward-driven plasticity with separate character lineages.
+> Run a real MaleCNS-constrained FightingICE controller in reproducible cloud infrastructure, expose one auditable shared LIVE inference surface, preserve analysis-grade neural/checkpoint provenance, and only then enable controlled reward-driven plasticity with separate character lineages.
 
 Canonical control path:
 
 ```text
 FightingICE numeric observation
         ↓
-versioned artificial sensory interface
+versioned project-defined sensory interface
         ↓
 MaleCNS v1.0 real body-ID connectivity
         ↓
@@ -20,7 +20,7 @@ versioned output-body groups
 FightingICE action
 ```
 
-No MLP/RNN/custom-sigmoid controller replaces the fly neural substrate in the canonical path.
+No MLP/RNN/custom-sigmoid/PPO controller replaces the fly neural substrate in the canonical path.
 
 ---
 
@@ -30,31 +30,34 @@ No MLP/RNN/custom-sigmoid controller replaces the fly neural substrate in the ca
 |---|---|---|
 | MaleCNS provenance + Shiu adapter | **PASS** | 156,675 neurons / 6,025,920 runtime synapses |
 | Pinned Shiu LIF reference runtime | **PASS** | upstream `model.py` executes directly |
-| MaleCNS-controlled FightingICE | **PASS** | independent per-fighter Brian2 workers |
-| Four-character baseline | **PASS** | all 6 pairings run in Actions |
-| Body-ID spike/decision logs | **PASS** | full spike parquet + game traces |
-| Real FightingICE video | **PASS** | official 960×640 ScreenData, separate spectator socket |
-| ~1 minute clips | **PASS** | 6 real rounds / clip, not slowed footage |
-| Rolling 3-clip queue | **PASS** | latest + previous 2 via release assets |
-| Vercel pseudo-live viewer | **PASS** | 30 s polling + next-clip countdown |
-| Playback-synchronized neural activity | **PASS** | decision-window body-ID activity |
-| Released MaleCNS SWC morphology | **PASS** | official 8 nm EM centerlines, spectator-only |
-| Continuous reward learning | **OFF** | intentionally not promoted yet |
-| Four persistent learned character lineages | **NOT RUN** | after reward gate |
+| MaleCNS-controlled FightingICE | **PASS** | independent Brian2 workers |
+| Four-character baseline | **PASS** | all 6 pairings in Actions; no production weight updates |
+| Body-ID spike/decision logs | **PASS** | spike parquet + game traces |
+| Brian2 Cython compilerless runtime | **PASS** | precompiled cache verified without compiler |
+| SHA-addressed persistent runtime base | **PASS** | runtime archive SHA → persistent Sandbox snapshot |
+| One shared Vercel LIVE | **PASS** | fixed `connectome-live-broadcast` target |
+| Real LIVE telemetry | **PASS** | frame > 0, x/y/action and both MaleCNS decisions verified |
+| Public inference provenance UI | **PASS** | GARNET approved / ZEN baseline / candidates separated |
+| Released MaleCNS SWC context | **PASS** | official EM centerlines, spectator-only |
+| Historical ScreenData/H.264 export | **PASS** | retained as manual regression evidence |
+| GARNET generation 2 | **APPROVED INFERENCE** | production read-only handoff |
+| ZEN / LUD / NEZ generation 2 | **CANDIDATE** | cross-run lineage/resume evidence only |
+| Continuous reward-driven learning | **OFF** | intentionally deferred |
+| Four-character production-trained league | **NOT ESTABLISHED** | candidate lineage ≠ approved learned fighters |
 | League/champion training | **NOT RUN** | later |
 | Biological-vs-control causal comparison | **NOT RUN** | later |
 
-Proven morphology-enabled rolling spectator run: Actions `34636313291` — **PASS**.
+Production viewer: `https://liveunjuno.vercel.app/connectome`
 
-Viewer: `https://liveunjuno.vercel.app/connectome`
+Canonical public contract: [`docs/PUBLIC_SURFACE_SPLIT.md`](docs/PUBLIC_SURFACE_SPLIT.md)
 
-Detailed spectator contract: [`docs/SPECTATOR_PIPELINE.ja.md`](docs/SPECTATOR_PIPELINE.ja.md).
+Current evidence/status: [`docs/STATUS.md`](docs/STATUS.md)
 
 ---
 
 # P0 — Canonical biological substrate ✅
 
-MaleCNS v1.0 is the anatomy and the pinned Shiu et al. LIF code supplies the neural time dynamics. Transmitter filtering, graph thresholding and the artificial game interface are manifest-recorded separately. Legacy FlyWire/custom-sigmoid/PPO work is engineering evidence only.
+MaleCNS v1.0 supplies the anatomy and the pinned Shiu et al. code supplies LIF neural dynamics. Transmitter filtering, graph thresholding and game I/O are separately manifest-recorded assumptions. Legacy FlyWire/custom-network/PPO work is engineering history only.
 
 **Gate: PASS.**
 
@@ -62,120 +65,125 @@ MaleCNS v1.0 is the anatomy and the pinned Shiu et al. LIF code supplies the neu
 
 # P1 — Real MaleCNS → FightingICE control ✅
 
-Numeric FightingICE observations stimulate selected real MaleCNS bodies through Poisson input. The whole LIF network advances, real output-body spike counts select an action, and audited FightingICE rounds complete.
+Numeric FightingICE observations stimulate selected real MaleCNS bodies through observation-dependent Poisson input. The whole LIF network advances and selected real output-body spike groups choose FightingICE actions.
 
 **Gate: PASS.**
 
 ---
 
-# P2 — Character-specific independent neural states ✅
+# P2 — Character-specific independent state ✅
 
-GARNET / ZEN / LUD / NEZ use independent mutable simulation state and RNG. Read-only anatomy assets can be shared, but membrane/synaptic state is not shared.
+GARNET / ZEN / LUD / NEZ maintain independent simulation state and RNG. Read-only anatomy/runtime assets can be shared; mutable neural state cannot.
 
-Learning is still OFF, so this gate proves independent simulation identity, not learned divergence.
+This proves independent simulation identity. It does not by itself prove learned behavioral divergence.
 
 **Gate: PASS.**
 
 ---
 
-# P3 — Continuous baseline + analysis logging ✅
+# P3 — Baseline + analysis logging ✅
 
-The baseline scheduler records behavior before production plasticity is enabled.
+The scheduled baseline records behavior while production learning remains off.
 
-Logged data includes:
+Logged evidence includes:
 
 - game frame / observation / action / HP / position;
 - stimulated sensory body IDs and rates;
-- all spike-event body IDs and biological times;
+- spike-event body IDs and biological times;
 - output-body contributions;
-- membrane summary;
-- outcome;
-- canonical dataset/dynamics/interface provenance.
+- membrane summaries;
+- outcomes;
+- dataset/dynamics/interface provenance.
 
-This supports post-hoc recruitment analysis. It does not by itself establish causal circuit mechanisms.
-
-**Gate: PASS.**
-
----
-
-# P4 — Real-game video spectator ✅
-
-FightingICE itself renders the game in headless mode. A separate pyftg stream receives official 960×640 `ScreenData` and encodes H.264 video. Pixels never enter the MaleCNS policy.
-
-Six real 600-frame rounds are recorded into an approximately one-minute clip. The video is not a rectangle reconstruction and is not time-stretched footage.
+Current baseline schedule is every six hours. These runs are evaluation/logging, not training.
 
 **Gate: PASS.**
 
 ---
 
-# P5 — Rolling Vercel arena + neural visualization ✅
+# P4 — Renderer / morphology regression evidence ✅
 
-Operational architecture:
+The former rolling-video spectator proved that official FightingICE 960×640 `ScreenData` can be captured separately from the policy, encoded to H.264, aligned with body-ID activity and enriched with released MaleCNS SWC morphology.
+
+That path is now **historical/manual regression evidence**, not the primary production LIVE. Its hourly schedule has been removed.
+
+Pixels, SWC geometry and visualization annotations never enter the policy.
+
+**Gate: PASS as regression evidence.**
+
+---
+
+# P5 — One shared production Vercel LIVE ✅
+
+Current operational architecture:
 
 ```text
-GitHub Actions hourly
-  ↓
-select next of 6 character pairings
-  ↓
-6 canonical FightingICE rounds
-  ↓
-~1 minute real ScreenData MP4
-  ↓
-body-ID spike log
-  ├─ decision-window structure activity
-  └─ released SWC morphology for top active bodies
-  ↓
-latest / previous-1 / previous-2
-  ↓
-queue.json + stable Release assets
-  ↓
-Vercel /connectome polls every 30 s
+GitHub runtime release + approved inference state
+        ↓
+SHA-addressed persistent runtime snapshot
+        ↓
+fixed connectome-live-broadcast Sandbox
+        ↓
+FightingICE + two MaleCNS/Shiu workers
+        ↓
+/state + /events
+        ↓
+all viewers observe the same LIVE bout
 ```
 
-Completed viewer behavior:
+Public contract:
 
-- NOW + PREVIOUS 1 + PREVIOUS 2;
-- countdown from `next_expected_at`;
-- automatic switch when `current_clip_id` changes;
-- four-character W/L/D and win rate;
-- recent experiment logs;
-- P1/P2 body-ID activity synchronized to video playback;
-- `somaNeuromere`, `superclass`, `type` activity summaries;
-- official MaleCNS SWC X–Z morphology projection;
-- currently active top bodies rendered brighter/thicker;
-- direct link to Actions evidence.
+- one fixed public broadcast target;
+- no per-viewer match creation;
+- `learning_enabled=false`;
+- `policy_pixel_access=false`;
+- exact runtime archive SHA/runtime-base provenance;
+- real `frame > 0` telemetry;
+- real x/y/action/facing data;
+- both MaleCNS decision indices advance;
+- recorded clips are never substituted and labelled LIVE;
+- terminal/stopped shared Sandboxes are recycled from the current runtime base.
 
-The flat annotation table did not expose physical `pos_x/y/z`; those coordinates were not invented. Geometry comes from separately released official SWC skeletons in MaleCNS EM coordinates (8 nm units).
+Current LIVE state:
 
-After each full six-pair spectator epoch, character Poisson seeds advance so the next epoch does not replay exactly the same stochastic sequence.
+- P1: **GARNET generation 2 approved inference**
+- P2: **ZEN canonical baseline**
+- ZEN/LUD/NEZ generation-2 candidate states are not served as production learned fighters.
 
 **Gate: PASS.**
 
 ---
 
-# P6 — Freeze spectator/data contracts ← CURRENT CLOSEOUT
+# P6 — Public Surface Freeze ← CURRENT
 
-Before production learning changes behavior, freeze these interfaces:
+Before reward tuning changes behavior, freeze the observable and provenance contracts.
 
-- queue schema;
-- stable video asset names;
-- body-ID spike schema;
-- decision-window activity timeline;
+Required contracts:
+
+- Vercel `/api/connectome/live` shared-broadcast schema;
+- public session POST rejection;
+- runtime SHA/runtime-base identity;
+- live telemetry fields used by the arena;
+- body-ID activity schema;
 - SWC visualization boundary;
-- Vercel polling behavior;
-- evidence/run links.
+- checkpoint status wording;
+- README / STATUS / ROADMAP / Pages / Vercel UI consistency;
+- explicit warming/error states;
+- no fabricated LIVE fallback.
 
-Minimum regression gate:
+Regression gates:
 
-1. a scheduled rolling run completes;
-2. queue remains exactly ≤3 clips;
-3. video is 45–100 s, H.264, 960×640;
-4. P1/P2 activity timeline is non-empty;
-5. released SWC morphology loads for at least one body per side;
-6. Vercel state API returns the new `current_clip_id` without a viewer redeploy;
-7. learning remains disabled during this gate.
+1. static `public-surface-contract` CI passes;
+2. production shared-LIVE smoke resolves the current runtime release;
+3. public individual-session POST returns the expected rejection;
+4. shared LIVE reaches `ready=true`, `status=running`;
+5. `frame > 0` and both MaleCNS decision indices are observed;
+6. x/y/action telemetry exists for both sides;
+7. public page identifies `GARNET G2 approved · ZEN baseline`;
+8. ZEN/LUD/NEZ candidate lineage is visibly separated from production-served state;
+9. learning and policy-pixel access remain disabled.
 
-This is the final infrastructure gate before reward selection.
+Reward tuning starts only after this surface remains stable across ordinary runtime/session turnover.
 
 ---
 
@@ -183,7 +191,7 @@ This is the final infrastructure gate before reward selection.
 
 Production learning remains OFF until one reward contract is selected.
 
-Current simple control:
+Simple reference control:
 
 ```text
 win   +1
@@ -191,7 +199,7 @@ loss  -1
 draw   0
 ```
 
-The user's current hypothesis is that the game itself may provide enough selection pressure if timeout/stalemate handling is designed carefully. A key comparison is whether a no-progress timeout should penalize both fighters rather than produce zero reward.
+Current public baseline is extremely draw-heavy, so reward density and timeout/stalemate semantics must be measured rather than guessed.
 
 Reward candidates must be compared while keeping fixed:
 
@@ -201,11 +209,11 @@ Reward candidates must be compared while keeping fixed:
 - Poisson randomness mechanism;
 - decision interval;
 - opponent schedule;
-- plastic synapse class and update scale.
+- plastic synapse class/update scale;
+- runtime/game versions;
+- evaluation seeds and compute budget.
 
-Do not reward manually desired actions such as “move forward” or “press attack”.
-
-Existing reward/plasticity/checkpoint workflows are **smoke experiments**, not the production training lineage. Their results may inform P7, but do not imply that continuous learning has been enabled.
+Do not encode hand-designed preferred actions such as “move forward” or “attack” into reward unless that is explicitly the experiment being tested.
 
 ### Gate P7
 
@@ -215,7 +223,8 @@ PASS only when:
 2. timeout/stalemate semantics are explicit;
 3. existing trajectories can be rescored offline;
 4. reward density/range is measured;
-5. one reward is frozen before production weight updates.
+5. train/eval conditions are frozen;
+6. one reward contract is selected before production weight updates.
 
 ---
 
@@ -230,41 +239,48 @@ LUD state
 NEZ state
 ```
 
-Initial prepared plasticity scope is existing KC→MBON candidate edges only. No new topology is created and transmitter sign remains immutable.
+Prepared plasticity work targets declared existing KC→MBON candidate edges only. No new topology is created and transmitter sign remains immutable unless a separately declared experiment explicitly changes that assumption.
 
-Each checkpoint must record generation, match/update counts, code/data/interface/reward IDs, RNG state and checksum.
+Each checkpoint must record:
 
-**Gate:** separate Actions runs must restore generation N exactly, update only the intended character, advance to N+1, and reject damaged/incompatible state.
+- character and generation;
+- parent checkpoint identity;
+- match/update counts;
+- code/data/interface/reward/plasticity IDs;
+- RNG state;
+- file hashes.
+
+**Gate:** separate Actions runs restore generation N exactly, update only the intended character, atomically publish N+1, and reject damaged/incompatible state.
 
 ---
 
 # P9 — Continuous learning + frozen evaluation
 
-Cycle:
+Target cycle:
 
 ```text
-restore character states
+restore latest verified character state
         ↓
-training fights
+run one bounded training unit
         ↓
-post-match approved plasticity
+apply approved plasticity
         ↓
-atomic checkpoint
+atomically publish generation N+1
         ↓
-frozen evaluation fights (no update)
+frozen evaluation fights (no updates)
         ↓
-video + activity + metrics
+metrics / neural logs / provenance
         ↓
-rolling Vercel arena
+approved inference promotion only when evidence supports it
 ```
 
-Train/eval must stay distinct.
+Exactly one canonical trainer advances a lineage at a time. Train and eval must remain distinct.
 
 ---
 
 # P10 — League / archive
 
-Add frozen champions and historical checkpoints so a current character cannot be judged only against a co-evolving contemporary opponent. Opponent sampling and champion replacement rules must be logged.
+Add frozen champions and historical checkpoints so current characters are not judged only against co-evolving contemporaries. Opponent sampling and champion replacement rules must be explicit and logged.
 
 ---
 
@@ -274,13 +290,13 @@ Use accumulated logs and learned-state diffs for:
 
 - action/reward-conditioned body recruitment;
 - neuromere / superclass / cell-type recruitment;
-- playback/event-aligned activity;
+- event-aligned activity;
 - KC→MBON multiplier changes;
 - character-lineage divergence;
 - repeated candidate pathways;
 - targeted intervention / ablation.
 
-Activity correlation is not causality; causal claims require interventions.
+Activity correlation is not causality. Causal claims require interventions.
 
 ---
 
@@ -298,16 +314,20 @@ Report **PASS / FAIL / UNCERTAIN** against predeclared effect thresholds.
 - [x] Real MaleCNS-controlled FightingICE.
 - [x] Four independent character simulation states.
 - [x] Analysis-grade body-ID logs.
-- [x] Real FightingICE ScreenData recording.
-- [x] Six-round ~1 minute clips.
-- [x] Rolling latest + previous two queue.
-- [x] Vercel 30 s polling / countdown.
-- [x] Playback-synchronized structural activity.
-- [x] Official MaleCNS SWC morphology visualization.
-- [ ] Freeze P6 spectator/data schema after scheduled regression run.
-- [ ] Select timeout/stalemate semantics and reward contract.
-- [ ] Promote a character-specific plasticity lineage only after reward freeze.
-- [ ] Enable continuous canonical learning.
+- [x] Compilerless canonical Brian2 Cython runtime.
+- [x] SHA-addressed persistent runtime base.
+- [x] One shared Vercel LIVE.
+- [x] Real production frame/decision/x/y/action telemetry gate.
+- [x] GARNET G2 approved inference handoff.
+- [x] ZEN/LUD/NEZ G2 candidate cross-run lineage evidence.
+- [x] Public provenance panel separating served state from candidates.
+- [x] Static public-surface architecture CI.
+- [x] Remove hourly recorded-spectator schedule; retain manual regression path.
+- [ ] Complete documentation/metadata consistency sweep.
+- [ ] Observe Public Surface Freeze over ordinary LIVE lifecycle/recovery.
+- [ ] Freeze timeout/stalemate and reward contract.
+- [ ] Promote controlled character-specific plasticity only after reward freeze.
+- [ ] Enable sequential continuous canonical training.
 - [ ] Add champion/archive evaluation.
 - [ ] Run causal circuit and biological-control experiments.
 
@@ -315,8 +335,8 @@ Report **PASS / FAIL / UNCERTAIN** against predeclared effect thresholds.
 
 # Operational success
 
-A visitor can open the Vercel arena and watch actual FightingICE clips generated entirely in cloud infrastructure, switch among the current and previous two fights, see when the next clip is expected, inspect four-character results, and watch the two MaleCNS neural activity displays change with playback using real body-ID spikes and released morphology.
+A visitor opens the Vercel arena and observes the same real FightingICE/MaleCNS process as every other viewer, with live fighter telemetry, neural activity, anatomical context, explicit runtime provenance and unambiguous checkpoint status. Failure/warming states remain visible rather than being replaced by synthetic or recorded LIVE content.
 
 # Scientific success
 
-Scientific success begins only after controlled reward/plasticity experiments demonstrate reproducible behavioral change, and causal circuit claims require interventions or ablations rather than activity visualization alone.
+Scientific success begins only after controlled reward/plasticity experiments demonstrate reproducible behavioral change under frozen evaluation conditions. Causal circuit claims require interventions or ablations rather than activity visualization alone.
