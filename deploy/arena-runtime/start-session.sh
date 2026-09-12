@@ -7,17 +7,19 @@ MANIFEST_URL="https://github.com/Unjuno/connectome-fighter/releases/download/are
 LISTEN=8080
 UPSTREAM_PORT=18080
 SESSION_ID=""
-FIGHTINGICE_MODE="${CONNECTOME_FIGHTINGICE_MODE:-lightweight}"
+FIGHTINGICE_MODE="${CONNECTOME_FIGHTINGICE_MODE:-}"
 
-# One-shot diagnostics intentionally remain observable for 30 seconds.  The
-# fixed public broadcast is supervised continuously, so keeping an ended bout
-# alive for a full minute only creates avoidable viewer downtime.
+# One-shot diagnostics intentionally remain observable for 30 seconds and keep
+# the lightweight FightingICE path. The public broadcast needs the official
+# headless renderer because that is the v7.1 path that emits ScreenData.
 if [[ "${CONNECTOME_PUBLIC_BROADCAST:-false}" == "true" ]]; then
   POST_FIGHT_SECONDS="${CONNECTOME_POST_FIGHT_SECONDS:-1}"
   POST_SESSION_SECONDS="${CONNECTOME_POST_SESSION_SECONDS:-1}"
+  if [[ -z "$FIGHTINGICE_MODE" ]]; then FIGHTINGICE_MODE="headless"; fi
 else
   POST_FIGHT_SECONDS="${CONNECTOME_POST_FIGHT_SECONDS:-30}"
   POST_SESSION_SECONDS="${CONNECTOME_POST_SESSION_SECONDS:-30}"
+  if [[ -z "$FIGHTINGICE_MODE" ]]; then FIGHTINGICE_MODE="lightweight"; fi
 fi
 
 while (($#)); do
@@ -162,9 +164,9 @@ ensure_font_runtime() {
   fc-list 2>/dev/null | grep -q .
 }
 
-# FightingICE v7.1 initializes its AWT LetterImage font only in HEADLESS_MODE.
-# The Vercel arena deliberately uses LIGHTWEIGHT_MODE, so requiring apt/fontconfig
-# here would add an irrelevant OS/network dependency before the policy can run.
+# FightingICE v7.1 initializes the AWT LetterImage font in HEADLESS_MODE. Public
+# ScreenData therefore requires a working font runtime; lightweight diagnostics
+# skip this branch. The runtime-base prewarm may satisfy this before session boot.
 if [[ "$FIGHTINGICE_MODE" == "headless" ]]; then
   ensure_font_runtime
 else
