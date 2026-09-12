@@ -4,6 +4,14 @@ on:
   workflow_run:
     workflows: [publish-arena-runtime-bundle]
     types: [completed]
+  push:
+    branches: [main]
+    paths:
+      - 'src/connectome_fighter/flybody_neural_adapter.py'
+      - 'scripts/run_live_flybody_publisher.py'
+      - 'deploy/arena-runtime/bootstrap-proxy.mjs'
+      - 'deploy/arena-runtime/start-session.sh'
+      - '.github/workflows/publish-flybody-runtime-addon.yml'
   workflow_dispatch:
 
 permissions:
@@ -31,6 +39,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
+      - name: Install the same software OpenGL runtime required by Vercel
+        run: |
+          sudo apt-get update -qq
+          sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libosmesa6 libgl1-mesa-dri
+          ldconfig -p | grep -q 'libOSMesa.so'
 
       - name: Download the just-published canonical runtime
         env:
@@ -68,7 +82,7 @@ jobs:
         run: |
           set -euo pipefail
           ROOT="$(realpath runs/flybody-addon/extract/arena-runtime)"
-          PYTHONPATH="$ROOT/repo/src:$ROOT/runtime/siteflybody" MUJOCO_GL=egl python - <<'PY'
+          PYTHONPATH="$ROOT/repo/src:$ROOT/runtime/siteflybody" MUJOCO_GL=osmesa python - <<'PY'
           import numpy as np
           from flybody.fly_envs import template_task
           from connectome_fighter.flybody_neural_adapter import neural_fly_command, flybody_action
@@ -83,10 +97,11 @@ jobs:
           action=flybody_action(names,spec.minimum,spec.maximum,command,0.5)
           ts=env.step(action)
           assert action.shape==spec.shape
+          assert spec.shape[0] >= 40, spec.shape
           pixels=env.physics.render(height=120,width=160,camera_id=1)
           assert pixels.shape==(120,160,3)
           assert float(np.asarray(pixels).std())>1.0
-          print({'flybody_physics':True,'action_dim':int(spec.shape[0]),'render_shape':pixels.shape,'last':bool(ts.last())})
+          print({'flybody_physics':True,'action_dim':int(spec.shape[0]),'render_shape':pixels.shape,'last':bool(ts.last()),'backend':'osmesa'})
           PY
 
       - name: Mark FlyBody as spectator physics in the runtime manifest
@@ -109,10 +124,11 @@ jobs:
           m['flybody_state_path']='/flybody.json'
           m['flybody_policy_access']=False
           m['flybody_game_telemetry_position_used']=False
+          m['flybody_mujoco_gl']='osmesa'
           m['flybody_neural_adapter']='malecns-annotated-motor-to-flybody-tripod-v1'
           m['note']='Official FightingICE remains the primary game view. FlyBody is a separate spectator physics embodiment driven from annotated MaleCNS motor activity through an explicit project-defined adapter.'
           path.write_text(json.dumps(m,indent=2,sort_keys=True)+'\n',encoding='utf-8')
-          print(json.dumps({k:m[k] for k in ['schema_version','bundle_profile','flybody_physics_spectator','flybody_upstream_commit','flybody_policy_access']},indent=2))
+          print(json.dumps({k:m[k] for k in ['schema_version','bundle_profile','flybody_physics_spectator','flybody_upstream_commit','flybody_policy_access','flybody_mujoco_gl']},indent=2))
           PY
 
       - name: Repack and atomically replace the rolling runtime assets
