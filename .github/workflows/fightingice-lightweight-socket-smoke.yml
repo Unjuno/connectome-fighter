@@ -127,7 +127,7 @@ jobs:
           print({'status':s['status'],'rounds':s['completed_rounds_per_agent'],'learning':s['learning_performed']})
           PY
 
-      - name: Verify live arena lightweight bootstrap contract
+      - name: Verify diagnostic lightweight and public headless contracts
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -137,9 +137,12 @@ jobs:
           assert 'default="lightweight"' in server
           assert 'processing_flag = "--lightweight-mode"' in server
           assert 'FightingICE.jar:./lib/*:./lib/lwjgl/*' in server
-          assert 'FIGHTINGICE_MODE="${CONNECTOME_FIGHTINGICE_MODE:-lightweight}"' in start
+          assert 'FIGHTINGICE_MODE="${CONNECTOME_FIGHTINGICE_MODE:-}"' in start
+          assert 'CONNECTOME_PUBLIC_BROADCAST' in start
+          assert 'FIGHTINGICE_MODE="headless"' in start
+          assert 'FIGHTINGICE_MODE="lightweight"' in start
           assert 'if [[ "$FIGHTINGICE_MODE" == "headless" ]]' in start
           assert 'font-runtime-not-required-lightweight' in start
           assert '--fightingice-mode "$FIGHTINGICE_MODE"' in start
-          print('live arena lightweight contract: no font preflight, explicit lightweight runner mode')
+          print('arena mode contract: one-shot diagnostics stay lightweight; public ScreenData broadcast defaults headless')
           PY
