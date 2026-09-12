@@ -69,14 +69,24 @@ LIVE 画面右下の provenance panel でも、**GARNET G2 approved / ZEN LIVE b
 
 Canonical backend は引き続き **Brian2 Cython** です。Vercel Sandbox に C compiler が無いため、GitHub Actions で production executable path を再現して Cython extension を事前 compile し、compiler を利用不能にした状態でも同じ worker が `ready` になることを gate にしています。
 
-現在の production runtime evidence:
+現在の production runtime evidence（2026-09-12）:
 
-- runtime archive SHA-256: `b4511a0d5287384d2ca130ef58b40adb2786c6b0968ec961d5b41af13441d510`
-- runtime base: `connectome-runtime-b4511a0d5287384d`
+- runtime archive SHA-256: `f4016e3a2f79968a3305818ad3b4ef2197802e36c647660c1ab524b098f27205`
+- runtime base: `connectome-runtime-f4016e3a2f79968a`
+- runtime snapshot: `snap_s5HpePEfgiNNAsLgE9UKsvOVwY5u`
+- Python `3.10.21`
 - Brian2 `2.5.1`
 - Cython `0.29.36`
 - NumPy `1.24.0`
+- compilerless cache: **30 files / 15 shared objects / 5,776,256 bytes**
+- cache tree SHA-256: `772cf23de36484d12e9355334f116bad71b8a8d30e42531cc93b90e3670dcd92`
+- host-specific `-march=native`: **excluded**
 - **156,675 neurons / 6,025,920 recurrent synapses**
+- proof telemetry: **round 1 / frame 181 / GARNET decision 3 / ZEN decision 3 / 9,245 vs 9,098 spikes**
+- compilerless release E2E: Actions `34690428080` — **PASS**
+- independent production smoke: Actions `34690567057` — **PASS**
+
+Machine-readable proofは [`site/data/runtime-proof.json`](site/data/runtime-proof.json) に固定しています。
 
 この precompile/cache は deployment optimization であり、MaleCNS topology や Shiu dynamics の置換ではありません。
 
@@ -149,6 +159,8 @@ Public Surface Freeze の最低条件:
 6. README / STATUS / ROADMAP / Pages / Vercel UI が同じ architecture を示す
 7. stopped shared Sandbox を supervisor が recycle して復旧できる
 8. failure/warming を明示し、偽の LIVE fallback を作らない
+
+shared LIVE のbout切替は public broadcast だけ post-fight/session hold を各1秒へ短縮し、通常one-shot診断の30秒保持は維持しています。実観測では旧 running session → 新 booting を7秒サンプリング以内、新 booting → running をさらに7秒以内で確認しており、旧30秒+30秒のterminal holdは再現していません。これはサンプリング上限であり、厳密なdowntime測定値ではありません。
 
 これを固定してから reward/stalemate semantics の比較へ進みます。
 

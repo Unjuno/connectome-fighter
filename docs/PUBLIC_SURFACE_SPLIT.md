@@ -23,7 +23,8 @@ Shared LIVE contract:
 - `learning_enabled=false`;
 - `policy_pixel_access=false`;
 - immutable runtime is supplied from a persistent runtime snapshot addressed by the runtime archive SHA-256;
-- after a bout ends, the same shared Sandbox starts the next bout;
+- after a bout ends, the same shared broadcast target starts the next bout;
+- terminal/stopped shared Sandboxes are recycled from the current runtime base;
 - Vercel never performs weight updates or rewrites research checkpoints.
 
 The current LIVE matchup is **GARNET approved generation-2 checkpoint vs ZEN canonical baseline**. ZEN is not an approved learned checkpoint, so this is not described as trained-vs-trained.
@@ -34,7 +35,8 @@ The Vercel surface displays:
 - decision-window MaleCNS spike activity for both sides;
 - released MaleCNS SWC-derived X–Z morphology and anatomical context;
 - shared LIVE connection, warming and error state;
-- a fly-shaped fight visualization whose position/facing/action come from live FightingICE telemetry; wingbeat is presentation-only.
+- a fly-shaped fight visualization whose position/facing/action come from live FightingICE telemetry; wingbeat is presentation-only;
+- public inference provenance separating served state from candidate lineage evidence.
 
 The Vercel surface must not:
 
@@ -70,7 +72,7 @@ GitHub publishes or links:
 
 Training belongs on GitHub Actions. Vercel only receives state that has been explicitly approved for read-only inference.
 
-During Pages deployment, canonical JSON under `configs/` is copied into `site/research-data/` so displayed parameters cannot silently drift from the versioned experiment contract.
+During Pages deployment, canonical JSON under `configs/` is copied into `site/research-data/` so displayed parameters cannot silently drift from the versioned experiment contract. Current production runtime proof is published separately as `site/data/runtime-proof.json`.
 
 ## Training → LIVE inference handoff
 
@@ -106,21 +108,32 @@ The canonical Brian2 code-generation target remains **Cython**. Vercel Sandbox i
 
 This is a deployment/cold-start/portability optimization. It does not alter MaleCNS topology or the pinned Shiu dynamics.
 
-## Production inference proof — 2026-09-12
+## Current production inference proof — 2026-09-12
 
-Production evidence established the compilerless runtime and real Vercel inference path with:
+Production evidence established the current compilerless runtime and real Vercel inference path with:
 
-- runtime archive SHA-256 `b4511a0d5287384d2ca130ef58b40adb2786c6b0968ec961d5b41af13441d510`;
-- runtime base `connectome-runtime-b4511a0d5287384d`;
-- Brian2 `2.5.1`, Cython `0.29.36`, NumPy `1.24.0`;
+- runtime archive SHA-256 `f4016e3a2f79968a3305818ad3b4ef2197802e36c647660c1ab524b098f27205`;
+- runtime archive size `439024170` bytes;
+- runtime base `connectome-runtime-f4016e3a2f79968a`;
+- runtime snapshot `snap_s5HpePEfgiNNAsLgE9UKsvOVwY5u`;
+- Python `3.10.21`, Brian2 `2.5.1`, Cython `0.29.36`, NumPy `1.24.0`;
 - 156,675 included neurons;
 - 6,025,920 runtime recurrent synapses;
 - compilerless cache reuse verified;
-- real FightingICE frame advancement and decisions from both MaleCNS workers.
+- cache tree SHA-256 `772cf23de36484d12e9355334f116bad71b8a8d30e42531cc93b90e3670dcd92`;
+- 30 cache files / 15 shared objects / 5,776,256 bytes;
+- host-specific `-march=native` excluded;
+- real FightingICE frame advancement and decisions from both MaleCNS workers;
+- compilerless release E2E Actions `34690428080` — PASS;
+- independent production smoke Actions `34690567057` — PASS.
 
-The proof bout used **GARNET approved generation-2 checkpoint vs ZEN canonical baseline**. It proves production inference plumbing, not trained-vs-trained performance.
+The proof telemetry observed round 1 / frame **181**, GARNET decision **3**, ZEN decision **3**, and **9,245 / 9,098** network spikes. The proof bout used **GARNET approved generation-2 checkpoint vs ZEN canonical baseline**. It proves production inference plumbing, not trained-vs-trained performance.
 
-The public surface subsequently moved to the fixed-name `connectome-live-broadcast` **single shared live broadcast**. The individual public match-creation path is disabled.
+Machine-readable proof: [`site/data/runtime-proof.json`](../site/data/runtime-proof.json).
+
+### Shared LIVE handoff timing
+
+Public broadcast sessions now use 1-second post-fight and post-session hold defaults; ordinary one-shot diagnostics retain the 30-second defaults. Sampled production observations showed a previous running bout at `11:15:47Z`, the next bout booting at `11:15:54Z`, and that same next bout running at `11:16:01Z`. These are sampling bounds rather than an exact downtime measurement, but the prior intentional 30s+30s terminal hold is no longer present.
 
 ## Public-surface freeze gate
 
@@ -133,7 +146,8 @@ Before reward tuning or continuous learning is promoted, the following must stay
 5. production telemetry reaches `frame > 0` and both MaleCNS sides emit decision indices;
 6. GARNET is labelled approved while ZEN/LUD/NEZ remain candidate unless separately promoted by evidence;
 7. README, Pages and workflow checks do not regress to the retired viewer-specific architecture;
-8. public failure states are shown as warming/error, never replaced by fabricated LIVE content.
+8. public failure states are shown as warming/error, never replaced by fabricated LIVE content;
+9. compilerless runtime release E2E and the independent production smoke both use the same shared-LIVE contract.
 
 ## Scientific boundary
 

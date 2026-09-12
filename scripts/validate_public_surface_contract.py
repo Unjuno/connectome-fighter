@@ -2,9 +2,13 @@
 """Fail CI when public documentation/workflows drift from the shared-LIVE contract."""
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+RETIRED_RUNTIME_SHA256 = {
+    "b4511a0d5287384d2ca130ef58b40adb2786c6b0968ec961d5b41af13441d510",
+}
 
 
 def read(path: str) -> str:
@@ -22,10 +26,54 @@ def forbid(path: str, *needles: str) -> None:
     text = read(path)
     found = [needle for needle in needles if needle in text]
     if found:
-        raise SystemExit(f"{path}: retired public architecture text returned: {found}")
+        raise SystemExit(f"{path}: retired public architecture/proof text returned: {found}")
+
+
+def validate_runtime_proof() -> dict:
+    path = ROOT / "site/data/runtime-proof.json"
+    proof = json.loads(path.read_text(encoding="utf-8"))
+    if proof.get("kind") != "connectome-fighter-production-runtime-proof":
+        raise SystemExit("site/data/runtime-proof.json: unexpected kind")
+    sha = str(proof.get("runtime_archive_sha256") or "")
+    if len(sha) != 64 or any(ch not in "0123456789abcdef" for ch in sha):
+        raise SystemExit("site/data/runtime-proof.json: invalid runtime SHA-256")
+    expected_base = f"connectome-runtime-{sha[:16]}"
+    if proof.get("runtime_base") != expected_base:
+        raise SystemExit(f"site/data/runtime-proof.json: runtime_base must be {expected_base}")
+    if not str(proof.get("runtime_snapshot_id") or "").startswith("snap_"):
+        raise SystemExit("site/data/runtime-proof.json: missing runtime snapshot ID")
+    if proof.get("canonical_model") != "MaleCNS v1.0 + pinned Shiu LIF":
+        raise SystemExit("site/data/runtime-proof.json: canonical model mismatch")
+    if proof.get("compilerless_reuse_verified") is not True:
+        raise SystemExit("site/data/runtime-proof.json: compilerless reuse not verified")
+    if proof.get("host_specific_march_native") is not False:
+        raise SystemExit("site/data/runtime-proof.json: host-specific native code must be false")
+    if int(proof.get("neurons", 0)) <= 150_000 or int(proof.get("recurrent_synapses", 0)) <= 1_000_000:
+        raise SystemExit("site/data/runtime-proof.json: implausible model dimensions")
+    if int(proof.get("shared_object_count", 0)) < 1:
+        raise SystemExit("site/data/runtime-proof.json: no precompiled shared objects")
+    if proof.get("broadcast_target") != "connectome-live-broadcast" or proof.get("audience_scope") != "shared-global":
+        raise SystemExit("site/data/runtime-proof.json: public broadcast contract mismatch")
+    if proof.get("p1") != "GARNET" or proof.get("p1_state") != "generation-2-approved-inference":
+        raise SystemExit("site/data/runtime-proof.json: served P1 state mismatch")
+    if proof.get("p2") != "ZEN" or proof.get("p2_state") != "canonical-baseline":
+        raise SystemExit("site/data/runtime-proof.json: served P2 state mismatch")
+    if proof.get("learning_enabled") is not False or proof.get("policy_pixel_access") is not False:
+        raise SystemExit("site/data/runtime-proof.json: public policy boundary mismatch")
+    telemetry = proof.get("proof_telemetry") or {}
+    if int(telemetry.get("frame", 0)) <= 0:
+        raise SystemExit("site/data/runtime-proof.json: proof frame must be > 0")
+    if int(telemetry.get("p1_decision_index", 0)) <= 0 or int(telemetry.get("p2_decision_index", 0)) <= 0:
+        raise SystemExit("site/data/runtime-proof.json: both proof decision indices must be > 0")
+    return proof
 
 
 def main() -> int:
+    proof = validate_runtime_proof()
+    runtime_sha = str(proof["runtime_archive_sha256"])
+    runtime_base = str(proof["runtime_base"])
+    snapshot_id = str(proof["runtime_snapshot_id"])
+
     require(
         "README.md",
         "single shared Vercel LIVE",
@@ -49,6 +97,10 @@ def main() -> int:
         "ZEN generation 2 = CANDIDATE LINEAGE",
         "continuous production reward-driven learning は OFF",
         "Public Surface Freeze",
+        runtime_sha,
+        runtime_base,
+        snapshot_id,
+        "site/data/runtime-proof.json",
     )
     forbid(
         "README.ja.md",
@@ -56,6 +108,7 @@ def main() -> int:
         "3本rolling queue",
         "Vercel 30秒poll",
         "rolling spectatorを複数scheduled run",
+        *RETIRED_RUNTIME_SHA256,
     )
 
     require(
@@ -81,12 +134,17 @@ def main() -> int:
         "connectome-live-broadcast",
         "Historical rolling-video spectator — RETAINED EVIDENCE, NOT PRIMARY LIVE",
         "Current gate — Public Surface Freeze",
+        runtime_sha,
+        runtime_base,
+        snapshot_id,
+        "site/data/runtime-proof.json",
     )
     forbid(
         "docs/STATUS.md",
         "Current production spectator — PASS",
         "Vercel viewer polls every 30 s",
         "P6 — freeze spectator/data contracts",
+        *RETIRED_RUNTIME_SHA256,
     )
 
     require(
@@ -96,12 +154,17 @@ def main() -> int:
         "learning_enabled=false",
         "policy_pixel_access=false",
         "Public-surface freeze gate",
+        runtime_sha,
+        runtime_base,
+        snapshot_id,
+        "site/data/runtime-proof.json",
     )
     forbid(
         "docs/PUBLIC_SURFACE_SPLIT.md",
         "short-lived per-viewer inference",
         "isolated viewer-specific inference session",
         "production runtime image/service is still being provisioned",
+        *RETIRED_RUNTIME_SHA256,
     )
 
     require(
@@ -111,7 +174,12 @@ def main() -> int:
         "Production reward-driven learning は現在 **OFF**",
         "Public Surface Freeze gate",
         "毎時 schedule は停止済み",
+        runtime_sha,
+        runtime_base,
+        snapshot_id,
+        "site/data/runtime-proof.json",
     )
+    forbid("docs/PUBLIC_SURFACE_SPLIT.ja.md", *RETIRED_RUNTIME_SHA256)
 
     require(
         "docs/SPECTATOR_PIPELINE.ja.md",
@@ -132,11 +200,18 @@ def main() -> int:
         "one globally shared read-only LIVE fight",
         "GARNET generation 2",
         "candidate cross-run resume proven",
+        runtime_sha,
+        runtime_base,
+        snapshot_id,
+        "runtime-proof.json",
     )
+    forbid("site/index.html", *RETIRED_RUNTIME_SHA256)
     require(
         "site/app.js",
         "Public Surface Freeze · data:",
         "Project gate: Public Surface Freeze; latest baseline data phase:",
+        "./data/runtime-proof.json",
+        "renderRuntimeProof",
     )
 
     require(
@@ -180,7 +255,7 @@ def main() -> int:
         "schedule:",
     )
 
-    print("public-surface contract: PASS")
+    print(f"public-surface contract: PASS runtime={runtime_sha[:16]} base={runtime_base}")
     return 0
 
 

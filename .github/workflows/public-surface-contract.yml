@@ -13,6 +13,7 @@ on:
       - 'docs/SPECTATOR_PIPELINE.ja.md'
       - 'site/index.html'
       - 'site/app.js'
+      - 'site/data/runtime-proof.json'
       - 'scripts/validate_public_surface_contract.py'
       - '.github/workflows/vercel-live-arena-smoke.yml'
       - '.github/workflows/precompile-arena-brian2-cython-cache.yml'
@@ -30,6 +31,7 @@ on:
       - 'docs/SPECTATOR_PIPELINE.ja.md'
       - 'site/index.html'
       - 'site/app.js'
+      - 'site/data/runtime-proof.json'
       - 'scripts/validate_public_surface_contract.py'
       - '.github/workflows/vercel-live-arena-smoke.yml'
       - '.github/workflows/precompile-arena-brian2-cython-cache.yml'
@@ -47,5 +49,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Validate frozen public architecture
+      - name: Validate frozen public architecture and production proof consistency
         run: python scripts/validate_public_surface_contract.py
