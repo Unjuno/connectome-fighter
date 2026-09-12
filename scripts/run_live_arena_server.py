@@ -75,18 +75,52 @@ class ArenaState:
             if not isinstance(row, (list, tuple)) or len(row) < 2:
                 continue
             top_bodies.append({"body_id": int(row[0]), "spikes": int(row[1])})
+
         raw_groups = brain.get("group_spike_counts") or {}
         group_spike_counts = {
             str(name): int(value)
             for name, value in raw_groups.items()
             if isinstance(name, str) and isinstance(value, (int, float))
         }
+
+        sensory_drive = []
+        for row in (brain.get("sensory_drive_top") or [])[:16]:
+            if not isinstance(row, (list, tuple)) or len(row) < 2:
+                continue
+            try:
+                sensory_drive.append({"body_id": int(row[0]), "rate_hz": float(row[1])})
+            except (TypeError, ValueError):
+                continue
+
+        output_contributions = []
+        for row in (brain.get("output_contributions_top") or [])[:20]:
+            if not isinstance(row, (list, tuple)) or len(row) < 3:
+                continue
+            try:
+                output_contributions.append({
+                    "group": str(row[0]),
+                    "body_id": int(row[1]),
+                    "spikes": float(row[2]),
+                })
+            except (TypeError, ValueError):
+                continue
+
+        membrane_summary = {}
+        for name, value in (brain.get("membrane_summary") or {}).items():
+            if isinstance(name, str) and isinstance(value, (int, float)):
+                membrane_summary[name] = float(value)
+
         return {
             "decision_index": int(brain.get("trace_decision_index", 0)),
             "t_seconds": float(event.get("frame", 0)) / 60.0,
+            "biological_time_start_ms": float(brain.get("biological_time_start_ms", 0.0)),
+            "biological_time_end_ms": float(brain.get("biological_time_end_ms", 0.0)),
             "total_spikes": int(brain.get("total_spikes", 0)),
             "unique_bodies": int(brain.get("unique_spike_bodies", len(top_bodies))),
             "group_spike_counts": group_spike_counts,
+            "sensory_drive": sensory_drive,
+            "output_contributions": output_contributions,
+            "membrane_summary": membrane_summary,
             "neuromeres": [],
             "superclasses": [],
             "types": [],
@@ -120,7 +154,7 @@ class ArenaState:
             }
 
         return {
-            "schema_version": 2,
+            "schema_version": 3,
             "session_id": self.session_id,
             "status": status,
             "round": round_id,
@@ -171,7 +205,7 @@ def tail_jsonl(path: Path, state: ArenaState, stop: threading.Event) -> None:
 
 def make_handler(state: ArenaState):
     class Handler(BaseHTTPRequestHandler):
-        server_version = "ConnectomeArena/2"
+        server_version = "ConnectomeArena/3"
 
         def _headers(self, status: int, content_type: str) -> None:
             self.send_response(status)
