@@ -177,6 +177,11 @@ class MaleCNSWorkerPolicy:
             events=spike_events,
         )
         unique_bodies = len({body for _, body in spike_events})
+        sensory_drive_top = sorted(sensory_drive, key=lambda row: (-row[1], row[0]))[:16]
+        output_contributions_top = sorted(
+            output_contributions,
+            key=lambda row: (-row[2], row[0], row[1]),
+        )[:20]
         self._last_telemetry = {
             "canonical_model": "male-cns:v1.0 + pinned Shiu LIF",
             "character": self.character,
@@ -187,6 +192,8 @@ class MaleCNSWorkerPolicy:
             "unique_spike_bodies": int(unique_bodies),
             "group_spike_counts": response["group_spike_counts"],
             "top_spike_bodies": response["top_spike_bodies"],
+            "sensory_drive_top": sensory_drive_top,
+            "output_contributions_top": output_contributions_top,
             "membrane_summary": response["membrane_summary"],
             "trace_decision_index": self._decision_index,
         }
