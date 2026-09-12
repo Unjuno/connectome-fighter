@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Fetch released MaleCNS SWC skeletons for the most active bodies in a clip.
+"""Build spectator-only MaleCNS morphology for one recorded fight clip.
 
-The MaleCNS project publishes centerline skeletons in EM coordinates (8 nm
-units). This script is spectator-only: it selects bodies from recorded spike
-logs after the match, downloads their public SWC files, and stores a compact
-X-Z projection. Morphology never enters the controller or learning path.
+The active layer is selected post-hoc from real recorded spike body IDs. A
+separate versioned context atlas supplies a lightweight whole-CNS background
+from official released MaleCNS SWC centerlines. Neither layer is available to
+the controller or learning path.
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -19,6 +20,11 @@ BASE = (
     "https://storage.googleapis.com/flyem-male-cns/v1.0/segmentation/"
     "skeletons-malecns/skeletons-swc"
 )
+DEFAULT_ATLAS_URL = (
+    "https://github.com/Unjuno/connectome-fighter/releases/download/"
+    "malecns-context-atlas-v1/malecns-context-atlas-xz.json"
+)
+DEFAULT_ATLAS_SHA256 = "f7c691d6c80820bf46c6bd09fd5d9dc92d0ec4f45fd9a0e4e1bd91132e729107"
 
 
 def top_bodies(path: Path, count: int) -> list[tuple[int, int]]:
@@ -34,6 +40,42 @@ def fetch_swc(body_id: int, timeout: float) -> str:
     request = urllib.request.Request(url, headers={"User-Agent": "connectome-fighter-spectator/1"})
     with urllib.request.urlopen(request, timeout=timeout) as response:
         return response.read().decode("utf-8")
+
+
+def fetch_context_atlas(url: str, expected_sha256: str, timeout: float) -> dict:
+    request = urllib.request.Request(url, headers={"User-Agent": "connectome-fighter-spectator/2"})
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        raw = response.read()
+    actual = hashlib.sha256(raw).hexdigest()
+    if expected_sha256 and actual != expected_sha256.lower():
+        raise ValueError(f"context atlas SHA-256 mismatch: {actual}")
+    atlas = json.loads(raw.decode("utf-8"))
+    if atlas.get("schema_version") != 1:
+        raise ValueError("unsupported context atlas schema")
+    if atlas.get("kind") != "male-cns-context-atlas-xz":
+        raise ValueError("invalid context atlas kind")
+    if atlas.get("dataset") != "male-cns:v1.0":
+        raise ValueError("context atlas dataset mismatch")
+    if atlas.get("policy_access") is not False:
+        raise ValueError("context atlas must be spectator-only")
+    if atlas.get("atlas_kind") != "deterministic-stratified-released-skeleton-sample":
+        raise ValueError("context atlas sampling contract mismatch")
+    if atlas.get("projection") != "x-z" or atlas.get("coordinate_space") != "MaleCNS EM":
+        raise ValueError("context atlas coordinate contract mismatch")
+    if atlas.get("coordinate_units") != "8 nm":
+        raise ValueError("context atlas coordinate units mismatch")
+    segments = atlas.get("segments") or []
+    bounds = atlas.get("bounds") or {}
+    coverage = atlas.get("coverage") or {}
+    if len(segments) < 1000 or int(coverage.get("loaded_bodies", 0)) < 48:
+        raise ValueError("context atlas coverage is below spectator minimum")
+    if not all(key in bounds for key in ("x_min", "x_max", "z_min", "z_max")):
+        raise ValueError("context atlas bounds missing")
+    boundary = str(atlas.get("interpretation_boundary") or "").lower()
+    if "not an all-neuron rendering" not in boundary or "policy input" not in boundary:
+        raise ValueError("context atlas interpretation boundary missing")
+    atlas["sha256"] = actual
+    return atlas
 
 
 def parse_projection(text: str, max_segments: int) -> tuple[list[list[float]], dict[str, float]]:
@@ -80,9 +122,17 @@ def main() -> int:
     p.add_argument("--bodies-per-side", type=int, default=6)
     p.add_argument("--max-segments-per-body", type=int, default=180)
     p.add_argument("--timeout", type=float, default=30.0)
+    p.add_argument("--atlas-url", default=DEFAULT_ATLAS_URL)
+    p.add_argument("--atlas-sha256", default=DEFAULT_ATLAS_SHA256)
+    p.add_argument("--atlas-timeout", type=float, default=30.0)
     args = p.parse_args()
     if args.bodies_per_side <= 0 or args.max_segments_per_body <= 0:
         p.error("body and segment limits must be positive")
+
+    atlas = fetch_context_atlas(args.atlas_url, args.atlas_sha256, args.atlas_timeout)
+    atlas_bounds = atlas["bounds"]
+    global_x = [float(atlas_bounds["x_min"]), float(atlas_bounds["x_max"])]
+    global_z = [float(atlas_bounds["z_min"]), float(atlas_bounds["z_max"])]
 
     selected = {
         "p1": top_bodies(args.run_dir / "p1-brain" / "spikes.parquet", args.bodies_per_side),
@@ -91,8 +141,6 @@ def main() -> int:
     unique = sorted({body for rows in selected.values() for body, _ in rows})
     morphology: dict[int, dict] = {}
     failures: dict[int, str] = {}
-    global_x: list[float] = []
-    global_z: list[float] = []
 
     for body_id in unique:
         try:
@@ -113,7 +161,7 @@ def main() -> int:
             failures[body_id] = f"{type(exc).__name__}: {exc}"
 
     if not morphology:
-        raise RuntimeError(f"No released skeletons could be loaded: {failures}")
+        raise RuntimeError(f"No released active skeletons could be loaded: {failures}")
 
     sides: dict[str, list[dict]] = {}
     for side, rows in selected.items():
@@ -127,10 +175,11 @@ def main() -> int:
             if body in morphology
         ]
 
+    coverage = atlas.get("coverage") or {}
     payload = {
-        "schema_version": 1,
+        "schema_version": 2,
         "dataset": "male-cns:v1.0",
-        "purpose": "spectator-only-released-skeleton-projection",
+        "purpose": "spectator-only-context-atlas-plus-active-released-skeletons",
         "policy_access": False,
         "projection": "x-z",
         "coordinate_space": "MaleCNS EM",
@@ -140,22 +189,38 @@ def main() -> int:
             "x_min": min(global_x), "x_max": max(global_x),
             "z_min": min(global_z), "z_max": max(global_z),
         },
+        "atlas_segments": atlas["segments"],
+        "atlas": {
+            "source": args.atlas_url,
+            "sha256": atlas["sha256"],
+            "kind": atlas["kind"],
+            "atlas_kind": atlas["atlas_kind"],
+            "loaded_bodies": int(coverage.get("loaded_bodies", 0)),
+            "segment_count": len(atlas["segments"]),
+            "soma_neuromeres": coverage.get("soma_neuromeres") or [],
+            "superclasses": coverage.get("superclasses") or [],
+            "root_sides": coverage.get("root_sides") or [],
+            "interpretation_boundary": atlas["interpretation_boundary"],
+        },
         "sides": sides,
         "failed_body_ids": {str(k): v for k, v in failures.items()},
         "interpretation_boundary": (
-            "Released neuron centerline skeletons are selected only after the fight from recorded spike logs. "
-            "They are visualization data and are never policy inputs."
+            "The faint context layer is a deterministic stratified sample of official released MaleCNS SWC centerlines; it is not an all-neuron rendering. "
+            "Bright clip-active centerlines are selected only after the fight from recorded spike body IDs. Both layers are spectator-only and never policy inputs."
         ),
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(payload, separators=(",", ":")) + "\n", encoding="utf-8")
     print(json.dumps({
         "status": "PASS",
-        "requested_bodies": len(unique),
-        "loaded_bodies": len(morphology),
-        "failed_bodies": len(failures),
+        "requested_active_bodies": len(unique),
+        "loaded_active_bodies": len(morphology),
+        "failed_active_bodies": len(failures),
         "p1": len(sides["p1"]),
         "p2": len(sides["p2"]),
+        "atlas_bodies": int(coverage.get("loaded_bodies", 0)),
+        "atlas_segments": len(atlas["segments"]),
+        "atlas_sha256": atlas["sha256"],
     }, indent=2))
     return 0
 
