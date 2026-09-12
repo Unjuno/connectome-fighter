@@ -133,6 +133,11 @@ def main() -> int:
         "GARNET generation 2",
         "candidate cross-run resume proven",
     )
+    require(
+        "site/app.js",
+        "Public Surface Freeze · data:",
+        "Project gate: Public Surface Freeze; latest baseline data phase:",
+    )
 
     require(
         ".github/workflows/vercel-live-arena-smoke.yml",
