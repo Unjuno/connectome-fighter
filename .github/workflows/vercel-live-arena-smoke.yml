@@ -77,7 +77,7 @@ jobs:
             rm -f "$tmp"
             if [[ -n "$body" ]]; then
               last="$body"
-              echo "$body" | jq '{mode,broadcast_target,audience_scope,ready,status,p1,p2,stream_url,telemetry_url,session_id,source_runtime_base,runtime_archive_sha256,learning_enabled,policy_pixel_access,retention,maintenance_action,reason}'
+              echo "$body" | jq '{mode,broadcast_target,audience_scope,ready,status,p1,p2,stream_url,telemetry_url,session_id,source_runtime_base,runtime_archive_sha256,learning_enabled,policy_pixel_access,retention,audience_heartbeat,maintenance_action,reason}'
               test "$(echo "$body" | jq -r '.mode')" = 'single-shared-live-broadcast'
               test "$(echo "$body" | jq -r '.broadcast_target')" = 'connectome-live-broadcast'
               test "$(echo "$body" | jq -r '.audience_scope')" = 'shared-global'
@@ -123,9 +123,7 @@ jobs:
             exit 1
           fi
 
-      - name: Require real FightingICE movement and both MaleCNS decisions
-        env:
-          REQUIRE_NEURAL_ACTION_GROUPS: ${{ github.event_name != 'push' }}
+      - name: Require synchronized sensory-to-motor FightingICE telemetry
         run: |
           set -euo pipefail
           last=''
@@ -133,7 +131,7 @@ jobs:
             body="$(curl -fsS "$TELEMETRY_URL" || true)"
             if [[ -n "$body" ]]; then
               last="$body"
-              echo "$body" | jq '{schema_version,status,round,frame,p1:{character:.p1.character,hp:.p1.hp,x:.p1.x,y:.p1.y,action:.p1.action,facing:.p1.facing},p2:{character:.p2.character,hp:.p2.hp,x:.p2.x,y:.p2.y,action:.p2.action,facing:.p2.facing},p1_decision:.brain.p1.decision_index,p2_decision:.brain.p2.decision_index,p1_spikes:.brain.p1.total_spikes,p2_spikes:.brain.p2.total_spikes,p1_groups:.brain.p1.group_spike_counts,p2_groups:.brain.p2.group_spike_counts,learning_enabled,policy_pixel_access,error,exit_code}'
+              echo "$body" | jq '{schema_version,status,round,rounds_per_session,frame,p1:{character:.p1.character,hp:.p1.hp,x:.p1.x,y:.p1.y,action:.p1.action,facing:.p1.facing},p2:{character:.p2.character,hp:.p2.hp,x:.p2.x,y:.p2.y,action:.p2.action,facing:.p2.facing},p1_decision:.brain.p1.decision_index,p2_decision:.brain.p2.decision_index,p1_spikes:.brain.p1.total_spikes,p2_spikes:.brain.p2.total_spikes,p1_groups:.brain.p1.group_spike_counts,p2_groups:.brain.p2.group_spike_counts,p1_sensory:(.brain.p1.sensory_drive[:3]),p2_sensory:(.brain.p2.sensory_drive[:3]),p1_motor:(.brain.p1.output_contributions[:3]),p2_motor:(.brain.p2.output_contributions[:3]),learning_enabled,policy_pixel_access,error,exit_code}'
               test "$(echo "$body" | jq -r '.learning_enabled')" = 'false'
               test "$(echo "$body" | jq -r '.policy_pixel_access')" = 'false'
               status="$(echo "$body" | jq -r '.status // empty')"
@@ -142,47 +140,64 @@ jobs:
                 exit 1
               fi
               if echo "$body" | jq -e '
+                def action_keys: ["FORWARD","BACKWARD","UP","DOWN","A","B","C"];
+                def numeric_sensory($brain):
+                  ($brain.sensory_drive | type) == "array" and
+                  ($brain.sensory_drive | length) > 0 and
+                  ($brain.sensory_drive | all(.[]; (.body_id | type) == "number" and (.rate_hz | type) == "number" and .rate_hz > 0));
+                def numeric_motor($brain):
+                  ($brain.output_contributions | type) == "array" and
+                  ($brain.output_contributions | length) > 0 and
+                  ($brain.output_contributions | all(.[]; (.group | type) == "string" and (.body_id | type) == "number" and (.spikes | type) == "number" and .spikes > 0));
+                def neural_consistent($brain; $fighter):
+                  ($brain.group_spike_counts | type) == "object" and
+                  (action_keys | all(. as $k | ($brain.group_spike_counts[$k] | type) == "number")) and
+                  numeric_sensory($brain) and numeric_motor($brain) and
+                  ($brain.biological_time_start_ms | type) == "number" and
+                  ($brain.biological_time_end_ms | type) == "number" and
+                  $brain.biological_time_end_ms > $brain.biological_time_start_ms and
+                  ($brain.membrane_summary | type) == "object" and
+                  ($brain.membrane_summary.v_mean_mV | type) == "number" and
+                  ($brain.membrane_summary.g_mean_mV | type) == "number" and
+                  if $fighter.action == "NEUTRAL" then
+                    (action_keys | map($brain.group_spike_counts[.] // 0) | max) == 0
+                  else
+                    (action_keys | index($fighter.action)) != null and
+                    ($brain.group_spike_counts[$fighter.action] == (action_keys | map($brain.group_spike_counts[.] // 0) | max))
+                  end;
                 .status == "running" and
-                (.frame | type == "number") and .frame > 0 and
+                (.schema_version | type) == "number" and .schema_version >= 3 and
+                .rounds_per_session == 6 and
+                (.frame | type) == "number" and .frame > 0 and
                 .p1.character == "GARNET" and .p2.character == "ZEN" and
-                (.p1.x | type == "number") and (.p1.y | type == "number") and
-                (.p2.x | type == "number") and (.p2.y | type == "number") and
-                (.p1.action | type == "string") and (.p2.action | type == "string") and
-                (.brain.p1.decision_index | type == "number") and .brain.p1.decision_index > 0 and
-                (.brain.p2.decision_index | type == "number") and .brain.p2.decision_index > 0
+                (.p1.x | type) == "number" and (.p1.y | type) == "number" and
+                (.p2.x | type) == "number" and (.p2.y | type) == "number" and
+                (.brain.p1.decision_index | type) == "number" and .brain.p1.decision_index > 0 and
+                (.brain.p2.decision_index | type) == "number" and .brain.p2.decision_index > 0 and
+                neural_consistent(.brain.p1; .p1) and
+                neural_consistent(.brain.p2; .p2)
               ' >/dev/null; then
-                if [[ "$REQUIRE_NEURAL_ACTION_GROUPS" == 'true' ]]; then
-                  echo "$body" | jq -e '
-                    def action_keys: ["FORWARD","BACKWARD","UP","DOWN","A","B","C"];
-                    def neural_consistent($brain; $fighter):
-                      ($brain.group_spike_counts | type) == "object" and
-                      (action_keys | all(. as $k | ($brain.group_spike_counts[$k] | type) == "number")) and
-                      if $fighter.action == "NEUTRAL" then
-                        (action_keys | map($brain.group_spike_counts[.] // 0) | max) == 0
-                      else
-                        (action_keys | index($fighter.action)) != null and
-                        ($brain.group_spike_counts[$fighter.action] == (action_keys | map($brain.group_spike_counts[.] // 0) | max))
-                      end;
-                    (.schema_version | type == "number") and .schema_version >= 2 and
-                    neural_consistent(.brain.p1; .p1) and
-                    neural_consistent(.brain.p2; .p2)
-                  ' >/dev/null
-                fi
                 exit 0
               fi
             fi
             sleep 2
           done
-          echo 'No frame>0 telemetry with decisions from both MaleCNS workers arrived.' >&2
+          echo 'No schema-v3 six-round frame with complete sensory-to-motor telemetry from both MaleCNS workers arrived.' >&2
           [[ -n "$last" ]] && echo "$last" | jq . >&2 || true
           exit 1
 
-      - name: Verify public page identifies the synchronized neural combat LIVE
+      - name: Verify public page identifies the causal shared LIVE
         run: |
           set -euo pipefail
           html="$(curl -fsS "$BASE/connectome")"
           grep -Fq 'Neural activity → action → fight' <<<"$html"
           grep -Fq 'current model · shared FightingICE bout · MaleCNS/Shiu' <<<"$html"
+          grep -Fq '1 · sensory drive' <<<"$html"
+          grep -Fq '2 · recurrent network' <<<"$html"
+          grep -Fq '3 · motor contributors' <<<"$html"
+          grep -Fq '4 · action-group competition' <<<"$html"
+          grep -Fq '5 · selected action' <<<"$html"
+          grep -Fq 'same action shown on the live fighter' <<<"$html"
           grep -Fq 'live top-spike bodies' <<<"$html"
           grep -Fq 'index view · not anatomy coordinates' <<<"$html"
           grep -Fq 'A viewer joins the already shared backend bout.' <<<"$html"
