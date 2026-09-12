@@ -5,8 +5,12 @@ on:
   pull_request:
     paths:
       - 'README.md'
+      - 'README.ja.md'
+      - 'ROADMAP.md'
       - 'docs/STATUS.md'
       - 'docs/PUBLIC_SURFACE_SPLIT.md'
+      - 'docs/PUBLIC_SURFACE_SPLIT.ja.md'
+      - 'docs/SPECTATOR_PIPELINE.ja.md'
       - 'site/index.html'
       - 'scripts/validate_public_surface_contract.py'
       - '.github/workflows/vercel-live-arena-smoke.yml'
@@ -16,8 +20,12 @@ on:
     branches: [main]
     paths:
       - 'README.md'
+      - 'README.ja.md'
+      - 'ROADMAP.md'
       - 'docs/STATUS.md'
       - 'docs/PUBLIC_SURFACE_SPLIT.md'
+      - 'docs/PUBLIC_SURFACE_SPLIT.ja.md'
+      - 'docs/SPECTATOR_PIPELINE.ja.md'
       - 'site/index.html'
       - 'scripts/validate_public_surface_contract.py'
       - '.github/workflows/vercel-live-arena-smoke.yml'
