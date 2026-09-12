@@ -5,19 +5,23 @@ on:
   pull_request:
     paths:
       - 'README.md'
+      - 'docs/STATUS.md'
       - 'docs/PUBLIC_SURFACE_SPLIT.md'
       - 'site/index.html'
       - 'scripts/validate_public_surface_contract.py'
       - '.github/workflows/vercel-live-arena-smoke.yml'
+      - '.github/workflows/render-fightingice-video.yml'
       - '.github/workflows/public-surface-contract.yml'
   push:
     branches: [main]
     paths:
       - 'README.md'
+      - 'docs/STATUS.md'
       - 'docs/PUBLIC_SURFACE_SPLIT.md'
       - 'site/index.html'
       - 'scripts/validate_public_surface_contract.py'
       - '.github/workflows/vercel-live-arena-smoke.yml'
+      - '.github/workflows/render-fightingice-video.yml'
       - '.github/workflows/public-surface-contract.yml'
 
 permissions:
