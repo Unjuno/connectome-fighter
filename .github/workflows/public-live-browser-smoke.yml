@@ -1,0 +1,86 @@
+name: public-live-browser-smoke
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [vercel-live-arena-smoke]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-live-browser-smoke
+  cancel-in-progress: true
+
+jobs:
+  mobile-publication:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BASE: https://liveunjuno.vercel.app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned browser harness
+        run: |
+          npm install --no-save 'playwright@1.57.0'
+          npx playwright install --with-deps chromium
+      - name: Require game-first responsive public page at phone widths
+        run: |
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          const assert = require('node:assert/strict');
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            try {
+              for (const viewport of [
+                { width: 320, height: 720, label: '320px' },
+                { width: 390, height: 844, label: '390px' },
+              ]) {
+                const page = await browser.newPage({ viewport });
+                await page.goto(`${process.env.BASE}/connectome`, { waitUntil: 'networkidle', timeout: 60_000 });
+
+                const game = page.getByText('Official FightingICE ScreenData', { exact: true });
+                const brain = page.getByText('P1 MaleCNS anatomy + activity', { exact: true });
+                const fly = page.getByText('secondary embodiment', { exact: true });
+                await game.waitFor({ state: 'visible', timeout: 20_000 });
+                await brain.waitFor({ state: 'visible', timeout: 20_000 });
+                await fly.waitFor({ state: 'visible', timeout: 20_000 });
+
+                const gameBox = await game.boundingBox();
+                const brainBox = await brain.boundingBox();
+                const flyBox = await fly.boundingBox();
+                assert(gameBox && brainBox && flyBox, `${viewport.label}: missing publication sections`);
+                assert(gameBox.y < brainBox.y, `${viewport.label}: game must appear before neural anatomy`);
+                assert(brainBox.y < flyBox.y, `${viewport.label}: anatomy must appear before secondary fly embodiment`);
+
+                const layout = await page.evaluate(() => ({
+                  innerWidth: window.innerWidth,
+                  htmlScrollWidth: document.documentElement.scrollWidth,
+                  bodyScrollWidth: document.body.scrollWidth,
+                  fixedElements: Array.from(document.querySelectorAll('body *')).filter(
+                    (el) => getComputedStyle(el).position === 'fixed',
+                  ).length,
+                  syntheticWarning: document.body.textContent?.includes('No synthetic fight frame is substituted') ?? false,
+                }));
+                assert(layout.htmlScrollWidth <= layout.innerWidth, `${viewport.label}: html horizontal overflow ${JSON.stringify(layout)}`);
+                assert(layout.bodyScrollWidth <= layout.innerWidth, `${viewport.label}: body horizontal overflow ${JSON.stringify(layout)}`);
+                assert.equal(layout.fixedElements, 0, `${viewport.label}: fixed overlay obscures mobile publication`);
+                assert(layout.syntheticWarning, `${viewport.label}: missing no-fake-frame publication boundary`);
+
+                await page.close();
+                console.log({ viewport: viewport.label, ...layout });
+              }
+            } finally {
+              await browser.close();
+            }
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE

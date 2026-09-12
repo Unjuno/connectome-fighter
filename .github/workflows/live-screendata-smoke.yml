@@ -1,0 +1,156 @@
+name: live-screendata-smoke
+
+on:
+  pull_request:
+    paths:
+      - 'src/connectome_fighter/fightingice_live_frame.py'
+      - 'src/connectome_fighter/rgb_png.py'
+      - 'scripts/run_live_screen_publisher.py'
+      - 'deploy/arena-runtime/start-session.sh'
+      - 'deploy/arena-runtime/bootstrap-proxy.mjs'
+      - 'deploy/arena-runtime/stage-fightingice-lightweight.sh'
+      - '.github/workflows/live-screendata-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-screendata-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GAME_URL: https://github.com/TeamFightingICE/FightingICE/releases/download/v7.1/DareFightingICE-7.1.zip
+  GAME_SHA256: 510752a69a097b767677d3911b1407d6a08a721dad4faf2cb5b7a19b988f1c62
+  RESOURCE_URL: https://github.com/TeamFightingICE/FightingICE/releases/download/v7.1/resource-7.1.zip
+  RESOURCE_SHA256: 386fd713f901db00583054528ccfbce315953c157dc16231c4367416d86dce53
+
+jobs:
+  screen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install spectator/game client and headless font runtime
+        run: |
+          sudo apt-get update -qq
+          sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fontconfig fonts-dejavu-core
+          fc-list | grep -q .
+          python -m pip install 'numpy==2.3.5' 'pyftg==2.3'
+      - name: Download verified FightingICE v7.1
+        run: |
+          set -euo pipefail
+          mkdir -p external/v71 external/downloads runs/screen-smoke
+          curl -fL --retry 4 --retry-all-errors -o external/downloads/game.zip "$GAME_URL"
+          curl -fL --retry 4 --retry-all-errors -o external/downloads/resource.zip "$RESOURCE_URL"
+          echo "$GAME_SHA256  external/downloads/game.zip" | sha256sum -c -
+          echo "$RESOURCE_SHA256  external/downloads/resource.zip" | sha256sum -c -
+          unzip -q external/downloads/game.zip -d external/v71
+          GAME_JAR="$(find external/v71 -type f -name FightingICE.jar -print -quit)"
+          unzip -q -o external/downloads/resource.zip -d "$(dirname "$GAME_JAR")"
+      - name: Stage the same headless-capable game tree used by arena-runtime-latest
+        run: |
+          set -euo pipefail
+          GAME_JAR="$(find external/v71 -type f -name FightingICE.jar -print -quit)"
+          CONNECTOME_STAGE_PUBLIC_RENDERER=true \
+            bash deploy/arena-runtime/stage-fightingice-lightweight.sh \
+            "$(dirname "$GAME_JAR")" runs/packaged-public-fightingice
+          test -d runs/packaged-public-fightingice/lib/lwjgl/natives/linux/amd64
+          test -z "$(find runs/packaged-public-fightingice/data/ai -mindepth 1 -print -quit)"
+          bytes="$(du -sb runs/packaged-public-fightingice | awk '{print $1}')"
+          echo "packaged_public_fightingice_bytes=$bytes"
+          # Fail closed on accidental multi-gigabyte staging regressions while
+          # leaving room for official v7.1 renderer/resources.
+          test "$bytes" -lt $((800 * 1024 * 1024))
+      - name: Capture official ScreenData from the packaged public runtime
+        run: |
+          set -euo pipefail
+          GAME_DIR="$GITHUB_WORKSPACE/runs/packaged-public-fightingice"
+          (
+            cd "$GAME_DIR"
+            java -cp 'FightingICE.jar:./lib/*:./lib/lwjgl/*:./lib/lwjgl/natives/linux/amd64/*:./lib/grpc/*' Main \
+              --headless-mode --pyftg-mode --input-sync \
+              --limithp 400 400 --port 31415 -r 1 -f 600 \
+              > "$GITHUB_WORKSPACE/runs/screen-smoke/fightingice.log" 2>&1 &
+            echo $! > "$GITHUB_WORKSPACE/runs/screen-smoke/fightingice.pid"
+          )
+          cleanup() {
+            kill "$(cat runs/screen-smoke/screen.pid 2>/dev/null || true)" 2>/dev/null || true
+            kill "$(cat runs/screen-smoke/fightingice.pid 2>/dev/null || true)" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+          ready=0
+          for i in $(seq 1 45); do
+            grep -q 'Socket server is started' runs/screen-smoke/fightingice.log 2>/dev/null && { ready=1; break; }
+            kill -0 "$(cat runs/screen-smoke/fightingice.pid)" 2>/dev/null || break
+            sleep 1
+          done
+          if [[ "$ready" -ne 1 ]]; then
+            tail -120 runs/screen-smoke/fightingice.log >&2 || true
+            exit 1
+          fi
+
+          PYTHONPATH=src python scripts/run_live_screen_publisher.py \
+            --host 127.0.0.1 --port 31415 \
+            --output runs/screen-smoke/latest-screen.png \
+            --fps 10 --downsample 2 \
+            > runs/screen-smoke/screen.log 2>&1 &
+          echo $! > runs/screen-smoke/screen.pid
+
+          PYTHONPATH=src python scripts/run_game.py \
+            --host 127.0.0.1 --port 31415 \
+            --games 1 --policy random \
+            --character-p1 GARNET --character-p2 ZEN \
+            --seed-p1 10101 --seed-p2 20202 \
+            --expected-rounds 1 --timeout 180 \
+            --run-id official-screen-smoke --out runs/screen-smoke/match
+
+          for i in $(seq 1 50); do
+            test -s runs/screen-smoke/latest-screen.png && break
+            sleep 0.2
+          done
+          if [[ ! -s runs/screen-smoke/latest-screen.png ]]; then
+            echo 'ScreenData publisher did not produce a PNG from the packaged public runtime.' >&2
+            echo '--- screen publisher ---' >&2
+            cat runs/screen-smoke/screen.log >&2 || true
+            echo '--- FightingICE ---' >&2
+            tail -160 runs/screen-smoke/fightingice.log >&2 || true
+            exit 1
+          fi
+          python - <<'PY'
+          import pathlib, struct, zlib
+          import numpy as np
+          p=pathlib.Path('runs/screen-smoke/latest-screen.png')
+          raw=p.read_bytes()
+          assert len(raw)>1000, len(raw)
+          assert raw[:8]==b'\x89PNG\r\n\x1a\n'
+          assert raw[12:16]==b'IHDR'
+          width,height=struct.unpack('>II',raw[16:24])
+          assert (width,height)==(480,320),(width,height)
+          offset=8; idat=[]
+          while offset < len(raw):
+              n=struct.unpack('>I',raw[offset:offset+4])[0]
+              kind=raw[offset+4:offset+8]
+              payload=raw[offset+8:offset+8+n]
+              if kind==b'IDAT': idat.append(payload)
+              offset += 12+n
+              if kind==b'IEND': break
+          decoded=zlib.decompress(b''.join(idat))
+          stride=1+width*3
+          assert len(decoded)==height*stride
+          rows=np.frombuffer(decoded,dtype=np.uint8).reshape(height,stride)
+          assert np.all(rows[:,0]==0), 'publisher PNG must use filter type 0'
+          pixels=rows[:,1:].reshape(height,width,3)
+          channel_std=pixels.reshape(-1,3).std(axis=0)
+          unique_rgb=len(np.unique(pixels.reshape(-1,3),axis=0))
+          assert unique_rgb >= 8, unique_rgb
+          assert float(channel_std.max()) >= 2.0, channel_std.tolist()
+          print({'bytes':len(raw),'width':width,'height':height,'unique_rgb':unique_rgb,'channel_std':channel_std.tolist(),'source':'official FightingICE ScreenData','renderer':'headless','runtime_tree':'packaged-public','policy_pixel_access':False})
+          PY

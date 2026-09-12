@@ -7,11 +7,15 @@ on:
     paths:
       - 'deploy/arena-runtime/**'
       - 'scripts/run_live_arena_server.py'
+      - 'scripts/run_live_screen_publisher.py'
+      - 'scripts/run_live_activity_publisher.py'
       - 'scripts/run_game_malecns_lif.py'
       - 'scripts/materialize_malecns_valence_adapter.py'
       - 'src/connectome_fighter/trajectory.py'
       - 'src/connectome_fighter/pyftg_bridge.py'
       - 'src/connectome_fighter/malecns_worker_policy.py'
+      - 'src/connectome_fighter/fightingice_live_frame.py'
+      - 'src/connectome_fighter/rgb_png.py'
       - '.github/workflows/publish-arena-runtime-bundle.yml'
 
 permissions:
@@ -207,9 +211,13 @@ jobs:
             "$(dirname "$GAME_JAR")" "$ROOT/fightingice"
 
           test -s "$ROOT/fightingice/FightingICE.jar"
+          test -d "$ROOT/fightingice/lib/lwjgl/natives/linux/amd64"
+          test -n "$(find "$ROOT/fightingice/lib/lwjgl/natives/linux/amd64" -type f -print -quit)"
           test -s "$ROOT/data/malecns-shiu-strict-v1/connectivity.parquet"
           test -s "$ROOT/data/malecns-valence-v1/kc_mbon_valence_candidates.parquet"
           test -x "$ROOT/bin/start-session"
+          test -s "$ROOT/repo/scripts/run_live_screen_publisher.py"
+          test -s "$ROOT/repo/scripts/run_live_activity_publisher.py"
 
       - name: Prebuild portable Python runtimes and pinned packages
         run: |
@@ -268,7 +276,7 @@ jobs:
           test -d "$ROOT/runtime/site310/brian2"
           test -d "$ROOT/runtime/site311/pyftg"
           test -x "$ROOT/runtime/jre21/bin/java"
-          test ! -d "$ROOT/fightingice/lib/lwjgl/natives"
+          test -d "$ROOT/fightingice/lib/lwjgl/natives/linux/amd64"
 
           mkdir -p runs/packaged-socket
           (
@@ -303,7 +311,7 @@ jobs:
             "$ROOT/runtime/site310" "$ROOT/runtime/site311" "$ROOT/data"
           game_bytes="$(du -sb "$ROOT/fightingice" | awk '{print $1}')"
           jre_bytes="$(du -sb "$ROOT/runtime/jre21" | awk '{print $1}')"
-          test "$game_bytes" -lt $((180 * 1024 * 1024))
+          test "$game_bytes" -lt $((300 * 1024 * 1024))
           test "$jre_bytes" -lt $((180 * 1024 * 1024))
 
       - name: Build runtime manifest and archive
@@ -319,7 +327,7 @@ jobs:
           p311=root/(root/'runtime/python311.path').read_text().strip()
           modules=(root/'runtime/jre21/connectome-modules.txt').read_text(encoding='utf-8').strip()
           manifest={
-            'schema_version':2,
+            'schema_version':3,
             'kind':'connectome-fighter-arena-runtime-bundle',
             'canonical_model':'MaleCNS v1.0 + pinned Shiu LIF',
             'mutability':'immutable-runtime-read-only-inference',
@@ -335,8 +343,11 @@ jobs:
             'valence_candidates_sha256':sha(root/'data/malecns-valence-v1/kc_mbon_valence_candidates.parquet'),
             'fightingice_version':'7.1',
             'fightingice_jar_sha256':sha(root/'fightingice/FightingICE.jar'),
-            'fightingice_mode':'lightweight',
-            'bundle_profile':'minimal-fightingice-jlink-v1',
+            'fightingice_mode':'headless-public/lightweight-diagnostic',
+            'bundle_profile':'public-screendata-fightingice-jlink-v2',
+            'official_fightingice_screendata':True,
+            'official_screen_path':'/screen.png',
+            'anatomy_activity_path':'/activity.json',
             'session_entrypoint':'bin/start-session',
             'bootstrap_proxy':'bin/bootstrap-proxy.mjs',
             'runtime_prebuilt':True,
@@ -345,7 +356,7 @@ jobs:
             'java_runtime':'Temurin 21 jlink minimal runtime',
             'java_modules':modules.split(','),
             'checkpoint_handoff_tag':'arena-inference-latest',
-            'note':'Runtime assets and pinned interpreter dependencies are prebuilt. Approved mutable character state is downloaded separately by hash from the inference snapshot release.'
+            'note':'Public shared LIVE uses official FightingICE ScreenData from the headless renderer. Pixels and anatomy remain spectator-only; approved mutable character state is downloaded separately by hash.'
           }
           (root/'manifest.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n',encoding='utf-8')
           print(json.dumps(manifest,indent=2,sort_keys=True))
@@ -356,7 +367,7 @@ jobs:
           python - <<'PY'
           import json, pathlib
           archive=pathlib.Path('runs/arena-runtime.tar.gz')
-          payload={'archive_size_bytes':archive.stat().st_size,'bundle_profile':'minimal-fightingice-jlink-v1'}
+          payload={'archive_size_bytes':archive.stat().st_size,'bundle_profile':'public-screendata-fightingice-jlink-v2'}
           pathlib.Path('runs/arena-runtime-size.json').write_text(json.dumps(payload,indent=2)+'\n',encoding='utf-8')
           print(json.dumps(payload))
           PY
@@ -380,18 +391,24 @@ jobs:
           test -d "$ROOT/runtime/site310/brian2"
           test -d "$ROOT/runtime/site311/pyftg"
           test -x "$ROOT/runtime/jre21/bin/java"
-          test ! -d "$ROOT/fightingice/lib/lwjgl/natives"
+          test -d "$ROOT/fightingice/lib/lwjgl/natives/linux/amd64"
+          test -s "$ROOT/repo/scripts/run_live_screen_publisher.py"
+          test -s "$ROOT/repo/scripts/run_live_activity_publisher.py"
           python - <<'PY'
           import json
           m=json.load(open('runs/verify/arena-runtime/manifest.json'))
+          assert m['schema_version']>=3
           assert m['kind']=='connectome-fighter-arena-runtime-bundle'
           assert m['canonical_model']=='MaleCNS v1.0 + pinned Shiu LIF'
           assert m['learning_enabled'] is False
           assert m['policy_pixel_access'] is False
           assert m['session_entrypoint']=='bin/start-session'
           assert m['runtime_prebuilt'] is True
-          assert m['bundle_profile']=='minimal-fightingice-jlink-v1'
-          assert m['fightingice_mode']=='lightweight'
+          assert m['bundle_profile']=='public-screendata-fightingice-jlink-v2'
+          assert m['fightingice_mode']=='headless-public/lightweight-diagnostic'
+          assert m['official_fightingice_screendata'] is True
+          assert m['official_screen_path']=='/screen.png'
+          assert m['anatomy_activity_path']=='/activity.json'
           print(json.dumps(m,indent=2,sort_keys=True))
           PY
 
@@ -403,7 +420,7 @@ jobs:
           if ! gh release view "$TARGET_TAG" >/dev/null 2>&1; then
             gh release create "$TARGET_TAG" --prerelease \
               --title 'Connectome Fighter arena runtime bundle' \
-              --notes 'Immutable canonical runtime bundle for short-lived read-only Vercel inference sessions. Learned character state remains in the separate arena-inference-latest handoff.'
+              --notes 'Immutable canonical runtime bundle for the shared read-only Vercel inference broadcast. Public mode includes official FightingICE ScreenData; learned character state remains in the separate arena-inference-latest handoff.'
           fi
           gh release upload "$TARGET_TAG" \
             runs/arena-runtime.tar.gz \

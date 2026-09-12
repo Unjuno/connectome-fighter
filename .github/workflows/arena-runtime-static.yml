@@ -28,14 +28,18 @@ jobs:
           bash -n deploy/arena-runtime/start-session.sh
           node --check deploy/arena-runtime/bootstrap-proxy.mjs
 
-      - name: Verify immediate boot and error telemetry
+      - name: Verify immediate boot and spectator-safe error telemetry
         run: |
           set -euo pipefail
           STATUS="$RUNNER_TEMP/arena-bootstrap.json"
+          SCREEN="$RUNNER_TEMP/latest-screen.png"
+          ACTIVITY="$RUNNER_TEMP/live-activity.json"
           printf '{"phase":"verifying-prebuilt-runtime"}\n' > "$STATUS"
           node deploy/arena-runtime/bootstrap-proxy.mjs \
             --listen 19080 --upstream 19081 \
             --status-file "$STATUS" \
+            --screen-file "$SCREEN" \
+            --activity-file "$ACTIVITY" \
             --session-id test-session --p1 GARNET --p2 ZEN &
           PROXY=$!
           trap 'kill "$PROXY" >/dev/null 2>&1 || true' EXIT
@@ -53,7 +57,16 @@ jobs:
           test "$(echo "$body" | jq -r '.p2.character')" = 'ZEN'
           test "$(echo "$body" | jq -r '.learning_enabled')" = 'false'
           test "$(echo "$body" | jq -r '.policy_pixel_access')" = 'false'
+          test "$(echo "$body" | jq -r '.official_screen.path')" = '/screen.png'
+          test "$(echo "$body" | jq -r '.official_screen.policy_pixel_access')" = 'false'
+          test "$(echo "$body" | jq -r '.anatomy_activity.path')" = '/activity.json'
+          test "$(echo "$body" | jq -r '.anatomy_activity.policy_access')" = 'false'
           test "$(echo "$body" | jq -r '.bootstrap.phase')" = 'verifying-prebuilt-runtime'
+
+          test "$(curl -sS -o /tmp/screen-body -w '%{http_code}' http://127.0.0.1:19080/screen.png)" = '503'
+          test "$(jq -r '.error' /tmp/screen-body)" = 'screen_not_ready'
+          test "$(curl -sS -o /tmp/activity-body -w '%{http_code}' http://127.0.0.1:19080/activity.json)" = '503'
+          test "$(jq -r '.error' /tmp/activity-body)" = 'activity_not_ready'
 
           printf '{"phase":"error","exit_code":17,"line":42,"error":"arena bootstrap failed"}\n' > "$STATUS"
           body="$(curl -fsS http://127.0.0.1:19080/state)"
