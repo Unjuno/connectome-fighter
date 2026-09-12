@@ -50,7 +50,9 @@ fi
 
 STATUS_FILE="$WORK/bootstrap-status.json"
 SCREEN_FILE="$WORK/latest-screen.png"
+ACTIVITY_FILE="$WORK/live-activity.json"
 SCREEN_PID=""
+ACTIVITY_PID=""
 write_status() {
   local phase="$1"
   local tmp="$STATUS_FILE.tmp"
@@ -71,6 +73,7 @@ node "$ROOT/bin/bootstrap-proxy.mjs" \
   --upstream "$UPSTREAM_PORT" \
   --status-file "$STATUS_FILE" \
   --screen-file "$SCREEN_FILE" \
+  --activity-file "$ACTIVITY_FILE" \
   --session-id "$SESSION_ID" \
   --p1 "$P1" \
   --p2 "$P2" &
@@ -80,6 +83,10 @@ cleanup_children() {
   if [[ -n "$SCREEN_PID" ]]; then
     kill "$SCREEN_PID" >/dev/null 2>&1 || true
     wait "$SCREEN_PID" >/dev/null 2>&1 || true
+  fi
+  if [[ -n "$ACTIVITY_PID" ]]; then
+    kill "$ACTIVITY_PID" >/dev/null 2>&1 || true
+    wait "$ACTIVITY_PID" >/dev/null 2>&1 || true
   fi
   kill "$PROXY_PID" >/dev/null 2>&1 || true
   wait "$PROXY_PID" >/dev/null 2>&1 || true
@@ -272,7 +279,7 @@ if [[ -n "$P1_ADAPTER" ]]; then CMD+=(--adapter-dir-p1 "$P1_ADAPTER"); fi
 if [[ -n "$P2_ADAPTER" ]]; then CMD+=(--adapter-dir-p2 "$P2_ADAPTER"); fi
 
 if [[ "${CONNECTOME_PUBLIC_BROADCAST:-false}" == "true" ]]; then
-  rm -f "$SCREEN_FILE"
+  rm -f "$SCREEN_FILE" "$ACTIVITY_FILE"
   PYTHONPATH="$ROOT/repo/src:$SITE311" "$BRIDGE_PY" \
     "$ROOT/repo/scripts/run_live_screen_publisher.py" \
     --host 127.0.0.1 --port 31415 \
@@ -281,6 +288,12 @@ if [[ "${CONNECTOME_PUBLIC_BROADCAST:-false}" == "true" ]]; then
     --downsample "${CONNECTOME_SCREEN_DOWNSAMPLE:-2}" \
     > "$WORK/live-screen-publisher.log" 2>&1 &
   SCREEN_PID=$!
+  PYTHONPATH="$ROOT/repo/src:$SITE311" "$BRIDGE_PY" \
+    "$ROOT/repo/scripts/run_live_activity_publisher.py" \
+    --jsonl "$WORK/live/live-decisions.jsonl" \
+    --output "$ACTIVITY_FILE" \
+    > "$WORK/live-activity-publisher.log" 2>&1 &
+  ACTIVITY_PID=$!
 fi
 
 write_status "starting-fightingice-malecns"
