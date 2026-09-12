@@ -86,9 +86,10 @@ class FlyBodySide:
         dt = self.control_timestep
         # Keep the physics bounded on shared CPU while approaching wall-clock
         # stepping. The neural drive controls gait phase speed, not game x/y.
+        # Zero motor drive therefore produces no active gait phase progression.
         steps = max(1, min(16, int(round(max(real_dt, dt) / dt))))
         sim_dt = max(dt, real_dt / steps)
-        gait_hz = 1.0 + 5.0 * self.command.drive
+        gait_hz = 6.0 * self.command.drive
         for _ in range(steps):
             self.phase = (self.phase + 2.0 * math.pi * gait_hz * sim_dt) % (2.0 * math.pi)
             action = flybody_action(
