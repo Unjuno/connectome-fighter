@@ -77,6 +77,12 @@ jobs:
           test -d "$ROOT/runtime/siteflybody/dm_control"
           test -d "$ROOT/runtime/siteflybody/mujoco"
           test -s "$ROOT/repo/scripts/run_live_flybody_publisher.py"
+          # Canonical bundles published before this addon can still carry the
+          # old EGL default. The addon owns the FlyBody spectator runtime, so
+          # pin both packaged copies to the CPU OSMesa backend before release.
+          sed -i 's/CONNECTOME_MUJOCO_GL:-egl/CONNECTOME_MUJOCO_GL:-osmesa/g' "$ROOT/bin/start-session"
+          sed -i 's/CONNECTOME_MUJOCO_GL:-egl/CONNECTOME_MUJOCO_GL:-osmesa/g' "$ROOT/repo/deploy/arena-runtime/start-session.sh"
+          grep -Fq 'CONNECTOME_MUJOCO_GL:-osmesa' "$ROOT/bin/start-session"
 
       - name: Prove the packaged body can step real MuJoCo physics
         run: |
