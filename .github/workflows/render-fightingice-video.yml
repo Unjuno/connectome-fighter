@@ -1,9 +1,10 @@
 name: render-fightingice-video
 
+# Historical ScreenData/video regression workflow. The production public arena
+# is now the single shared Vercel LIVE; recorded clips are generated only for
+# explicit engineering verification and are never substituted for LIVE.
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '17 * * * *'
   push:
     branches: [main]
     paths:
@@ -42,7 +43,7 @@ jobs:
       - name: Fast-forward to latest public data
         run: git pull --ff-only origin main
 
-      - name: Choose rotating matchup and next expected clip time
+      - name: Choose rotating matchup and archival clip metadata
         run: |
           python - <<'PY'
           from datetime import datetime, timezone, timedelta
@@ -63,9 +64,7 @@ jobs:
           seed_offset=epoch*1_000_000
           s1=base_s1+seed_offset
           s2=base_s2+seed_offset
-          nxt=now.replace(minute=17,second=0,microsecond=0)
-          if nxt <= now:
-              nxt += timedelta(hours=1)
+          nxt=now + timedelta(hours=1)
           run_id=f"spectator-e{epoch}-{slot}-{p1.lower()}-{p2.lower()}-{os.environ['GITHUB_RUN_ID']}"
           run_id=re.sub(r'[^a-z0-9_-]+','-',run_id)[:64]
           values={
@@ -158,15 +157,15 @@ jobs:
           unzip -q -o external/downloads/resource.zip -d "$(dirname "$GAME_JAR")"
           rm -rf external/downloads
 
-      - name: Restore previous spectator queue and videos
+      - name: Restore previous archival spectator queue and videos
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p runs/previous
           if ! gh release view "$SPECTATOR_RELEASE_TAG" >/dev/null 2>&1; then
             gh release create "$SPECTATOR_RELEASE_TAG" --prerelease \
-              --title 'Connectome Fighter rolling spectator' \
-              --notes 'Rolling spectator assets for the Vercel viewer. No learning state is stored here.'
+              --title 'Connectome Fighter archived ScreenData spectator' \
+              --notes 'Manual regression assets. Production presentation is the single shared Vercel LIVE; no learning state is stored here.'
           fi
           gh release download "$SPECTATOR_RELEASE_TAG" -p queue.json -D runs/previous --clobber || true
           gh release download "$SPECTATOR_RELEASE_TAG" -p latest-fight.mp4 -D runs/previous --clobber || true
@@ -246,7 +245,7 @@ jobs:
             --bodies-per-side 6 \
             --max-segments-per-body 180
 
-      - name: Rotate old clips and build rolling queue
+      - name: Rotate old clips and build archival queue
         run: |
           if [ -s runs/previous/latest-fight.mp4 ]; then cp runs/previous/latest-fight.mp4 runs/rendered/previous-1.mp4; fi
           if [ -s runs/previous/previous-1.mp4 ]; then cp runs/previous/previous-1.mp4 runs/rendered/previous-2.mp4; fi
@@ -263,14 +262,14 @@ jobs:
             --queue runs/rendered/queue.json \
             --morphology runs/rendered/morphology.json
 
-      - name: Validate frozen spectator contract
+      - name: Validate archival spectator contract
         run: |
           python scripts/validate_spectator_bundle.py \
             --queue runs/rendered/queue.json \
             --video-meta runs/rendered/video.json \
             --require-three-clips
 
-      - name: Publish rolling release assets
+      - name: Publish archival spectator release assets
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -279,7 +278,7 @@ jobs:
           [ -s runs/rendered/previous-2.mp4 ] && files+=(runs/rendered/previous-2.mp4)
           gh release upload "$SPECTATOR_RELEASE_TAG" "${files[@]}" --clobber
 
-      - name: Persist queue metadata for Vercel polling
+      - name: Persist archival queue metadata for research pages
         run: |
           mkdir -p site/data
           cp runs/rendered/video.json site/data/video.json
@@ -291,7 +290,7 @@ jobs:
           cp runs/rendered/queue.json site/data/queue.json
           git add site/data/video.json site/data/queue.json
           if ! git diff --cached --quiet; then
-            git commit -m 'Update rolling spectator queue [skip ci]'
+            git commit -m 'Update archival spectator evidence [skip ci]'
             git push origin HEAD:main
           fi
 
