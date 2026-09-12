@@ -27,6 +27,7 @@ jobs:
           python-version: '3.11'
       - name: Parse workflow and verify the candidate-only single-writer boundary
         run: |
+          node --check site/app.js
           python -m pip install --quiet 'PyYAML==6.0.2'
           python - <<'PY'
           from pathlib import Path
