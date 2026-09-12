@@ -7,6 +7,9 @@ import json
 from pathlib import Path
 
 
+EXPECTED_ATLAS_SHA256 = "f7c691d6c80820bf46c6bd09fd5d9dc92d0ec4f45fd9a0e4e1bd91132e729107"
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--queue", type=Path, required=True)
@@ -17,7 +20,7 @@ def main() -> int:
     queue = json.loads(args.queue.read_text(encoding="utf-8"))
     video = json.loads(args.video_meta.read_text(encoding="utf-8"))
 
-    assert int(queue.get("schema_version", 0)) >= 4, queue.get("schema_version")
+    assert int(queue.get("schema_version", 0)) >= 5, queue.get("schema_version")
     assert queue.get("mode") == "rolling-pseudo-live"
     assert queue.get("learning_enabled") is False
     assert int(queue.get("poll_interval_seconds", 0)) == 30
@@ -55,10 +58,39 @@ def main() -> int:
         assert 0 <= times[0] <= times[-1] <= float(current["duration_seconds"])
 
     morphology = current.get("morphology") or {}
+    assert int(morphology.get("schema_version", 0)) >= 2
     assert morphology.get("policy_access") is False
     assert morphology.get("coordinate_space") == "MaleCNS EM"
     assert morphology.get("coordinate_units") == "8 nm"
     assert morphology.get("projection") == "x-z"
+
+    atlas_segments = morphology.get("atlas_segments") or []
+    atlas = morphology.get("atlas") or {}
+    assert 1000 <= len(atlas_segments) <= 128 * 48, len(atlas_segments)
+    assert atlas.get("kind") == "male-cns-context-atlas-xz"
+    assert atlas.get("atlas_kind") == "deterministic-stratified-released-skeleton-sample"
+    assert atlas.get("sha256") == EXPECTED_ATLAS_SHA256
+    assert int(atlas.get("loaded_bodies", 0)) >= 48
+    assert int(atlas.get("segment_count", 0)) == len(atlas_segments)
+    assert len(atlas.get("soma_neuromeres") or []) >= 10
+    assert len(atlas.get("superclasses") or []) >= 5
+    assert set(atlas.get("root_sides") or []) >= {"L", "R"}
+    atlas_boundary = str(atlas.get("interpretation_boundary") or "").lower()
+    assert "not an all-neuron rendering" in atlas_boundary
+    assert "policy input" in atlas_boundary
+    morphology_boundary = str(morphology.get("interpretation_boundary") or "").lower()
+    assert "not an all-neuron rendering" in morphology_boundary
+    assert "policy input" in morphology_boundary
+
+    bounds = morphology.get("bounds") or {}
+    for segment in atlas_segments[:100]:
+        assert len(segment) == 4
+        x1, z1, x2, z2 = map(float, segment)
+        assert float(bounds["x_min"]) <= x1 <= float(bounds["x_max"])
+        assert float(bounds["x_min"]) <= x2 <= float(bounds["x_max"])
+        assert float(bounds["z_min"]) <= z1 <= float(bounds["z_max"])
+        assert float(bounds["z_min"]) <= z2 <= float(bounds["z_max"])
+
     for side in ("p1", "p2"):
         neurons = (morphology.get("sides") or {}).get(side) or []
         assert neurons, side
@@ -88,6 +120,9 @@ def main() -> int:
         "p2_activity_samples": len(p2_timeline),
         "p1_morphologies": len(morphology["sides"]["p1"]),
         "p2_morphologies": len(morphology["sides"]["p2"]),
+        "atlas_bodies": int(atlas["loaded_bodies"]),
+        "atlas_segments": len(atlas_segments),
+        "atlas_sha256": atlas["sha256"],
     }
     print(json.dumps(result, indent=2))
     return 0
