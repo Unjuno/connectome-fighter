@@ -124,6 +124,8 @@ learning_enabled=false · policy_pixel_access=false</div>
       <a href="./data/matches.json"><strong>matches.json</strong><br><span class="muted">normalized/public match ledger</span></a>
       <a href="./data/status.json"><strong>status.json</strong><br><span class="muted">current aggregate phase and stats</span></a>
       <a href="./data/runtime-proof.json"><strong>runtime-proof.json</strong><br><span class="muted">current production runtime and causal shared-LIVE proof</span></a>
+      <a href="./data/training-status.json"><strong>training-status.json</strong><br><span class="muted">latest rolling GitHub candidate state</span></a>
+      <a href="./data/training-history.json"><strong>training-history.json</strong><br><span class="muted">append-only public candidate generation ledger</span></a>
       <a href="./research-data/reward.json"><strong>reward.json</strong><br><span class="muted">versioned reward contract copied from configs/</span></a>
       <a href="./research-data/plasticity.json"><strong>plasticity.json</strong><br><span class="muted">versioned plasticity contract copied from configs/</span></a>
       <a href="https://github.com/Unjuno/connectome-fighter/releases/tag/arena-runtime-latest"><strong>arena-runtime-latest</strong><br><span class="muted">portable compilerless Brian2 Cython runtime release</span></a>
@@ -137,4 +139,4 @@ learning_enabled=false · policy_pixel_access=false</div>
 
   <div class="foot">Public-surface split: Vercel = one globally shared read-only LIVE inference broadcast. GitHub Pages/Actions = training workflows, public logs, reward/plasticity contracts, checkpoint lineage, runtime provenance and evidence. Continuous production reward-driven learning remains OFF.</div>
   <p id="error" class="muted"></p>
-</main><script src="./app.js"></script></body></html>
+</main><script src="./app.js"></script><script src="./training-history.js"></script></body></html>
