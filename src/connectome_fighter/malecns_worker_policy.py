@@ -1,6 +1,7 @@
 """Policy client for a persistent per-character MaleCNS + Shiu LIF worker."""
 from __future__ import annotations
 
+import csv
 import hashlib
 import json
 from pathlib import Path
@@ -16,6 +17,53 @@ from .malecns_trace import DynamicsIdentity, InterfaceIdentity, MaleCNSTraceWrit
 def _stable_hash(payload: Any) -> str:
     raw = json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
     return hashlib.sha256(raw).hexdigest()
+
+
+def _clean_annotation(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text or text.lower() in {"nan", "none", "<na>", "null"}:
+        return None
+    return text
+
+
+_ANNOTATION_CACHE: dict[str, dict[int, dict[str, str]]] = {}
+
+
+def _load_body_annotations(adapter_dir: Path) -> dict[int, dict[str, str]]:
+    path = (adapter_dir / "completeness.csv").resolve()
+    key = str(path)
+    cached = _ANNOTATION_CACHE.get(key)
+    if cached is not None:
+        return cached
+    result: dict[int, dict[str, str]] = {}
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        for row in reader:
+            raw_body = row.get("bodyId") or row.get("body_id")
+            try:
+                body_id = int(raw_body) if raw_body is not None else -1
+            except (TypeError, ValueError):
+                continue
+            if body_id < 0:
+                continue
+            annotation: dict[str, str] = {}
+            for source, target in (
+                ("superclass", "superclass"),
+                ("class", "class"),
+                ("subclass", "subclass"),
+                ("type", "type"),
+                ("somaNeuromere", "soma_neuromere"),
+                ("rootSide", "root_side"),
+                ("somaSide", "soma_side"),
+            ):
+                value = _clean_annotation(row.get(source))
+                if value is not None:
+                    annotation[target] = value
+            result[body_id] = annotation
+    _ANNOTATION_CACHE[key] = result
+    return result
 
 
 class MaleCNSWorkerPolicy:
@@ -47,6 +95,7 @@ class MaleCNSWorkerPolicy:
         self.interface_path = Path(interface_path)
         self.trace_root = Path(trace_root)
         self.trace_root.mkdir(parents=True, exist_ok=True)
+        self._body_annotations = _load_body_annotations(self.adapter_dir)
         self._stderr_path = self.trace_root / "worker-stderr.log"
         self._stderr_handle = self._stderr_path.open("w", encoding="utf-8")
         cmd = [
@@ -120,6 +169,9 @@ class MaleCNSWorkerPolicy:
         self._last_telemetry: dict[str, Any] | None = None
         self._closed = False
 
+    def _annotation(self, body_id: int) -> dict[str, str]:
+        return dict(self._body_annotations.get(int(body_id), {}))
+
     def _rpc(self, payload: dict[str, Any]) -> dict[str, Any]:
         if self._closed:
             raise RuntimeError("MaleCNS worker policy is closed")
@@ -182,6 +234,19 @@ class MaleCNSWorkerPolicy:
             output_contributions,
             key=lambda row: (-row[2], row[0], row[1]),
         )[:20]
+        top_spike_bodies = [(int(body), int(spikes)) for body, spikes in response["top_spike_bodies"]]
+        top_spike_bodies_annotated = [
+            {"body_id": body, "spikes": spikes, **self._annotation(body)}
+            for body, spikes in top_spike_bodies
+        ]
+        sensory_drive_annotated = [
+            {"body_id": body, "rate_hz": rate, **self._annotation(body)}
+            for body, rate in sensory_drive_top
+        ]
+        output_contributions_annotated = [
+            {"group": group, "body_id": body, "spikes": value, **self._annotation(body)}
+            for group, body, value in output_contributions_top
+        ]
         self._last_telemetry = {
             "canonical_model": "male-cns:v1.0 + pinned Shiu LIF",
             "character": self.character,
@@ -191,9 +256,12 @@ class MaleCNSWorkerPolicy:
             "total_spikes": int(response["total_spikes"]),
             "unique_spike_bodies": int(unique_bodies),
             "group_spike_counts": response["group_spike_counts"],
-            "top_spike_bodies": response["top_spike_bodies"],
+            "top_spike_bodies": top_spike_bodies,
             "sensory_drive_top": sensory_drive_top,
             "output_contributions_top": output_contributions_top,
+            "top_spike_bodies_annotated": top_spike_bodies_annotated,
+            "sensory_drive_top_annotated": sensory_drive_annotated,
+            "output_contributions_top_annotated": output_contributions_annotated,
             "membrane_summary": response["membrane_summary"],
             "trace_decision_index": self._decision_index,
         }
