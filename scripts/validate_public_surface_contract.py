@@ -8,6 +8,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 RETIRED_RUNTIME_SHA256 = {
     "b4511a0d5287384d2ca130ef58b40adb2786c6b0968ec961d5b41af13441d510",
+    "f4016e3a2f79968a3305818ad3b4ef2197802e36c647660c1ab524b098f27205",
+}
+CAUSAL_PROOF_FLAGS = {
+    "sensory_drive_body_ids_and_rates",
+    "whole_network_activity",
+    "motor_output_contributors",
+    "seven_action_group_counts",
+    "selected_action_matches_max_group",
+    "real_fightingice_xy_hp_action",
+    "all_fields_same_decision_window",
 }
 
 
@@ -34,14 +44,20 @@ def validate_runtime_proof() -> dict:
     proof = json.loads(path.read_text(encoding="utf-8"))
     if proof.get("kind") != "connectome-fighter-production-runtime-proof":
         raise SystemExit("site/data/runtime-proof.json: unexpected kind")
+    if int(proof.get("schema_version", 0)) < 2:
+        raise SystemExit("site/data/runtime-proof.json: causal proof requires schema >= 2")
+
     sha = str(proof.get("runtime_archive_sha256") or "")
     if len(sha) != 64 or any(ch not in "0123456789abcdef" for ch in sha):
         raise SystemExit("site/data/runtime-proof.json: invalid runtime SHA-256")
+    if sha in RETIRED_RUNTIME_SHA256:
+        raise SystemExit("site/data/runtime-proof.json: retired runtime SHA cannot be current proof")
     expected_base = f"connectome-runtime-{sha[:16]}"
     if proof.get("runtime_base") != expected_base:
         raise SystemExit(f"site/data/runtime-proof.json: runtime_base must be {expected_base}")
     if not str(proof.get("runtime_snapshot_id") or "").startswith("snap_"):
         raise SystemExit("site/data/runtime-proof.json: missing runtime snapshot ID")
+
     if proof.get("canonical_model") != "MaleCNS v1.0 + pinned Shiu LIF":
         raise SystemExit("site/data/runtime-proof.json: canonical model mismatch")
     if proof.get("compilerless_reuse_verified") is not True:
@@ -52,6 +68,7 @@ def validate_runtime_proof() -> dict:
         raise SystemExit("site/data/runtime-proof.json: implausible model dimensions")
     if int(proof.get("shared_object_count", 0)) < 1:
         raise SystemExit("site/data/runtime-proof.json: no precompiled shared objects")
+
     if proof.get("broadcast_target") != "connectome-live-broadcast" or proof.get("audience_scope") != "shared-global":
         raise SystemExit("site/data/runtime-proof.json: public broadcast contract mismatch")
     if proof.get("p1") != "GARNET" or proof.get("p1_state") != "generation-2-approved-inference":
@@ -60,11 +77,35 @@ def validate_runtime_proof() -> dict:
         raise SystemExit("site/data/runtime-proof.json: served P2 state mismatch")
     if proof.get("learning_enabled") is not False or proof.get("policy_pixel_access") is not False:
         raise SystemExit("site/data/runtime-proof.json: public policy boundary mismatch")
+
+    if int(proof.get("telemetry_schema_version", 0)) < 3:
+        raise SystemExit("site/data/runtime-proof.json: production LIVE must prove telemetry schema >= 3")
+    if int(proof.get("rounds_per_shared_process", 0)) != 6:
+        raise SystemExit("site/data/runtime-proof.json: production shared process must prove six rounds")
+    causal = proof.get("causal_live_contract") or {}
+    missing_flags = sorted(flag for flag in CAUSAL_PROOF_FLAGS if causal.get(flag) is not True)
+    if missing_flags:
+        raise SystemExit(f"site/data/runtime-proof.json: incomplete causal LIVE proof flags: {missing_flags}")
+
     telemetry = proof.get("proof_telemetry") or {}
     if int(telemetry.get("frame", 0)) <= 0:
         raise SystemExit("site/data/runtime-proof.json: proof frame must be > 0")
+    if int(telemetry.get("rounds_per_session", 0)) != 6:
+        raise SystemExit("site/data/runtime-proof.json: proof telemetry must be six-round shared execution")
     if int(telemetry.get("p1_decision_index", 0)) <= 0 or int(telemetry.get("p2_decision_index", 0)) <= 0:
         raise SystemExit("site/data/runtime-proof.json: both proof decision indices must be > 0")
+    for side in ("p1", "p2"):
+        action = str(telemetry.get(f"{side}_action") or "")
+        groups = telemetry.get(f"{side}_action_group_spikes") or {}
+        if action not in {"FORWARD", "BACKWARD", "UP", "DOWN", "A", "B", "C"}:
+            raise SystemExit(f"site/data/runtime-proof.json: unsupported proof action for {side}: {action!r}")
+        if set(groups) != {"FORWARD", "BACKWARD", "UP", "DOWN", "A", "B", "C"}:
+            raise SystemExit(f"site/data/runtime-proof.json: incomplete seven-group proof for {side}")
+        if int(groups[action]) != max(int(value) for value in groups.values()):
+            raise SystemExit(f"site/data/runtime-proof.json: {side} action does not match maximal group")
+        sensory = telemetry.get(f"{side}_top_sensory_drive") or {}
+        if int(sensory.get("body_id", 0)) <= 0 or float(sensory.get("rate_hz", 0)) <= 0:
+            raise SystemExit(f"site/data/runtime-proof.json: missing real sensory proof for {side}")
     return proof
 
 
@@ -93,6 +134,7 @@ def main() -> int:
     require(
         "README.ja.md",
         "1つの shared read-only LIVE broadcast",
+        "Neural activity → action → fight",
         "GARNET generation 2 = APPROVED INFERENCE",
         "ZEN generation 2 = CANDIDATE LINEAGE",
         "continuous production reward-driven learning は OFF",
@@ -130,6 +172,7 @@ def main() -> int:
     require(
         "docs/STATUS.md",
         "Production public LIVE — PASS",
+        "Neural activity → action → fight — PASS",
         "single-shared-live-broadcast",
         "connectome-live-broadcast",
         "Historical rolling-video spectator — RETAINED EVIDENCE, NOT PRIMARY LIVE",
@@ -150,6 +193,7 @@ def main() -> int:
     require(
         "docs/PUBLIC_SURFACE_SPLIT.md",
         "single shared live broadcast",
+        "Causal LIVE visualization",
         "connectome-live-broadcast",
         "learning_enabled=false",
         "policy_pixel_access=false",
@@ -170,6 +214,7 @@ def main() -> int:
     require(
         "docs/PUBLIC_SURFACE_SPLIT.ja.md",
         "single shared live broadcast",
+        "Neural activity → action → fight",
         "GARNET approved generation-2 inference vs ZEN canonical baseline",
         "Production reward-driven learning は現在 **OFF**",
         "Public Surface Freeze gate",
@@ -198,6 +243,7 @@ def main() -> int:
     require(
         "site/index.html",
         "one globally shared read-only LIVE fight",
+        "Causal shared LIVE: sensory → network → motor → action → fight",
         "GARNET generation 2",
         "candidate cross-run resume proven",
         runtime_sha,
@@ -221,6 +267,11 @@ def main() -> int:
         "shared-global",
         "connectome-live-broadcast",
         "shared_broadcast_only",
+        "Require synchronized sensory-to-motor FightingICE telemetry",
+        "rounds_per_session == 6",
+        "sensory_drive",
+        "output_contributions",
+        "5 · selected action",
     )
     forbid(
         ".github/workflows/vercel-live-arena-smoke.yml",
@@ -255,7 +306,11 @@ def main() -> int:
         "schedule:",
     )
 
-    print(f"public-surface contract: PASS runtime={runtime_sha[:16]} base={runtime_base}")
+    print(
+        "public-surface contract: PASS "
+        f"runtime={runtime_sha[:16]} base={runtime_base} "
+        f"telemetry=v{proof['telemetry_schema_version']} rounds={proof['rounds_per_shared_process']} causal=true"
+    )
     return 0
 
 
