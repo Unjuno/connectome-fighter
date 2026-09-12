@@ -69,6 +69,8 @@ GitHub を以下の公開元とする。
 
 Production reward-driven learning は現在 **OFF**。reward/plasticity/checkpoint の既存 workflow は、明示的に昇格されない限り research / engineering evidence であり continuous production learning lineage ではない。
 
+Pages は current runtime proof を `site/data/runtime-proof.json` から読み、runtime SHA / base / snapshot / observed telemetry を表示する。
+
 ## Training → LIVE inference handoff
 
 研究 checkpoint を mutable Vercel state として直接扱わない。
@@ -105,21 +107,37 @@ Brian2 canonical codegen target は **Cython**。Vercel Sandbox に C compiler �
 
 これは deployment/cold-start/portability 対策であり、MaleCNS topology や Shiu dynamics の変更ではない。
 
-## Production inference proof — 2026-09-12
+## Current production inference proof — 2026-09-12
 
 検証済み runtime evidence:
 
-- archive SHA-256: `b4511a0d5287384d2ca130ef58b40adb2786c6b0968ec961d5b41af13441d510`
-- runtime base: `connectome-runtime-b4511a0d5287384d`
-- Brian2 `2.5.1` / Cython `0.29.36` / NumPy `1.24.0`
+- archive SHA-256: `f4016e3a2f79968a3305818ad3b4ef2197802e36c647660c1ab524b098f27205`
+- archive size: `439024170` bytes
+- runtime base: `connectome-runtime-f4016e3a2f79968a`
+- runtime snapshot: `snap_s5HpePEfgiNNAsLgE9UKsvOVwY5u`
+- Python `3.10.21` / Brian2 `2.5.1` / Cython `0.29.36` / NumPy `1.24.0`
 - included neurons: `156675`
 - runtime recurrent synapses: `6025920`
 - compilerless cache reuse verified
+- cache: `30 files / 15 shared objects / 5776256 bytes`
+- cache tree SHA-256: `772cf23de36484d12e9355334f116bad71b8a8d30e42531cc93b90e3670dcd92`
 - host-specific `-march=native` excluded
 - real FightingICE frame advancement verified
-- P1/P2 の MaleCNS decision index > 0 を verified
+- P1/P2 MaleCNS decision telemetry verified
+- compilerless release E2E: Actions `34690428080` — PASS
+- independent production smoke: Actions `34690567057` — PASS
+
+proof telemetry は **round 1 / frame 181 / GARNET decision 3 / ZEN decision 3 / P1 9245 spikes / P2 9098 spikes** を観測した。
 
 proof bout は **GARNET approved generation-2 inference vs ZEN canonical baseline**。これは Vercel 上の production inference plumbing の証拠であり trained-vs-trained performance の証拠ではない。
+
+Machine-readable proof: [`site/data/runtime-proof.json`](../site/data/runtime-proof.json)
+
+## Shared LIVE handoff timing
+
+Public broadcastだけ `post-fight=1s` / `post-session=1s` を既定値とし、通常one-shot診断は30秒既定を維持する。
+
+新runtime採用後のサンプリングでは、旧bout running を `11:15:47Z`、新bout booting を `11:15:54Z`、同じ新bout running を `11:16:01Z` に観測した。これは厳密なdowntime測定値ではなくサンプリング上限だが、旧30秒+30秒の意図的terminal holdは再現していない。
 
 ## Public Surface Freeze gate
 
@@ -134,6 +152,7 @@ Reward tuning / continuous learning を進める前に以下を固定する。
 7. GARNET approved と ZEN/LUD/NEZ candidate を UI/README/STATUS/ROADMAP/Pages で混同しない
 8. stopped shared Sandbox から自動復旧できる
 9. failure/warming state を明示し fake LIVE fallback を作らない
+10. compilerless release E2E と独立production smokeが同じshared-LIVE contractを検証する
 
 ## Historical recorded spectator
 
