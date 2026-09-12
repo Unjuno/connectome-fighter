@@ -12,6 +12,7 @@ const listen = Number(arg('--listen', '8080'));
 const upstreamPort = Number(arg('--upstream', '18080'));
 const statusFile = arg('--status-file');
 const screenFile = arg('--screen-file');
+const activityFile = arg('--activity-file');
 const sessionId = arg('--session-id', 'unknown');
 const p1 = arg('--p1', 'GARNET');
 const p2 = arg('--p2', 'ZEN');
@@ -64,6 +65,11 @@ function bootPayload() {
       source: 'FightingICE ScreenData',
       policy_pixel_access: false,
     },
+    anatomy_activity: {
+      available: Boolean(activityFile && fs.existsSync(activityFile)),
+      path: '/activity.json',
+      policy_access: false,
+    },
     bootstrap: {
       phase: String(boot.phase ?? 'booting'),
       exit_code: Number.isInteger(boot.exit_code) ? boot.exit_code : null,
@@ -103,6 +109,20 @@ function writeScreen(res) {
     res.end(frame);
   } catch {
     writeJson(res, 503, { error: 'screen_not_ready' });
+  }
+}
+
+function writeActivity(res) {
+  if (!activityFile) {
+    writeJson(res, 404, { error: 'activity_not_configured' });
+    return;
+  }
+  try {
+    const text = fs.readFileSync(activityFile, 'utf8');
+    const payload = JSON.parse(text);
+    writeJson(res, 200, payload);
+  } catch {
+    writeJson(res, 503, { error: 'activity_not_ready' });
   }
 }
 
@@ -164,6 +184,10 @@ const server = http.createServer((req, res) => {
     writeScreen(res);
     return;
   }
+  if (url.pathname === '/activity.json') {
+    writeActivity(res);
+    return;
+  }
   if (url.pathname === '/state' || url.pathname === '/health' || url.pathname === '/events') {
     proxy(req, res, url.pathname);
     return;
@@ -172,7 +196,7 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(listen, '0.0.0.0', () => {
-  console.log(JSON.stringify({ kind: 'arena-bootstrap-proxy-ready', listen, upstreamPort, sessionId, screenFile }));
+  console.log(JSON.stringify({ kind: 'arena-bootstrap-proxy-ready', listen, upstreamPort, sessionId, screenFile, activityFile }));
 });
 
 function stop() {
