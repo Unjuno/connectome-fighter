@@ -124,6 +124,8 @@ jobs:
           fi
 
       - name: Require real FightingICE movement and both MaleCNS decisions
+        env:
+          REQUIRE_NEURAL_ACTION_GROUPS: ${{ github.event_name != 'push' }}
         run: |
           set -euo pipefail
           last=''
@@ -131,7 +133,7 @@ jobs:
             body="$(curl -fsS "$TELEMETRY_URL" || true)"
             if [[ -n "$body" ]]; then
               last="$body"
-              echo "$body" | jq '{status,round,frame,p1:{character:.p1.character,hp:.p1.hp,x:.p1.x,y:.p1.y,action:.p1.action,facing:.p1.facing},p2:{character:.p2.character,hp:.p2.hp,x:.p2.x,y:.p2.y,action:.p2.action,facing:.p2.facing},p1_decision:.brain.p1.decision_index,p2_decision:.brain.p2.decision_index,p1_spikes:.brain.p1.total_spikes,p2_spikes:.brain.p2.total_spikes,learning_enabled,policy_pixel_access,error,exit_code}'
+              echo "$body" | jq '{schema_version,status,round,frame,p1:{character:.p1.character,hp:.p1.hp,x:.p1.x,y:.p1.y,action:.p1.action,facing:.p1.facing},p2:{character:.p2.character,hp:.p2.hp,x:.p2.x,y:.p2.y,action:.p2.action,facing:.p2.facing},p1_decision:.brain.p1.decision_index,p2_decision:.brain.p2.decision_index,p1_spikes:.brain.p1.total_spikes,p2_spikes:.brain.p2.total_spikes,p1_groups:.brain.p1.group_spike_counts,p2_groups:.brain.p2.group_spike_counts,learning_enabled,policy_pixel_access,error,exit_code}'
               test "$(echo "$body" | jq -r '.learning_enabled')" = 'false'
               test "$(echo "$body" | jq -r '.policy_pixel_access')" = 'false'
               status="$(echo "$body" | jq -r '.status // empty')"
@@ -149,6 +151,23 @@ jobs:
                 (.brain.p1.decision_index | type == "number") and .brain.p1.decision_index > 0 and
                 (.brain.p2.decision_index | type == "number") and .brain.p2.decision_index > 0
               ' >/dev/null; then
+                if [[ "$REQUIRE_NEURAL_ACTION_GROUPS" == 'true' ]]; then
+                  echo "$body" | jq -e '
+                    def action_keys: ["FORWARD","BACKWARD","UP","DOWN","A","B","C"];
+                    def neural_consistent($brain; $fighter):
+                      ($brain.group_spike_counts | type) == "object" and
+                      (action_keys | all(. as $k | ($brain.group_spike_counts[$k] | type) == "number")) and
+                      if $fighter.action == "NEUTRAL" then
+                        (action_keys | map($brain.group_spike_counts[.] // 0) | max) == 0
+                      else
+                        (action_keys | index($fighter.action)) != null and
+                        ($brain.group_spike_counts[$fighter.action] == (action_keys | map($brain.group_spike_counts[.] // 0) | max))
+                      end;
+                    (.schema_version | type == "number") and .schema_version >= 2 and
+                    neural_consistent(.brain.p1; .p1) and
+                    neural_consistent(.brain.p2; .p2)
+                  ' >/dev/null
+                fi
                 exit 0
               fi
             fi
@@ -158,12 +177,15 @@ jobs:
           [[ -n "$last" ]] && echo "$last" | jq . >&2 || true
           exit 1
 
-      - name: Verify public page identifies the shared LIVE and served lineage state
+      - name: Verify public page identifies the synchronized neural combat LIVE
         run: |
           set -euo pipefail
           html="$(curl -fsS "$BASE/connectome")"
-          grep -Fq 'One shared Vercel LIVE' <<<"$html"
-          grep -Fq 'GitHub research / training logs' <<<"$html"
+          grep -Fq 'Neural activity → action → fight' <<<"$html"
+          grep -Fq 'current model · shared FightingICE bout · MaleCNS/Shiu' <<<"$html"
+          grep -Fq 'live top-spike bodies' <<<"$html"
+          grep -Fq 'index view · not anatomy coordinates' <<<"$html"
+          grep -Fq 'A viewer joins the already shared backend bout.' <<<"$html"
           grep -Fq 'public inference provenance' <<<"$html"
           grep -Fq 'GARNET G2 approved · ZEN baseline' <<<"$html"
           grep -Fq 'candidate G2 is not served' <<<"$html"
