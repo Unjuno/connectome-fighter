@@ -77,11 +77,9 @@ jobs:
           test -d "$ROOT/runtime/siteflybody/dm_control"
           test -d "$ROOT/runtime/siteflybody/mujoco"
           test -s "$ROOT/repo/scripts/run_live_flybody_publisher.py"
-          # Canonical bundles published before this addon can still carry the
-          # old EGL default. The addon owns the FlyBody spectator runtime, so
-          # pin both packaged copies to the CPU OSMesa backend before release.
+          # The runtime archive exposes one executable session entrypoint under
+          # bin/. Pin that packaged executable to the CPU OSMesa backend.
           sed -i 's/CONNECTOME_MUJOCO_GL:-egl/CONNECTOME_MUJOCO_GL:-osmesa/g' "$ROOT/bin/start-session"
-          sed -i 's/CONNECTOME_MUJOCO_GL:-egl/CONNECTOME_MUJOCO_GL:-osmesa/g' "$ROOT/repo/deploy/arena-runtime/start-session.sh"
           grep -Fq 'CONNECTOME_MUJOCO_GL:-osmesa' "$ROOT/bin/start-session"
 
       - name: Prove the packaged body can step real MuJoCo physics
@@ -102,12 +100,14 @@ jobs:
           ])
           action=flybody_action(names,spec.minimum,spec.maximum,command,0.5)
           ts=env.step(action)
+          center=(np.asarray(spec.minimum,dtype=float)+np.asarray(spec.maximum,dtype=float))/2.0
           assert action.shape==spec.shape
           assert spec.shape[0] >= 40, spec.shape
+          assert float(np.max(np.abs(action-center))) > 1e-6, 'neural drive did not move any FlyBody actuator'
           pixels=env.physics.render(height=120,width=160,camera_id=1)
           assert pixels.shape==(120,160,3)
           assert float(np.asarray(pixels).std())>1.0
-          print({'flybody_physics':True,'action_dim':int(spec.shape[0]),'render_shape':pixels.shape,'last':bool(ts.last()),'backend':'osmesa'})
+          print({'flybody_physics':True,'action_dim':int(spec.shape[0]),'render_shape':pixels.shape,'last':bool(ts.last()),'backend':'osmesa','actuator_delta_max':float(np.max(np.abs(action-center)))})
           PY
 
       - name: Mark FlyBody as spectator physics in the runtime manifest
