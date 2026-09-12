@@ -15,6 +15,7 @@ on:
       - 'site/app.js'
       - 'scripts/validate_public_surface_contract.py'
       - '.github/workflows/vercel-live-arena-smoke.yml'
+      - '.github/workflows/precompile-arena-brian2-cython-cache.yml'
       - '.github/workflows/render-fightingice-video.yml'
       - '.github/workflows/public-surface-contract.yml'
   push:
@@ -31,6 +32,7 @@ on:
       - 'site/app.js'
       - 'scripts/validate_public_surface_contract.py'
       - '.github/workflows/vercel-live-arena-smoke.yml'
+      - '.github/workflows/precompile-arena-brian2-cython-cache.yml'
       - '.github/workflows/render-fightingice-video.yml'
       - '.github/workflows/public-surface-contract.yml'
 

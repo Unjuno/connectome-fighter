@@ -130,7 +130,7 @@ jobs:
           m['brian2_expected_sys_executable']=c['expected_sys_executable']
           m['malecns_worker_sha256']=hashlib.sha256(worker_path.read_bytes()).hexdigest()
           m['bundle_profile']='minimal-fightingice-jlink-precompiled-cython-v1'
-          m['note']='Runtime assets, pinned interpreters, and the canonical Brian2 Cython extensions are prebuilt. Viewer Sandboxes require no C compiler. Approved mutable character state remains a separate hash-verified inference handoff.'
+          m['note']='Runtime assets, pinned interpreters, and the canonical Brian2 Cython extensions are prebuilt. The shared Vercel LIVE Sandbox requires no C compiler. Approved mutable character state remains a separate hash-verified inference handoff.'
           manifest_path.write_text(json.dumps(m,indent=2,sort_keys=True)+'\n')
           print(json.dumps(m,indent=2,sort_keys=True))
           PY
@@ -196,10 +196,13 @@ jobs:
           set -euo pipefail
           seen=0
           for i in $(seq 1 90); do
-            body="$(curl -fsS "$BASE/api/connectome/session" || true)"
+            body="$(curl -fsS "$BASE/api/connectome/live" || true)"
             if [[ -n "$body" ]]; then
               sha="$(echo "$body" | jq -r '.runtime_archive_sha256 // empty')"
-              echo "$body" | jq '{runtime_archive_sha256,runtime_base_name,runtime_base_ready,runtime_base_status,learning_enabled,policy_pixel_access}'
+              echo "$body" | jq '{mode,broadcast_target,audience_scope,ready,status,source_runtime_base,runtime_archive_sha256,learning_enabled,policy_pixel_access,maintenance_action,reason}'
+              test "$(echo "$body" | jq -r '.mode')" = 'single-shared-live-broadcast'
+              test "$(echo "$body" | jq -r '.broadcast_target')" = 'connectome-live-broadcast'
+              test "$(echo "$body" | jq -r '.audience_scope')" = 'shared-global'
               test "$(echo "$body" | jq -r '.learning_enabled')" = false
               test "$(echo "$body" | jq -r '.policy_pixel_access')" = false
               if [[ "$sha" == "$FINAL_RUNTIME_SHA" ]]; then
@@ -244,75 +247,92 @@ jobs:
           done
           test "$ready" -eq 1
 
-      - name: Launch GARNET checkpoint vs ZEN canonical baseline
+      - name: Require shared LIVE to adopt exact runtime base
         if: ${{ github.event_name != 'pull_request' }}
         run: |
           set -euo pipefail
-          body="$(curl -fsS -X POST "$BASE/api/connectome/session" \
-            -H 'content-type: application/json' \
-            --data '{"p1":"GARNET","p2":"ZEN"}')"
-          echo "$body" | jq '{mode,source_runtime_base,source_runtime_snapshot,session_id,status,p1,p2,learning_enabled,policy_pixel_access,status_url}'
-          test "$(echo "$body" | jq -r '.source_runtime_base')" = "$RUNTIME_BASE"
-          test "$(echo "$body" | jq -r '.learning_enabled')" = false
-          test "$(echo "$body" | jq -r '.policy_pixel_access')" = false
-          session_id="$(echo "$body" | jq -r '.session_id // empty')"
-          status_url="$(echo "$body" | jq -r '.status_url // empty')"
-          test -n "$session_id"
-          test -n "$status_url"
-          echo "SESSION_ID=$session_id" >> "$GITHUB_ENV"
-          echo "STATUS_URL=$status_url" >> "$GITHUB_ENV"
+          ready=0
+          last=''
+          for i in $(seq 1 240); do
+            tmp="$(mktemp)"
+            code="$(curl -sS -o "$tmp" -w '%{http_code}' "$BASE/api/connectome/live" || true)"
+            body="$(cat "$tmp")"
+            rm -f "$tmp"
+            if [[ -n "$body" ]]; then
+              last="$body"
+              echo "$body" | jq '{mode,broadcast_target,audience_scope,ready,status,p1,p2,stream_url,telemetry_url,session_id,source_runtime_base,runtime_archive_sha256,learning_enabled,policy_pixel_access,maintenance_action,reason}'
+              test "$(echo "$body" | jq -r '.mode')" = 'single-shared-live-broadcast'
+              test "$(echo "$body" | jq -r '.broadcast_target')" = 'connectome-live-broadcast'
+              test "$(echo "$body" | jq -r '.audience_scope')" = 'shared-global'
+              test "$(echo "$body" | jq -r '.p1')" = 'GARNET'
+              test "$(echo "$body" | jq -r '.p2')" = 'ZEN'
+              test "$(echo "$body" | jq -r '.learning_enabled')" = false
+              test "$(echo "$body" | jq -r '.policy_pixel_access')" = false
+              status="$(echo "$body" | jq -r '.status // empty')"
+              case "$status" in
+                auth-unavailable|runtime-unavailable)
+                  echo "$body" | jq . >&2
+                  exit 1
+                  ;;
+              esac
+              if [[ "$code" == 200 && \
+                    "$(echo "$body" | jq -r '.ready')" == true && \
+                    "$status" == running && \
+                    "$(echo "$body" | jq -r '.source_runtime_base // empty')" == "$RUNTIME_BASE" && \
+                    "$(echo "$body" | jq -r '.runtime_archive_sha256 // empty')" == "$FINAL_RUNTIME_SHA" ]]; then
+                telemetry="$(echo "$body" | jq -r '.telemetry_url // empty')"
+                test -n "$telemetry"
+                echo "TELEMETRY_URL=$telemetry" >> "$GITHUB_ENV"
+                ready=1
+                break
+              fi
+            fi
+            [[ "$code" == 200 || "$code" == 202 ]] || exit 1
+            sleep 3
+          done
+          if [[ "$ready" -ne 1 ]]; then
+            echo 'Shared LIVE did not adopt the exact compilerless runtime base before deadline.' >&2
+            [[ -n "$last" ]] && echo "$last" | jq . >&2 || true
+            exit 1
+          fi
 
       - name: Require real FightingICE plus two MaleCNS decisions
         if: ${{ github.event_name != 'pull_request' }}
         run: |
           set -euo pipefail
-          telemetry=''
-          for i in $(seq 1 120); do
-            status_body="$(curl -fsS "$BASE$STATUS_URL" || true)"
-            if [[ -n "$status_body" ]]; then
-              echo "$status_body" | jq '{session_id,status,diagnostic_telemetry_url,telemetry_url,bootstrap_phase,bootstrap,error}'
-              bootstrap_exit="$(echo "$status_body" | jq -r '.bootstrap.exit_code // empty')"
-              runtime_exit="$(echo "$status_body" | jq -r '.bootstrap.runtime_exit_code // empty')"
-              [[ -z "$bootstrap_exit" || "$bootstrap_exit" == 0 ]] || exit 1
-              [[ -z "$runtime_exit" || "$runtime_exit" == 0 ]] || exit 1
-              telemetry="$(echo "$status_body" | jq -r '.diagnostic_telemetry_url // empty')"
-              [[ -n "$telemetry" ]] && break
-            fi
-            sleep 2
-          done
-          test -n "$telemetry"
-
           success=0
+          last=''
           for i in $(seq 1 300); do
-            state="$(curl -fsS "$telemetry" || true)"
+            state="$(curl -fsS "$TELEMETRY_URL" || true)"
             if [[ -n "$state" ]]; then
-              echo "$state" | jq '{status,round,frame,p1:{character:.p1.character,action:.p1.action},p2:{character:.p2.character,action:.p2.action},p1_decision:.brain.p1.decision_index,p2_decision:.brain.p2.decision_index,p1_spikes:.brain.p1.total_spikes,p2_spikes:.brain.p2.total_spikes,learning_enabled,policy_pixel_access,error,exit_code}'
+              last="$state"
+              echo "$state" | jq '{status,round,frame,p1:{character:.p1.character,x:.p1.x,y:.p1.y,action:.p1.action},p2:{character:.p2.character,x:.p2.x,y:.p2.y,action:.p2.action},p1_decision:.brain.p1.decision_index,p2_decision:.brain.p2.decision_index,p1_spikes:.brain.p1.total_spikes,p2_spikes:.brain.p2.total_spikes,learning_enabled,policy_pixel_access,error,exit_code}'
               test "$(echo "$state" | jq -r '.learning_enabled')" = false
               test "$(echo "$state" | jq -r '.policy_pixel_access')" = false
               status="$(echo "$state" | jq -r '.status // empty')"
               if [[ "$status" == error ]]; then
-                curl -fsS "$BASE/api/connectome/session-worker-diagnostic?session_id=$SESSION_ID" | jq . >&2 || true
+                echo "$state" | jq . >&2
                 exit 1
               fi
-              frame="$(echo "$state" | jq -r '.frame // 0')"
-              p1="$(echo "$state" | jq -r '.p1.character // empty')"
-              p2="$(echo "$state" | jq -r '.p2.character // empty')"
-              d1="$(echo "$state" | jq -r '.brain.p1.decision_index // 0')"
-              d2="$(echo "$state" | jq -r '.brain.p2.decision_index // 0')"
-              if [[ "$frame" -gt 0 && "$d1" -gt 0 && "$d2" -gt 0 && "$p1" == GARNET && "$p2" == ZEN ]]; then
+              if echo "$state" | jq -e '
+                .status == "running" and
+                (.frame | type == "number") and .frame > 0 and
+                .p1.character == "GARNET" and .p2.character == "ZEN" and
+                (.p1.x | type == "number") and (.p1.y | type == "number") and
+                (.p2.x | type == "number") and (.p2.y | type == "number") and
+                (.p1.action | type == "string") and (.p2.action | type == "string") and
+                (.brain.p1.decision_index | type == "number") and .brain.p1.decision_index > 0 and
+                (.brain.p2.decision_index | type == "number") and .brain.p2.decision_index > 0
+              ' >/dev/null; then
                 success=1
                 break
               fi
             fi
-            if (( i == 1 || i % 15 == 0 )); then
-              curl -fsS "$BASE/api/connectome/session-diagnostic?session_id=$SESSION_ID" | jq . || true
-            fi
             sleep 2
           done
           if [[ "$success" -ne 1 ]]; then
-            echo 'Compilerless Vercel arena produced no real two-brain decision before deadline.' >&2
-            curl -fsS "$BASE/api/connectome/session-diagnostic?session_id=$SESSION_ID" | jq . >&2 || true
-            curl -fsS "$BASE/api/connectome/session-worker-diagnostic?session_id=$SESSION_ID" | jq . >&2 || true
+            echo 'Compilerless shared Vercel LIVE produced no real two-brain decision before deadline.' >&2
+            [[ -n "$last" ]] && echo "$last" | jq . >&2 || true
             exit 1
           fi
 
