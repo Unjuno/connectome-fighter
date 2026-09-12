@@ -53,8 +53,12 @@ fi
 STATUS_FILE="$WORK/bootstrap-status.json"
 SCREEN_FILE="$WORK/latest-screen.png"
 ACTIVITY_FILE="$WORK/live-activity.json"
+FLYBODY_P1_FILE="$WORK/flybody-p1.png"
+FLYBODY_P2_FILE="$WORK/flybody-p2.png"
+FLYBODY_STATE_FILE="$WORK/flybody-state.json"
 SCREEN_PID=""
 ACTIVITY_PID=""
+FLYBODY_PID=""
 write_status() {
   local phase="$1"
   local tmp="$STATUS_FILE.tmp"
@@ -76,6 +80,9 @@ node "$ROOT/bin/bootstrap-proxy.mjs" \
   --status-file "$STATUS_FILE" \
   --screen-file "$SCREEN_FILE" \
   --activity-file "$ACTIVITY_FILE" \
+  --flybody-p1-file "$FLYBODY_P1_FILE" \
+  --flybody-p2-file "$FLYBODY_P2_FILE" \
+  --flybody-state-file "$FLYBODY_STATE_FILE" \
   --session-id "$SESSION_ID" \
   --p1 "$P1" \
   --p2 "$P2" &
@@ -89,6 +96,10 @@ cleanup_children() {
   if [[ -n "$ACTIVITY_PID" ]]; then
     kill "$ACTIVITY_PID" >/dev/null 2>&1 || true
     wait "$ACTIVITY_PID" >/dev/null 2>&1 || true
+  fi
+  if [[ -n "$FLYBODY_PID" ]]; then
+    kill "$FLYBODY_PID" >/dev/null 2>&1 || true
+    wait "$FLYBODY_PID" >/dev/null 2>&1 || true
   fi
   kill "$PROXY_PID" >/dev/null 2>&1 || true
   wait "$PROXY_PID" >/dev/null 2>&1 || true
@@ -116,12 +127,15 @@ REF_PY="$ROOT/$REF_REL"
 BRIDGE_PY="$ROOT/$BRIDGE_REL"
 SITE310="$ROOT/runtime/site310"
 SITE311="$ROOT/runtime/site311"
+SITEFLYBODY="$ROOT/runtime/siteflybody"
 
 for required in \
   "$REF_PY" \
   "$BRIDGE_PY" \
   "$SITE310/brian2" \
   "$SITE311/pyftg" \
+  "$SITEFLYBODY/flybody" \
+  "$SITEFLYBODY/dm_control" \
   "$ROOT/data/malecns-shiu-strict-v1/connectivity.parquet" \
   "$ROOT/data/malecns-valence-v1/kc_mbon_valence_candidates.parquet" \
   "$ROOT/fightingice/FightingICE.jar" \
@@ -164,9 +178,8 @@ ensure_font_runtime() {
   fc-list 2>/dev/null | grep -q .
 }
 
-# FightingICE v7.1 initializes the AWT LetterImage font in HEADLESS_MODE. Public
-# ScreenData therefore requires a working font runtime; lightweight diagnostics
-# skip this branch. The runtime-base prewarm may satisfy this before session boot.
+# FightingICE v7.1 initializes its AWT renderer in HEADLESS_MODE. FlyBody's
+# MuJoCo spectator renderer is separate and remains outside policy input.
 if [[ "$FIGHTINGICE_MODE" == "headless" ]]; then
   ensure_font_runtime
 else
@@ -281,7 +294,7 @@ if [[ -n "$P1_ADAPTER" ]]; then CMD+=(--adapter-dir-p1 "$P1_ADAPTER"); fi
 if [[ -n "$P2_ADAPTER" ]]; then CMD+=(--adapter-dir-p2 "$P2_ADAPTER"); fi
 
 if [[ "${CONNECTOME_PUBLIC_BROADCAST:-false}" == "true" ]]; then
-  rm -f "$SCREEN_FILE" "$ACTIVITY_FILE"
+  rm -f "$SCREEN_FILE" "$ACTIVITY_FILE" "$FLYBODY_P1_FILE" "$FLYBODY_P2_FILE" "$FLYBODY_STATE_FILE"
   PYTHONPATH="$ROOT/repo/src:$SITE311" "$BRIDGE_PY" \
     "$ROOT/repo/scripts/run_live_screen_publisher.py" \
     --host 127.0.0.1 --port 31415 \
@@ -296,6 +309,16 @@ if [[ "${CONNECTOME_PUBLIC_BROADCAST:-false}" == "true" ]]; then
     --output "$ACTIVITY_FILE" \
     > "$WORK/live-activity-publisher.log" 2>&1 &
   ACTIVITY_PID=$!
+  MUJOCO_GL="${CONNECTOME_MUJOCO_GL:-egl}" \
+  PYTHONPATH="$ROOT/repo/src:$SITEFLYBODY" "$BRIDGE_PY" \
+    "$ROOT/repo/scripts/run_live_flybody_publisher.py" \
+    --jsonl "$WORK/live/live-decisions.jsonl" \
+    --p1-output "$FLYBODY_P1_FILE" \
+    --p2-output "$FLYBODY_P2_FILE" \
+    --state-output "$FLYBODY_STATE_FILE" \
+    --fps "${CONNECTOME_FLYBODY_FPS:-8}" \
+    > "$WORK/live-flybody-publisher.log" 2>&1 &
+  FLYBODY_PID=$!
 fi
 
 write_status "starting-fightingice-malecns"
