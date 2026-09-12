@@ -154,6 +154,21 @@ def main() -> int:
     )
 
     require(
+        ".github/workflows/precompile-arena-brian2-cython-cache.yml",
+        "Wait for Vercel to observe exact postprocessed release",
+        "Require shared LIVE to adopt exact runtime base",
+        "single-shared-live-broadcast",
+        "connectome-live-broadcast",
+        "Compilerless shared Vercel LIVE produced no real two-brain decision before deadline.",
+    )
+    forbid(
+        ".github/workflows/precompile-arena-brian2-cython-cache.yml",
+        "Launch GARNET checkpoint vs ZEN canonical baseline",
+        "-X POST \"$BASE/api/connectome/session\"",
+        "STATUS_URL",
+    )
+
+    require(
         ".github/workflows/render-fightingice-video.yml",
         "Historical ScreenData/video regression workflow",
         "workflow_dispatch:",
