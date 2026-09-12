@@ -21,13 +21,15 @@ def main() -> int:
     if target is None:
         raise ValueError("current clip not found in queue")
     target["morphology"] = morphology
-    queue["schema_version"] = max(int(queue.get("schema_version", 1)), 4)
+    queue["schema_version"] = max(int(queue.get("schema_version", 1)), 5)
     args.queue.write_text(json.dumps(queue, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps({
         "status": "PASS",
         "clip_id": current,
         "p1_morphologies": len((morphology.get("sides") or {}).get("p1") or []),
         "p2_morphologies": len((morphology.get("sides") or {}).get("p2") or []),
+        "atlas_bodies": int((morphology.get("atlas") or {}).get("loaded_bodies", 0)),
+        "atlas_segments": len(morphology.get("atlas_segments") or []),
     }, indent=2))
     return 0
 
