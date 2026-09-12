@@ -10,6 +10,7 @@ import argparse
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import os
 from pathlib import Path
 import signal
 import subprocess
@@ -19,11 +20,26 @@ import time
 from typing import Any
 
 
+def rounds_per_session_from_env() -> int:
+    """Use proven multi-round reuse for the shared broadcast, one round elsewhere."""
+    public = os.environ.get("CONNECTOME_PUBLIC_BROADCAST", "false").strip().lower() == "true"
+    default = "6" if public else "1"
+    raw = os.environ.get("CONNECTOME_ROUNDS_PER_SESSION", default).strip()
+    try:
+        rounds = int(raw)
+    except ValueError as exc:
+        raise ValueError(f"CONNECTOME_ROUNDS_PER_SESSION must be an integer, got {raw!r}") from exc
+    if not 1 <= rounds <= 60:
+        raise ValueError(f"CONNECTOME_ROUNDS_PER_SESSION must be in [1, 60], got {rounds}")
+    return rounds
+
+
 class ArenaState:
-    def __init__(self, *, session_id: str, p1: str, p2: str, max_hp: int) -> None:
+    def __init__(self, *, session_id: str, p1: str, p2: str, max_hp: int, rounds_per_session: int = 1) -> None:
         self.session_id = session_id
         self.characters = {1: p1, 2: p2}
         self.max_hp = int(max_hp)
+        self.rounds_per_session = int(rounds_per_session)
         self.lock = threading.Condition()
         self.latest: dict[int, dict[str, Any]] = {}
         self.sequence = 0
@@ -108,6 +124,7 @@ class ArenaState:
             "session_id": self.session_id,
             "status": status,
             "round": round_id,
+            "rounds_per_session": self.rounds_per_session,
             "frame": frame,
             "t_seconds": frame / 60.0,
             "p1": fighter(1, e1, p1_display),
@@ -257,11 +274,18 @@ def main() -> int:
     p.add_argument("--post-fight-seconds", type=float, default=30.0)
     p.add_argument("--fightingice-mode", choices=["lightweight", "headless"], default="lightweight")
     args = p.parse_args()
+    rounds_per_session = rounds_per_session_from_env()
 
     args.out.mkdir(parents=True, exist_ok=True)
     telemetry_path = args.out / "live-decisions.jsonl"
     game_log = args.out / "fightingice.log"
-    state = ArenaState(session_id=args.session_id, p1=args.p1, p2=args.p2, max_hp=args.max_hp)
+    state = ArenaState(
+        session_id=args.session_id,
+        p1=args.p1,
+        p2=args.p2,
+        max_hp=args.max_hp,
+        rounds_per_session=rounds_per_session,
+    )
     stop = threading.Event()
     tailer = threading.Thread(target=tail_jsonl, args=(telemetry_path, state, stop), daemon=True)
     tailer.start()
@@ -284,7 +308,7 @@ def main() -> int:
             "java", "-cp", classpath, "Main",
             processing_flag, "--pyftg-mode", "--input-sync",
             "--limithp", str(args.max_hp), str(args.max_hp),
-            "--port", str(args.game_port), "-r", "1", "-f", "600",
+            "--port", str(args.game_port), "-r", str(rounds_per_session), "-f", "600",
         ],
         cwd=game_dir,
         stdout=log_handle,
@@ -314,6 +338,7 @@ def main() -> int:
     try:
         wait_for_fightingice(game_log, fightingice)
         run_root = args.out / "runs"
+        timeout_seconds = max(900, rounds_per_session * 300)
         command = [
             sys.executable,
             str(Path(__file__).with_name("run_game_malecns_lif.py")),
@@ -325,7 +350,8 @@ def main() -> int:
             "--adapter-dir", str(args.adapter_dir),
             "--interface", str(args.interface),
             "--decision-interval", str(args.decision_interval),
-            "--games", "1", "--expected-rounds", "1", "--timeout", "900",
+            "--games", "1", "--expected-rounds", str(rounds_per_session),
+            "--timeout", str(timeout_seconds),
             "--run-id", args.session_id,
             "--out", str(run_root),
             "--live-telemetry-jsonl", str(telemetry_path),
