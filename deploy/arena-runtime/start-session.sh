@@ -49,6 +49,8 @@ if [[ -z "$SESSION_ID" ]]; then
 fi
 
 STATUS_FILE="$WORK/bootstrap-status.json"
+SCREEN_FILE="$WORK/latest-screen.png"
+SCREEN_PID=""
 write_status() {
   local phase="$1"
   local tmp="$STATUS_FILE.tmp"
@@ -68,12 +70,17 @@ node "$ROOT/bin/bootstrap-proxy.mjs" \
   --listen "$LISTEN" \
   --upstream "$UPSTREAM_PORT" \
   --status-file "$STATUS_FILE" \
+  --screen-file "$SCREEN_FILE" \
   --session-id "$SESSION_ID" \
   --p1 "$P1" \
   --p2 "$P2" &
 PROXY_PID=$!
 
-cleanup_proxy() {
+cleanup_children() {
+  if [[ -n "$SCREEN_PID" ]]; then
+    kill "$SCREEN_PID" >/dev/null 2>&1 || true
+    wait "$SCREEN_PID" >/dev/null 2>&1 || true
+  fi
   kill "$PROXY_PID" >/dev/null 2>&1 || true
   wait "$PROXY_PID" >/dev/null 2>&1 || true
 }
@@ -84,11 +91,11 @@ on_error() {
   write_error "$rc" "$line"
   # Keep the public bootstrap endpoint alive briefly so the viewer can surface the error.
   sleep 30
-  cleanup_proxy
+  cleanup_children
   exit "$rc"
 }
 trap on_error ERR
-trap cleanup_proxy EXIT INT TERM
+trap cleanup_children EXIT INT TERM
 
 sleep 0.2
 kill -0 "$PROXY_PID"
@@ -264,6 +271,18 @@ CMD=(
 if [[ -n "$P1_ADAPTER" ]]; then CMD+=(--adapter-dir-p1 "$P1_ADAPTER"); fi
 if [[ -n "$P2_ADAPTER" ]]; then CMD+=(--adapter-dir-p2 "$P2_ADAPTER"); fi
 
+if [[ "${CONNECTOME_PUBLIC_BROADCAST:-false}" == "true" ]]; then
+  rm -f "$SCREEN_FILE"
+  PYTHONPATH="$ROOT/repo/src:$SITE311" "$BRIDGE_PY" \
+    "$ROOT/repo/scripts/run_live_screen_publisher.py" \
+    --host 127.0.0.1 --port 31415 \
+    --output "$SCREEN_FILE" \
+    --fps "${CONNECTOME_SCREEN_FPS:-10}" \
+    --downsample "${CONNECTOME_SCREEN_DOWNSAMPLE:-2}" \
+    > "$WORK/live-screen-publisher.log" 2>&1 &
+  SCREEN_PID=$!
+fi
+
 write_status "starting-fightingice-malecns"
 set +e
 bridge_python "${CMD[@]}"
@@ -275,6 +294,6 @@ else
   write_error "$RC" 0
 fi
 sleep "$POST_SESSION_SECONDS"
-cleanup_proxy
+cleanup_children
 trap - EXIT INT TERM ERR
 exit "$RC"
