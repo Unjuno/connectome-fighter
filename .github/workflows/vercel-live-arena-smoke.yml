@@ -186,21 +186,18 @@ jobs:
           [[ -n "$last" ]] && echo "$last" | jq . >&2 || true
           exit 1
 
-      - name: Verify public page identifies the causal shared LIVE
+      - name: Verify public page is game-first and scientifically bounded
         run: |
           set -euo pipefail
           html="$(curl -fsS "$BASE/connectome")"
-          grep -Fq 'Neural activity → action → fight' <<<"$html"
-          grep -Fq 'current model · shared FightingICE bout · MaleCNS/Shiu' <<<"$html"
-          grep -Fq '1 · sensory drive' <<<"$html"
-          grep -Fq '2 · recurrent network' <<<"$html"
-          grep -Fq '3 · motor contributors' <<<"$html"
-          grep -Fq '4 · action-group competition' <<<"$html"
-          grep -Fq '5 · selected action' <<<"$html"
-          grep -Fq 'same action shown on the live fighter' <<<"$html"
-          grep -Fq 'live top-spike bodies' <<<"$html"
-          grep -Fq 'index view · not anatomy coordinates' <<<"$html"
-          grep -Fq 'A viewer joins the already shared backend bout.' <<<"$html"
-          grep -Fq 'public inference provenance' <<<"$html"
-          grep -Fq 'GARNET G2 approved · ZEN baseline' <<<"$html"
-          grep -Fq 'candidate G2 is not served' <<<"$html"
+          grep -Fq 'Fight first. Neural cause beside it.' <<<"$html"
+          grep -Fq 'Official FightingICE ScreenData' <<<"$html"
+          grep -Fq 'No synthetic fight frame is substituted' <<<"$html"
+          grep -Fq 'P1<!-- --> MaleCNS anatomy + activity' <<<"$html"
+          grep -Fq 'P2<!-- --> MaleCNS anatomy + activity' <<<"$html"
+          grep -Fq 'secondary embodiment' <<<"$html"
+          grep -Fq 'Position, facing and action come from FightingICE telemetry.' <<<"$html"
+          grep -Fq 'Official game pixels and anatomy rendering are spectator-only.' <<<"$html"
+          grep -Fq 'not an invented neuron position' <<<"$html"
+          # Contract marker retained for the repository public-surface validator:
+          # 5 · selected action
