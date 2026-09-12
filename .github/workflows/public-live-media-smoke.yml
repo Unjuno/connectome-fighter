@@ -1,0 +1,125 @@
+name: public-live-media-smoke
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [vercel-live-arena-smoke]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-live-media-smoke
+  cancel-in-progress: true
+
+jobs:
+  media:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BASE: https://liveunjuno.vercel.app
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve current shared Sandbox media endpoints
+        run: |
+          set -euo pipefail
+          ready=0
+          for i in $(seq 1 90); do
+            body="$(curl -fsS "$BASE/api/connectome/live" || true)"
+            if [[ -n "$body" && "$(echo "$body" | jq -r '.ready // false')" == 'true' && "$(echo "$body" | jq -r '.status // empty')" == 'running' ]]; then
+              telemetry="$(echo "$body" | jq -r '.telemetry_url // empty')"
+              test -n "$telemetry"
+              sandbox_base="${telemetry%/state}"
+              echo "SANDBOX_BASE=$sandbox_base" >> "$GITHUB_ENV"
+              echo "TELEMETRY_URL=$telemetry" >> "$GITHUB_ENV"
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          test "$ready" -eq 1
+
+      - name: Require official nonblank FightingICE ScreenData PNG
+        run: |
+          set -euo pipefail
+          ok=0
+          for i in $(seq 1 90); do
+            code="$(curl -sS -o /tmp/live-screen.png -w '%{http_code}' "$SANDBOX_BASE/screen.png?t=$(date +%s%N)" || true)"
+            if [[ "$code" == '200' && -s /tmp/live-screen.png ]]; then
+              ok=1
+              break
+            fi
+            sleep 1
+          done
+          test "$ok" -eq 1
+          python - <<'PY'
+          import pathlib, struct, zlib
+          import numpy as np
+          raw=pathlib.Path('/tmp/live-screen.png').read_bytes()
+          assert raw[:8]==b'\x89PNG\r\n\x1a\n'
+          assert raw[12:16]==b'IHDR'
+          width,height=struct.unpack('>II',raw[16:24])
+          assert (width,height)==(480,320),(width,height)
+          offset=8; idat=[]
+          while offset < len(raw):
+              n=struct.unpack('>I',raw[offset:offset+4])[0]
+              kind=raw[offset+4:offset+8]
+              payload=raw[offset+8:offset+8+n]
+              if kind==b'IDAT': idat.append(payload)
+              offset += 12+n
+              if kind==b'IEND': break
+          decoded=zlib.decompress(b''.join(idat))
+          stride=1+width*3
+          rows=np.frombuffer(decoded,dtype=np.uint8).reshape(height,stride)
+          assert np.all(rows[:,0]==0)
+          pixels=rows[:,1:].reshape(height,width,3)
+          unique_rgb=len(np.unique(pixels.reshape(-1,3),axis=0))
+          std=pixels.reshape(-1,3).std(axis=0)
+          assert unique_rgb >= 8, unique_rgb
+          assert float(std.max()) >= 2.0, std.tolist()
+          print({'official_screen':True,'width':width,'height':height,'bytes':len(raw),'unique_rgb':unique_rgb,'channel_std':std.tolist(),'policy_pixel_access':False})
+          PY
+
+      - name: Require real annotated MaleCNS activity side channel
+        run: |
+          set -euo pipefail
+          ok=0
+          last=''
+          for i in $(seq 1 120); do
+            body="$(curl -fsS "$SANDBOX_BASE/activity.json?t=$(date +%s%N)" || true)"
+            if [[ -n "$body" ]]; then
+              last="$body"
+              if echo "$body" | jq -e '
+                .schema_version == 1 and
+                .kind == "male-cns-live-anatomy-activity" and
+                .policy_access == false and
+                (.sides.p1.decision_index | type) == "number" and .sides.p1.decision_index > 0 and
+                (.sides.p2.decision_index | type) == "number" and .sides.p2.decision_index > 0 and
+                (.sides.p1.top_bodies | type) == "array" and (.sides.p1.top_bodies | length) > 0 and
+                (.sides.p2.top_bodies | type) == "array" and (.sides.p2.top_bodies | length) > 0 and
+                (.sides.p1.top_bodies | any(.[]; (.body_id|type)=="number" and (.spikes|type)=="number")) and
+                (.sides.p2.top_bodies | any(.[]; (.body_id|type)=="number" and (.spikes|type)=="number")) and
+                (.sides.p1.neuromeres | type) == "array" and
+                (.sides.p2.neuromeres | type) == "array"
+              ' >/dev/null; then
+                ok=1
+                echo "$body" | jq '{kind,policy_access,p1:{decision:.sides.p1.decision_index,frame:.sides.p1.frame,neuromeres:.sides.p1.neuromeres[:5],top_bodies:.sides.p1.top_bodies[:5]},p2:{decision:.sides.p2.decision_index,frame:.sides.p2.frame,neuromeres:.sides.p2.neuromeres[:5],top_bodies:.sides.p2.top_bodies[:5]}}'
+                break
+              fi
+            fi
+            sleep 1
+          done
+          if [[ "$ok" -ne 1 ]]; then
+            echo 'Annotated activity side channel did not become ready.' >&2
+            [[ -n "$last" ]] && echo "$last" | jq . >&2 || true
+            exit 1
+          fi
+
+      - name: Require spectator channels remain outside policy
+        run: |
+          set -euo pipefail
+          state="$(curl -fsS "$TELEMETRY_URL")"
+          test "$(echo "$state" | jq -r '.policy_pixel_access')" = 'false'
+          test "$(echo "$state" | jq -r '.learning_enabled')" = 'false'
