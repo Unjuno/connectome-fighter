@@ -1,0 +1,149 @@
+name: public-live-flybody-smoke
+
+on:
+  workflow_run:
+    workflows: [publish-flybody-runtime-addon]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-live-flybody-smoke
+  cancel-in-progress: true
+
+jobs:
+  flybody:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      BASE: https://liveunjuno.vercel.app
+      FLYBODY_COMMIT: d015e9bfe441bd90ae431bac24c55cb74bdbce26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve running shared LIVE FlyBody endpoints
+        run: |
+          set -euo pipefail
+          ready=0
+          last=''
+          for i in $(seq 1 240); do
+            body="$(curl -fsS "$BASE/api/connectome/live?t=$(date +%s%N)" || true)"
+            if [[ -n "$body" ]]; then
+              last="$body"
+              echo "$body" | jq '{ready,status,runtime_archive_sha256,source_runtime_base,flybody_source,flybody_neural_drive,flybody_policy_access,flybody_game_telemetry_position_used,flybody_p1_url,flybody_p2_url,flybody_state_url}'
+              if echo "$body" | jq -e '
+                .ready == true and .status == "running" and
+                .flybody_source == "TuragaLab/flybody MuJoCo physics" and
+                .flybody_policy_access == false and
+                .flybody_game_telemetry_position_used == false and
+                (.telemetry_url | type) == "string" and
+                (.flybody_p1_url | type) == "string" and
+                (.flybody_p2_url | type) == "string" and
+                (.flybody_state_url | type) == "string"
+              ' >/dev/null; then
+                echo "TELEMETRY_URL=$(echo "$body" | jq -r '.telemetry_url')" >> "$GITHUB_ENV"
+                echo "FLYBODY_P1_URL=$(echo "$body" | jq -r '.flybody_p1_url')" >> "$GITHUB_ENV"
+                echo "FLYBODY_P2_URL=$(echo "$body" | jq -r '.flybody_p2_url')" >> "$GITHUB_ENV"
+                echo "FLYBODY_STATE_URL=$(echo "$body" | jq -r '.flybody_state_url')" >> "$GITHUB_ENV"
+                ready=1
+                break
+              fi
+            fi
+            sleep 4
+          done
+          if [[ "$ready" -ne 1 ]]; then
+            echo 'Neural FlyBody shared LIVE did not become ready.' >&2
+            [[ -n "$last" ]] && echo "$last" | jq . >&2 || true
+            exit 1
+          fi
+
+      - name: Require same-decision neural FlyBody physics state
+        run: |
+          set -euo pipefail
+          ok=0
+          last_fly=''
+          last_live=''
+          for i in $(seq 1 180); do
+            live="$(curl -fsS "$TELEMETRY_URL?t=$(date +%s%N)" || true)"
+            fly="$(curl -fsS "$FLYBODY_STATE_URL?t=$(date +%s%N)" || true)"
+            [[ -n "$live" ]] && last_live="$live"
+            [[ -n "$fly" ]] && last_fly="$fly"
+            if [[ -n "$live" && -n "$fly" ]] && echo "$fly" | jq -e --arg commit "$FLYBODY_COMMIT" '
+              .schema_version == 1 and
+              .kind == "malecns-flybody-live-physics" and
+              .policy_access == false and
+              .game_telemetry_position_used == false and
+              .mujoco_gl == "osmesa" and
+              .upstream.repository == "TuragaLab/flybody" and
+              .upstream.commit == $commit and
+              .adapter == "malecns-annotated-motor-to-flybody-tripod-v1" and
+              (.sides.p1.physics.sim_steps | type) == "number" and .sides.p1.physics.sim_steps > 0 and
+              (.sides.p2.physics.sim_steps | type) == "number" and .sides.p2.physics.sim_steps > 0 and
+              .sides.p1.physics.action_dimension == 59 and
+              .sides.p2.physics.action_dimension == 59 and
+              (.sides.p1.neural_command.source_body_ids | type) == "array" and
+              (.sides.p2.neural_command.source_body_ids | type) == "array"
+            ' >/dev/null; then
+              if jq -n -e --argjson live "$live" --argjson fly "$fly" '
+                ($live.status == "running") and
+                ($fly.sides.p1.decision.round == $live.round) and
+                ($fly.sides.p1.decision.frame == $live.frame) and
+                ($fly.sides.p1.decision.decision_index == $live.brain.p1.decision_index) and
+                ($fly.sides.p2.decision.round == $live.round) and
+                ($fly.sides.p2.decision.frame == $live.frame) and
+                ($fly.sides.p2.decision.decision_index == $live.brain.p2.decision_index)
+              ' >/dev/null; then
+                echo "$fly" | jq '{upstream,adapter,mujoco_gl,p1:{decision:.sides.p1.decision,command:.sides.p1.neural_command,physics:.sides.p1.physics},p2:{decision:.sides.p2.decision,command:.sides.p2.neural_command,physics:.sides.p2.physics}}'
+                ok=1
+                break
+              fi
+            fi
+            sleep 1
+          done
+          if [[ "$ok" -ne 1 ]]; then
+            echo 'FlyBody state never aligned to the same live round/frame/decision.' >&2
+            [[ -n "$last_live" ]] && echo "$last_live" | jq . >&2 || true
+            [[ -n "$last_fly" ]] && echo "$last_fly" | jq . >&2 || true
+            exit 1
+          fi
+
+      - name: Require nonblank physical FlyBody PNGs
+        run: |
+          set -euo pipefail
+          curl -fsS "$FLYBODY_P1_URL?t=$(date +%s%N)" -o /tmp/flybody-p1.png
+          curl -fsS "$FLYBODY_P2_URL?t=$(date +%s%N)" -o /tmp/flybody-p2.png
+          python - <<'PY'
+          import math, pathlib, struct, zlib
+          for name in ['p1','p2']:
+              raw=pathlib.Path(f'/tmp/flybody-{name}.png').read_bytes()
+              assert raw[:8]==b'\x89PNG\r\n\x1a\n'
+              assert raw[12:16]==b'IHDR'
+              width,height=struct.unpack('>II',raw[16:24])
+              assert (width,height)==(320,240),(name,width,height)
+              off=8; idat=[]
+              while off < len(raw):
+                  n=struct.unpack('>I',raw[off:off+4])[0]
+                  kind=raw[off+4:off+8]
+                  payload=raw[off+8:off+8+n]
+                  if kind==b'IDAT': idat.append(payload)
+                  off += 12+n
+                  if kind==b'IEND': break
+              decoded=zlib.decompress(b''.join(idat))
+              stride=1+width*3
+              assert len(decoded)==height*stride
+              unique=set(); sums=[0.,0.,0.]; sums2=[0.,0.,0.]; count=0
+              for y in range(height):
+                  row=decoded[y*stride:(y+1)*stride]
+                  assert row[0]==0
+                  px=row[1:]
+                  for i in range(0,len(px),3):
+                      rgb=(px[i],px[i+1],px[i+2]); unique.add(rgb); count+=1
+                      for c,v in enumerate(rgb): sums[c]+=v; sums2[c]+=v*v
+              std=[math.sqrt(max(0.,sums2[c]/count-(sums[c]/count)**2)) for c in range(3)]
+              assert len(unique)>=8,(name,len(unique))
+              assert max(std)>=2.0,(name,std)
+              print({'side':name,'width':width,'height':height,'bytes':len(raw),'unique_rgb':len(unique),'channel_std':std,'source':'TuragaLab/flybody MuJoCo'})
+          PY
