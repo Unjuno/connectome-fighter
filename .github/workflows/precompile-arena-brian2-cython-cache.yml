@@ -1,0 +1,322 @@
+name: precompile-arena-brian2-cython-cache
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/malecns_lif_worker.py'
+      - 'scripts/precompile_arena_brian2_cache.py'
+      - '.github/workflows/precompile-arena-brian2-cython-cache.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/malecns_lif_worker.py'
+      - 'scripts/precompile_arena_brian2_cache.py'
+      - '.github/workflows/precompile-arena-brian2-cython-cache.yml'
+  workflow_run:
+    workflows: [publish-arena-runtime-bundle]
+    types: [completed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: precompile-arena-brian2-cython-cache
+  cancel-in-progress: true
+
+env:
+  TARGET_TAG: arena-runtime-latest
+  BASE: https://liveunjuno.vercel.app
+  VERCEL_RUNTIME_ROOT: /home/vercel-sandbox/connectome-runtime/arena-runtime
+
+jobs:
+  cache-proof-and-publish:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download and verify current immutable runtime release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf runs/cache-postprocess
+          mkdir -p runs/cache-postprocess/source
+          gh release download "$TARGET_TAG" \
+            --pattern arena-runtime.tar.gz \
+            --pattern arena-runtime.tar.gz.sha256 \
+            --dir runs/cache-postprocess/source
+          (
+            cd runs/cache-postprocess/source
+            sha256sum -c arena-runtime.tar.gz.sha256
+          )
+          tar -C runs/cache-postprocess -xzf runs/cache-postprocess/source/arena-runtime.tar.gz
+          ROOT="$(realpath runs/cache-postprocess/arena-runtime)"
+          test -x "$ROOT/$(cat "$ROOT/runtime/python310.path")"
+          test -s "$ROOT/data/malecns-shiu-strict-v1/connectivity.parquet"
+          test -s "$ROOT/shiu/model.py"
+          echo "RUNTIME_ROOT=$ROOT" >> "$GITHUB_ENV"
+
+      - name: Overlay current canonical worker implementation
+        run: |
+          set -euo pipefail
+          install -m 0755 scripts/malecns_lif_worker.py \
+            "$RUNTIME_ROOT/repo/scripts/malecns_lif_worker.py"
+          python -m py_compile scripts/precompile_arena_brian2_cache.py
+
+      - name: Reproduce exact Vercel runtime path
+        run: |
+          set -euo pipefail
+          sudo rm -rf /home/vercel-sandbox/connectome-runtime
+          sudo mkdir -p /home/vercel-sandbox/connectome-runtime
+          sudo ln -s "$RUNTIME_ROOT" "$VERCEL_RUNTIME_ROOT"
+          test "$(readlink -f "$VERCEL_RUNTIME_ROOT")" = "$RUNTIME_ROOT"
+          VREF="$VERCEL_RUNTIME_ROOT/$(cat "$RUNTIME_ROOT/runtime/python310.path")"
+          test -x "$VREF"
+          actual="$($VREF -c 'import sys; print(sys.executable)')"
+          test "$actual" = "$VREF"
+          echo "VERCEL_REFERENCE_PYTHON=$VREF" >> "$GITHUB_ENV"
+
+      - name: Precompile canonical Brian2 Cython cache and prove compilerless reuse
+        run: |
+          set -euo pipefail
+          python scripts/precompile_arena_brian2_cache.py \
+            --runtime-root "$RUNTIME_ROOT" \
+            --vercel-root "$VERCEL_RUNTIME_ROOT" \
+            --character GARNET \
+            --seed 20260912 \
+            --timeout-sec 1800 \
+            | tee runs/cache-postprocess/brian2-cache-proof.json.log
+          test -s "$RUNTIME_ROOT/runtime/brian2-cython-cache-manifest.json"
+          python - "$RUNTIME_ROOT/runtime/brian2-cython-cache-manifest.json" "$VERCEL_REFERENCE_PYTHON" <<'PY'
+          import json, pathlib, sys
+          p=pathlib.Path(sys.argv[1])
+          m=json.loads(p.read_text())
+          assert m['kind']=='connectome-fighter-brian2-cython-cache'
+          assert m['canonical_model']=='MaleCNS v1.0 + pinned Shiu LIF'
+          assert m['codegen_target']=='cython'
+          assert m['compilerless_reuse_verified'] is True
+          assert m['expected_sys_executable']==sys.argv[2]
+          assert m['versions']['brian2']=='2.5.1'
+          assert m['versions']['cython']=='0.29.36'
+          assert m['versions']['numpy']=='1.24.0'
+          assert m['shared_object_count'] > 0
+          assert m['neurons'] > 150000
+          assert m['synapses'] > 1000000
+          print(json.dumps(m,indent=2,sort_keys=True))
+          PY
+
+      - name: Stamp cache provenance into runtime manifest
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          set -euo pipefail
+          python - "$RUNTIME_ROOT" <<'PY'
+          import hashlib, json, pathlib, sys
+          root=pathlib.Path(sys.argv[1])
+          manifest_path=root/'manifest.json'
+          cache_path=root/'runtime/brian2-cython-cache-manifest.json'
+          worker_path=root/'repo/scripts/malecns_lif_worker.py'
+          m=json.loads(manifest_path.read_text())
+          c=json.loads(cache_path.read_text())
+          m['schema_version']=max(3,int(m.get('schema_version',0)))
+          m['brian2_codegen_target']='cython'
+          m['brian2_cython_cache_precompiled']=True
+          m['brian2_cython_cache_manifest']='runtime/brian2-cython-cache-manifest.json'
+          m['brian2_cython_cache_manifest_sha256']=hashlib.sha256(cache_path.read_bytes()).hexdigest()
+          m['brian2_cython_cache_tree_sha256']=c['cache_tree_sha256']
+          m['brian2_compilerless_reuse_verified']=True
+          m['brian2_expected_sys_executable']=c['expected_sys_executable']
+          m['malecns_worker_sha256']=hashlib.sha256(worker_path.read_bytes()).hexdigest()
+          m['bundle_profile']='minimal-fightingice-jlink-precompiled-cython-v1'
+          m['note']='Runtime assets, pinned interpreters, and the canonical Brian2 Cython extensions are prebuilt. Viewer Sandboxes require no C compiler. Approved mutable character state remains a separate hash-verified inference handoff.'
+          manifest_path.write_text(json.dumps(m,indent=2,sort_keys=True)+'\n')
+          print(json.dumps(m,indent=2,sort_keys=True))
+          PY
+
+      - name: Repack deterministic runtime archive
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          set -euo pipefail
+          rm -f runs/cache-postprocess/arena-runtime.tar.gz \
+                runs/cache-postprocess/arena-runtime.tar.gz.sha256 \
+                runs/cache-postprocess/arena-runtime-size.json
+          tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner \
+            -C runs/cache-postprocess -cf - arena-runtime \
+            | gzip -n > runs/cache-postprocess/arena-runtime.tar.gz
+          sha="$(sha256sum runs/cache-postprocess/arena-runtime.tar.gz | awk '{print $1}')"
+          printf '%s  %s\n' "$sha" arena-runtime.tar.gz \
+            > runs/cache-postprocess/arena-runtime.tar.gz.sha256
+          python - "$sha" <<'PY'
+          import json, pathlib, sys
+          archive=pathlib.Path('runs/cache-postprocess/arena-runtime.tar.gz')
+          payload={
+              'archive_size_bytes':archive.stat().st_size,
+              'archive_sha256':sys.argv[1],
+              'bundle_profile':'minimal-fightingice-jlink-precompiled-cython-v1',
+              'brian2_cython_cache_precompiled':True,
+              'compilerless_reuse_verified':True,
+          }
+          pathlib.Path('runs/cache-postprocess/arena-runtime-size.json').write_text(json.dumps(payload,indent=2,sort_keys=True)+'\n')
+          print(json.dumps(payload,indent=2,sort_keys=True))
+          PY
+          echo "FINAL_RUNTIME_SHA=$sha" >> "$GITHUB_ENV"
+
+      - name: Publish compilerless canonical runtime assets
+        if: ${{ github.event_name != 'pull_request' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release upload "$TARGET_TAG" \
+            runs/cache-postprocess/arena-runtime.tar.gz \
+            runs/cache-postprocess/arena-runtime.tar.gz.sha256 \
+            runs/cache-postprocess/arena-runtime-size.json \
+            "$RUNTIME_ROOT/manifest.json" \
+            "$RUNTIME_ROOT/runtime/brian2-cython-cache-manifest.json" \
+            --clobber
+
+          visible=0
+          for i in $(seq 1 60); do
+            remote="$(curl -fsSL \
+              "https://github.com/Unjuno/connectome-fighter/releases/download/$TARGET_TAG/arena-runtime.tar.gz.sha256" \
+              | grep -Eo '[a-f0-9]{64}' | head -1 || true)"
+            if [[ "$remote" == "$FINAL_RUNTIME_SHA" ]]; then
+              visible=1
+              break
+            fi
+            sleep 3
+          done
+          test "$visible" -eq 1
+
+      - name: Wait for Vercel to observe exact postprocessed release
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          set -euo pipefail
+          seen=0
+          for i in $(seq 1 90); do
+            body="$(curl -fsS "$BASE/api/connectome/session" || true)"
+            if [[ -n "$body" ]]; then
+              sha="$(echo "$body" | jq -r '.runtime_archive_sha256 // empty')"
+              echo "$body" | jq '{runtime_archive_sha256,runtime_base_name,runtime_base_ready,runtime_base_status,learning_enabled,policy_pixel_access}'
+              test "$(echo "$body" | jq -r '.learning_enabled')" = false
+              test "$(echo "$body" | jq -r '.policy_pixel_access')" = false
+              if [[ "$sha" == "$FINAL_RUNTIME_SHA" ]]; then
+                seen=1
+                break
+              fi
+            fi
+            sleep 4
+          done
+          test "$seen" -eq 1
+          echo "RUNTIME_BASE=connectome-runtime-${FINAL_RUNTIME_SHA:0:16}" >> "$GITHUB_ENV"
+
+      - name: Build SHA-addressed persistent Vercel runtime snapshot
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          set -euo pipefail
+          ready=0
+          for i in $(seq 1 180); do
+            tmp="$(mktemp)"
+            code="$(curl -sS -o "$tmp" -w '%{http_code}' "$BASE/api/connectome/runtime-base" || true)"
+            body="$(cat "$tmp")"
+            rm -f "$tmp"
+            if [[ -n "$body" ]]; then
+              echo "$body" | jq '{ready,status,name,snapshot_id,session_id,command_id,command_exit_code,stage_age_ms,runtime_archive_sha256,diagnostic,reason,learning_enabled,policy_pixel_access}'
+              test "$(echo "$body" | jq -r '.learning_enabled')" = false
+              test "$(echo "$body" | jq -r '.policy_pixel_access')" = false
+              test "$(echo "$body" | jq -r '.name // empty')" = "$RUNTIME_BASE"
+              test "$(echo "$body" | jq -r '.runtime_archive_sha256 // empty')" = "$FINAL_RUNTIME_SHA"
+              if [[ "$code" == 200 && "$(echo "$body" | jq -r '.ready')" == true && "$(echo "$body" | jq -r '.status')" == ready ]]; then
+                ready=1
+                break
+              fi
+              case "$(echo "$body" | jq -r '.status // empty')" in
+                create-error|stage-start-error|snapshot-stop-error|runtime-release-unavailable|inspect-error|auth-unavailable)
+                  echo "$body" | jq . >&2
+                  exit 1
+                  ;;
+              esac
+            fi
+            [[ "$code" == 200 || "$code" == 202 ]] || exit 1
+            sleep 6
+          done
+          test "$ready" -eq 1
+
+      - name: Launch GARNET checkpoint vs ZEN canonical baseline
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          set -euo pipefail
+          body="$(curl -fsS -X POST "$BASE/api/connectome/session" \
+            -H 'content-type: application/json' \
+            --data '{"p1":"GARNET","p2":"ZEN"}')"
+          echo "$body" | jq '{mode,source_runtime_base,source_runtime_snapshot,session_id,status,p1,p2,learning_enabled,policy_pixel_access,status_url}'
+          test "$(echo "$body" | jq -r '.source_runtime_base')" = "$RUNTIME_BASE"
+          test "$(echo "$body" | jq -r '.learning_enabled')" = false
+          test "$(echo "$body" | jq -r '.policy_pixel_access')" = false
+          session_id="$(echo "$body" | jq -r '.session_id // empty')"
+          status_url="$(echo "$body" | jq -r '.status_url // empty')"
+          test -n "$session_id"
+          test -n "$status_url"
+          echo "SESSION_ID=$session_id" >> "$GITHUB_ENV"
+          echo "STATUS_URL=$status_url" >> "$GITHUB_ENV"
+
+      - name: Require real FightingICE plus two MaleCNS decisions
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          set -euo pipefail
+          telemetry=''
+          for i in $(seq 1 120); do
+            status_body="$(curl -fsS "$BASE$STATUS_URL" || true)"
+            if [[ -n "$status_body" ]]; then
+              echo "$status_body" | jq '{session_id,status,diagnostic_telemetry_url,telemetry_url,bootstrap_phase,bootstrap,error}'
+              bootstrap_exit="$(echo "$status_body" | jq -r '.bootstrap.exit_code // empty')"
+              runtime_exit="$(echo "$status_body" | jq -r '.bootstrap.runtime_exit_code // empty')"
+              [[ -z "$bootstrap_exit" || "$bootstrap_exit" == 0 ]] || exit 1
+              [[ -z "$runtime_exit" || "$runtime_exit" == 0 ]] || exit 1
+              telemetry="$(echo "$status_body" | jq -r '.diagnostic_telemetry_url // empty')"
+              [[ -n "$telemetry" ]] && break
+            fi
+            sleep 2
+          done
+          test -n "$telemetry"
+
+          success=0
+          for i in $(seq 1 300); do
+            state="$(curl -fsS "$telemetry" || true)"
+            if [[ -n "$state" ]]; then
+              echo "$state" | jq '{status,round,frame,p1:{character:.p1.character,action:.p1.action},p2:{character:.p2.character,action:.p2.action},p1_decision:.brain.p1.decision_index,p2_decision:.brain.p2.decision_index,p1_spikes:.brain.p1.total_spikes,p2_spikes:.brain.p2.total_spikes,learning_enabled,policy_pixel_access,error,exit_code}'
+              test "$(echo "$state" | jq -r '.learning_enabled')" = false
+              test "$(echo "$state" | jq -r '.policy_pixel_access')" = false
+              status="$(echo "$state" | jq -r '.status // empty')"
+              if [[ "$status" == error ]]; then
+                curl -fsS "$BASE/api/connectome/session-worker-diagnostic?session_id=$SESSION_ID" | jq . >&2 || true
+                exit 1
+              fi
+              frame="$(echo "$state" | jq -r '.frame // 0')"
+              p1="$(echo "$state" | jq -r '.p1.character // empty')"
+              p2="$(echo "$state" | jq -r '.p2.character // empty')"
+              d1="$(echo "$state" | jq -r '.brain.p1.decision_index // 0')"
+              d2="$(echo "$state" | jq -r '.brain.p2.decision_index // 0')"
+              if [[ "$frame" -gt 0 && "$d1" -gt 0 && "$d2" -gt 0 && "$p1" == GARNET && "$p2" == ZEN ]]; then
+                success=1
+                break
+              fi
+            fi
+            if (( i == 1 || i % 15 == 0 )); then
+              curl -fsS "$BASE/api/connectome/session-diagnostic?session_id=$SESSION_ID" | jq . || true
+            fi
+            sleep 2
+          done
+          if [[ "$success" -ne 1 ]]; then
+            echo 'Compilerless Vercel arena produced no real two-brain decision before deadline.' >&2
+            curl -fsS "$BASE/api/connectome/session-diagnostic?session_id=$SESSION_ID" | jq . >&2 || true
+            curl -fsS "$BASE/api/connectome/session-worker-diagnostic?session_id=$SESSION_ID" | jq . >&2 || true
+            exit 1
+          fi
+
+      - name: Cleanup Vercel-path build alias
+        if: always()
+        run: |
+          sudo rm -f "$VERCEL_RUNTIME_ROOT" || true
