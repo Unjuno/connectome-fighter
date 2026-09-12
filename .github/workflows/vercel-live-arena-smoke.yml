@@ -158,9 +158,12 @@ jobs:
           [[ -n "$last" ]] && echo "$last" | jq . >&2 || true
           exit 1
 
-      - name: Verify public page identifies one shared LIVE
+      - name: Verify public page identifies the shared LIVE and served lineage state
         run: |
           set -euo pipefail
           html="$(curl -fsS "$BASE/connectome")"
           grep -Fq 'One shared Vercel LIVE' <<<"$html"
           grep -Fq 'GitHub research / training logs' <<<"$html"
+          grep -Fq 'public inference provenance' <<<"$html"
+          grep -Fq 'GARNET G2 approved · ZEN baseline' <<<"$html"
+          grep -Fq 'candidate G2 is not served' <<<"$html"
