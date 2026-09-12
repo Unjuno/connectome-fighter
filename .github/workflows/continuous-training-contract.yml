@@ -52,14 +52,16 @@ jobs:
           if missing:
               raise SystemExit(f'missing candidate-training contract text: {missing}')
 
-          forbidden=[
-              'arena-inference-latest',
+          forbidden_mutations=[
+              'TRAINING_TAG: arena-inference-latest',
+              'gh release upload arena-inference-latest',
+              'gh release create arena-inference-latest',
               'liveunjuno.vercel.app/api',
               'VERCEL_TOKEN',
               'VERCEL_OIDC_TOKEN',
               'cancel-in-progress: true',
           ]
-          found=[needle for needle in forbidden if needle in text]
+          found=[needle for needle in forbidden_mutations if needle in text]
           if found:
               raise SystemExit(f'forbidden auto-promotion/Vercel mutation returned: {found}')
 
