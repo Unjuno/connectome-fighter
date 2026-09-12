@@ -1,7 +1,7 @@
 const $ = (id) => document.getElementById(id);
 
 function esc(value = '') {
-  return String(value).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  return String(value).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
 }
 
 function pct(value) {
@@ -16,7 +16,7 @@ function num(value, digits = 2) {
 function dateLabel(value) {
   if (!value) return '—';
   const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? value : d.toLocaleString('en-US', { timeZone: 'UTC', dateStyle: 'medium', timeStyle: 'medium' });
+  return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString('en-US', { timeZone: 'UTC', dateStyle: 'medium', timeStyle: 'medium' });
 }
 
 function renderCharacters(stats = {}) {
@@ -128,6 +128,56 @@ function renderRuntimeProof(proof = {}) {
   if ($('proof-runtime-json')) $('proof-runtime-json').href = './data/runtime-proof.json';
 }
 
+function renderCandidateTraining(training = {}) {
+  let panel = $('candidate-learning');
+  if (!panel) {
+    panel = document.createElement('section');
+    panel.id = 'candidate-learning';
+    panel.className = 'panel';
+    const lineage = $('lineage');
+    if (lineage) lineage.insertAdjacentElement('afterend', panel);
+  }
+
+  const generation = Number(training.generation);
+  if (!Number.isFinite(generation)) {
+    panel.innerHTML = `
+      <div class="section-title"><div><div class="eyebrow">background candidate learning</div><h2>Rolling GitHub training lane</h2></div><span class="muted">initializing</span></div>
+      <div class="notice"><strong>LIVE remains unchanged.</strong> The candidate-learning lane has not published its first rolling checkpoint yet. Vercel continues to serve only the separately approved inference state.</div>`;
+    return;
+  }
+
+  const update = training.update_summary || {};
+  const signals = training.signal_summary || {};
+  const stateSha = String(training.state_sha256 || '—');
+  const shortSha = stateSha.length > 20 ? `${stateSha.slice(0, 16)}…${stateSha.slice(-8)}` : stateSha;
+  const sourceUrl = training.source_run_url ? esc(training.source_run_url) : '#';
+  const changed = Number(update.changed_edges || 0).toLocaleString();
+  const generationLabel = Number.isFinite(generation) ? generation.toLocaleString() : '—';
+  const matches = Number(training.matches || 0).toLocaleString();
+  const signalSum = num(signals.sum, 4);
+
+  panel.innerHTML = `
+    <div class="section-title">
+      <div><div class="eyebrow">background candidate learning</div><h2>GitHub single-writer candidate checkpoint</h2></div>
+      <a class="muted" href="${sourceUrl}">latest training run ↗</a>
+    </div>
+    <div class="proof"><span class="statusline"><span class="dot live"></span><strong>Learning lane active:</strong></span> GARNET candidate generation ${generationLabel} is advancing on GitHub. It is <strong>not</strong> the state currently served by Vercel and is never auto-promoted to the public fight.</div>
+    <div class="grid" style="margin:12px 0 0">
+      <div class="card"><div class="label">candidate generation</div><div class="value">${generationLabel}</div></div>
+      <div class="card"><div class="label">candidate matches</div><div class="value">${matches}</div></div>
+      <div class="card"><div class="label">latest opponent</div><div class="value small">${esc(training.opponent || '—')}</div></div>
+      <div class="card"><div class="label">changed KC→MBON edges</div><div class="value">${changed}</div></div>
+      <div class="card"><div class="label">modulatory signal sum</div><div class="value">${signalSum}</div></div>
+    </div>
+    <div class="formula">status: ${esc(training.status || 'candidate-only-not-arena-approved')}
+reward: ${esc(training.reward_id || '—')}
+state SHA-256: ${esc(stateSha)}
+state id: ${esc(shortSha)}
+served_by_vercel=${String(training.served_by_vercel === true)} · auto_promotion=${String(training.auto_promotion === true)}</div>
+    <p class="boundary">${esc(training.interpretation_boundary || 'This is project-defined game learning over the versioned candidate plasticity contract. Candidate progression is evidence of the implemented learning rule, not evidence of biological reinforcement semantics or improved fighting performance.')}</p>
+    <div class="actions"><a class="btn" href="https://github.com/Unjuno/connectome-fighter/releases/tag/canonical-training-latest">rolling candidate checkpoint ↗</a><a class="btn" href="./data/training-status.json">training status JSON ↗</a></div>`;
+}
+
 async function json(url, fallback) {
   const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) return fallback;
@@ -136,12 +186,13 @@ async function json(url, fallback) {
 
 async function load() {
   try {
-    const [status, log, reward, plasticity, runtimeProof] = await Promise.all([
+    const [status, log, reward, plasticity, runtimeProof, trainingStatus] = await Promise.all([
       json('./data/status.json', {}),
       json('./data/matches.json', { matches: [], character_stats: {}, match_count: 0 }),
       json('./research-data/reward.json', {}),
       json('./research-data/plasticity.json', {}),
       json('./data/runtime-proof.json', {}),
+      json('./data/training-status.json', {}),
     ]);
 
     $('match-count').textContent = log.match_count ?? 0;
@@ -154,6 +205,7 @@ async function load() {
     renderReward(reward);
     renderPlasticity(plasticity);
     renderRuntimeProof(runtimeProof);
+    renderCandidateTraining(trainingStatus);
   } catch (error) {
     $('error').textContent = `load failed: ${error.message}`;
   }
