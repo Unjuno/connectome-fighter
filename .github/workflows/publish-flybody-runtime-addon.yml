@@ -25,6 +25,7 @@ env:
   TARGET_TAG: arena-runtime-latest
   FLYBODY_COMMIT: d015e9bfe441bd90ae431bac24c55cb74bdbce26
   UV_VERSION: 0.12.12
+  PUBLIC_BASE: https://liveunjuno.vercel.app
 
 jobs:
   package:
@@ -151,12 +152,56 @@ jobs:
           pathlib.Path('runs/flybody-addon/arena-runtime-size.json').write_text(
               json.dumps({'archive_size_bytes':archive.stat().st_size,'bundle_profile':'public-screendata-flybody-jlink-v3'},indent=2)+'\n',encoding='utf-8')
           PY
+          FINAL_RUNTIME_SHA="$(sha256sum runs/flybody-addon/arena-runtime.tar.gz | awk '{print $1}')"
+          echo "FINAL_RUNTIME_SHA=$FINAL_RUNTIME_SHA" >> "$GITHUB_ENV"
+          echo "FINAL_RUNTIME_BASE=connectome-runtime-${FINAL_RUNTIME_SHA:0:16}" >> "$GITHUB_ENV"
           gh release upload "$TARGET_TAG" \
             runs/flybody-addon/arena-runtime.tar.gz \
             runs/flybody-addon/arena-runtime.tar.gz.sha256 \
             runs/flybody-addon/arena-runtime-size.json \
             runs/flybody-addon/extract/arena-runtime/manifest.json \
             --clobber
+
+      - name: Wait until the FlyBody runtime release is the public rolling runtime
+        run: |
+          set -euo pipefail
+          visible=0
+          for i in $(seq 1 60); do
+            remote="$(curl -fsSL --retry 2 \
+              "https://github.com/Unjuno/connectome-fighter/releases/download/$TARGET_TAG/arena-runtime.tar.gz.sha256?t=$(date +%s%N)" \
+              | grep -Eo '[a-f0-9]{64}' | head -1 || true)"
+            if [[ "$remote" == "$FINAL_RUNTIME_SHA" ]]; then
+              visible=1
+              break
+            fi
+            sleep 3
+          done
+          test "$visible" -eq 1
+
+      - name: Stage the exact FlyBody runtime into the SHA-addressed Vercel base
+        run: |
+          set -euo pipefail
+          ready=0
+          last=''
+          for i in $(seq 1 180); do
+            body="$(curl -fsS "$PUBLIC_BASE/api/connectome/runtime-base?t=$(date +%s%N)" || true)"
+            if [[ -n "$body" ]]; then
+              last="$body"
+              echo "$body" | jq '{ready,status,name,snapshot_id,runtime_archive_sha256,stage_version,diagnostic}'
+              if echo "$body" | jq -e \
+                --arg sha "$FINAL_RUNTIME_SHA" --arg base "$FINAL_RUNTIME_BASE" \
+                '.ready == true and .status == "ready" and .runtime_archive_sha256 == $sha and .name == $base and (.snapshot_id | type) == "string"' >/dev/null; then
+                ready=1
+                break
+              fi
+            fi
+            sleep 4
+          done
+          if [[ "$ready" -ne 1 ]]; then
+            echo 'FlyBody runtime base did not become ready.' >&2
+            [[ -n "$last" ]] && echo "$last" | jq . >&2 || true
+            exit 1
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
