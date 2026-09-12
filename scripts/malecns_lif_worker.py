@@ -45,6 +45,18 @@ def emit(payload: dict[str, Any]) -> None:
     sys.stdout.flush()
 
 
+def bundled_cython_cache_dir() -> Path | None:
+    """Return a precompiled arena-bundle cache when this worker is packaged.
+
+    In the source checkout there is normally no sibling ``runtime`` directory,
+    so canonical GitHub runs retain Brian2's ordinary cache behavior.  In the
+    arena bundle the worker lives at ``arena-runtime/repo/scripts`` and a
+    verified cache is stored at ``arena-runtime/runtime/brian2-cython-cache``.
+    """
+    candidate = Path(__file__).resolve().parents[2] / "runtime" / "brian2-cython-cache"
+    return candidate if candidate.is_dir() else None
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--reference-model", type=Path, required=True)
@@ -58,13 +70,18 @@ def main() -> int:
     prefs.codegen.target = args.codegen_target
     cython_cache_dir: Path | None = None
     if args.codegen_target == "cython":
+        # Brian2 2.5.1 includes CC/CXX and sys.executable in its Cython cache
+        # key.  Normalizing compiler overrides keeps the build-time cache key
+        # identical to the compilerless Vercel runtime key.
+        os.environ.pop("CC", None)
+        os.environ.pop("CXX", None)
         raw_cache = os.environ.get("CONNECTOME_BRIAN_CYTHON_CACHE_DIR", "").strip()
         if raw_cache:
             cython_cache_dir = Path(raw_cache).expanduser().resolve()
             cython_cache_dir.mkdir(parents=True, exist_ok=True)
-            # Brian2's Cython extension manager keys compiled modules by code,
-            # package versions, compiler settings and sys.executable.  The arena
-            # bundle precompiles this cache under the exact Vercel Python path.
+        else:
+            cython_cache_dir = bundled_cython_cache_dir()
+        if cython_cache_dir is not None:
             prefs.codegen.runtime.cython.cache_dir = str(cython_cache_dir)
 
     interface = json.loads(args.interface.read_text(encoding="utf-8"))
