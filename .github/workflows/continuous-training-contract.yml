@@ -4,14 +4,24 @@ on:
   pull_request:
     paths:
       - '.github/workflows/continuous-training.yml'
+      - '.github/workflows/training-history.yml'
       - '.github/workflows/continuous-training-contract.yml'
+      - 'scripts/append_training_history.py'
       - 'site/app.js'
+      - 'site/training-history.js'
+      - 'site/index.html'
+      - 'site/data/training-history.json'
   push:
     branches: [main]
     paths:
       - '.github/workflows/continuous-training.yml'
+      - '.github/workflows/training-history.yml'
       - '.github/workflows/continuous-training-contract.yml'
+      - 'scripts/append_training_history.py'
       - 'site/app.js'
+      - 'site/training-history.js'
+      - 'site/index.html'
+      - 'site/data/training-history.json'
   workflow_dispatch:
 
 permissions:
@@ -27,15 +37,19 @@ jobs:
           python-version: '3.11'
       - name: Parse workflow and verify the candidate-only single-writer boundary
         run: |
+          set -euo pipefail
           node --check site/app.js
+          node --check site/training-history.js
+          python -m py_compile scripts/append_training_history.py
           python -m pip install --quiet 'PyYAML==6.0.2'
           python - <<'PY'
           from pathlib import Path
+          import json
           import yaml
 
-          path=Path('.github/workflows/continuous-training.yml')
-          text=path.read_text(encoding='utf-8')
-          data=yaml.safe_load(text)
+          trainer_path=Path('.github/workflows/continuous-training.yml')
+          trainer=trainer_path.read_text(encoding='utf-8')
+          data=yaml.safe_load(trainer)
           assert isinstance(data,dict) and data.get('name')=='canonical-continuous-training'
 
           required=[
@@ -51,9 +65,23 @@ jobs:
               '--plasticity-config configs/plasticity_valence_v0.json',
               'git add site/data/training-status.json',
           ]
-          missing=[needle for needle in required if needle not in text]
+          missing=[needle for needle in required if needle not in trainer]
           if missing:
               raise SystemExit(f'missing candidate-training contract text: {missing}')
+
+          history_workflow=Path('.github/workflows/training-history.yml').read_text(encoding='utf-8')
+          history_required=[
+              'workflows: [canonical-continuous-training]',
+              'group: candidate-training-history-single-writer',
+              'cancel-in-progress: false',
+              'python scripts/append_training_history.py',
+              '--status site/data/training-status.json',
+              '--history site/data/training-history.json',
+              'git add site/data/training-history.json',
+          ]
+          missing=[needle for needle in history_required if needle not in history_workflow]
+          if missing:
+              raise SystemExit(f'missing training-history contract text: {missing}')
 
           forbidden_mutations=[
               'TRAINING_TAG: arena-inference-latest',
@@ -64,7 +92,7 @@ jobs:
               'VERCEL_OIDC_TOKEN',
               'cancel-in-progress: true',
           ]
-          found=[needle for needle in forbidden_mutations if needle in text]
+          found=[needle for needle in forbidden_mutations if needle in trainer or needle in history_workflow]
           if found:
               raise SystemExit(f'forbidden auto-promotion/Vercel mutation returned: {found}')
 
@@ -81,5 +109,52 @@ jobs:
           if page_missing:
               raise SystemExit(f'missing candidate learning research-ledger boundary: {page_missing}')
 
-          print('continuous candidate training contract: PASS')
+          index=Path('site/index.html').read_text(encoding='utf-8')
+          timeline=Path('site/training-history.js').read_text(encoding='utf-8')
+          for needle in ['./training-history.js','./data/training-history.json','append-only public candidate generation ledger']:
+              if needle not in index:
+                  raise SystemExit(f'missing public training-history surface: {needle}')
+          for needle in ['candidate learning history','Candidate-only ledger.','served_by_vercel=','auto_promotion=','source Actions run']:
+              if needle not in timeline:
+                  raise SystemExit(f'missing training-history interpretation boundary: {needle}')
+
+          history=json.loads(Path('site/data/training-history.json').read_text(encoding='utf-8'))
+          assert history['kind']=='canonical-continuous-training-history'
+          entries=history['entries']
+          assert isinstance(entries,list) and entries
+          generations=[int(row['generation']) for row in entries]
+          assert generations==sorted(generations) and len(generations)==len(set(generations))
+          assert history['entry_count']==len(entries)
+          assert history['latest_generation']==generations[-1]
+          assert history['latest_state_sha256']==entries[-1]['state_sha256']
+          for row in entries:
+              assert row['status']=='candidate-only-not-arena-approved'
+              assert row['served_by_vercel'] is False
+              assert row['auto_promotion'] is False
+              assert len(row['state_sha256'])==64
+
+          print('continuous candidate training + append-only history contract: PASS')
           PY
+
+      - name: Prove history writer is idempotent and rejects lineage forks
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          cp site/data/training-status.json "$tmp/status.json"
+          cp site/data/training-history.json "$tmp/history.json"
+          python scripts/append_training_history.py --status "$tmp/status.json" --history "$tmp/history.json"
+          first="$(sha256sum "$tmp/history.json" | awk '{print $1}')"
+          python scripts/append_training_history.py --status "$tmp/status.json" --history "$tmp/history.json"
+          second="$(sha256sum "$tmp/history.json" | awk '{print $1}')"
+          test "$first" = "$second"
+          python - "$tmp/status.json" <<'PY'
+          import json,sys
+          p=sys.argv[1]
+          d=json.load(open(p,encoding='utf-8'))
+          d['state_sha256']='0'*64
+          json.dump(d,open(p,'w',encoding='utf-8'),indent=2,sort_keys=True)
+          PY
+          if python scripts/append_training_history.py --status "$tmp/status.json" --history "$tmp/history.json"; then
+            echo 'history writer accepted a forked state for an existing generation' >&2
+            exit 1
+          fi
