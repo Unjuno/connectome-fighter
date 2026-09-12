@@ -43,19 +43,41 @@ The center fight visualization uses actual FightingICE telemetry for fly `x/y`, 
 
 ## Production Vercel inference proof — PASS
 
-Verified production runtime evidence on 2026-09-12:
+Current verified production runtime evidence on 2026-09-12:
 
-- runtime archive SHA-256: `b4511a0d5287384d2ca130ef58b40adb2786c6b0968ec961d5b41af13441d510`;
-- runtime base: `connectome-runtime-b4511a0d5287384d`;
-- Brian2 `2.5.1` / Cython `0.29.36` / NumPy `1.24.0`;
+- runtime archive SHA-256: `f4016e3a2f79968a3305818ad3b4ef2197802e36c647660c1ab524b098f27205`;
+- runtime archive size: **439,024,170 bytes**;
+- runtime base: `connectome-runtime-f4016e3a2f79968a`;
+- runtime snapshot: `snap_s5HpePEfgiNNAsLgE9UKsvOVwY5u`;
+- Python `3.10.21` / Brian2 `2.5.1` / Cython `0.29.36` / NumPy `1.24.0`;
 - included neurons: **156,675**;
 - recurrent runtime synapses: **6,025,920**;
 - compilerless Brian2 Cython cache reuse: **verified**;
+- cache contents: **30 files / 15 shared objects / 5,776,256 bytes**;
+- cache tree SHA-256: `772cf23de36484d12e9355334f116bad71b8a8d30e42531cc93b90e3670dcd92`;
 - host-specific `-march=native`: **excluded** from the portable cache;
 - real FightingICE frame advancement: **verified**;
-- decision telemetry from both MaleCNS workers: **verified**.
+- decision telemetry from both MaleCNS workers: **verified**;
+- compilerless release E2E: Actions `34690428080` — **PASS**;
+- independent production smoke: Actions `34690567057` — **PASS**.
 
-The production proof observed round 1 / frame 61 with decision index 1 on both sides and nonzero network spikes. This establishes real Vercel execution of FightingICE plus two MaleCNS workers; it is not evidence of trained-vs-trained performance.
+The current proof observed round 1 / frame **181**, GARNET decision index **3**, ZEN decision index **3**, and **9,245 / 9,098** network spikes respectively. This establishes real Vercel execution of FightingICE plus two MaleCNS workers; it is not evidence of trained-vs-trained performance.
+
+Machine-readable proof: [`site/data/runtime-proof.json`](../site/data/runtime-proof.json).
+
+## Shared LIVE lifecycle — PASS
+
+The public broadcast no longer inherits the diagnostic 30-second post-fight hold plus 30-second post-session hold. `CONNECTOME_PUBLIC_BROADCAST=true` uses 1-second defaults for both holds; ordinary one-shot diagnostics retain the 30-second defaults and error state remains observable for 30 seconds.
+
+Sampled production observations after the new runtime was adopted:
+
+- previous bout running observed at `2026-09-12T11:15:47Z`;
+- next bout booting observed at `2026-09-12T11:15:54Z`;
+- the same next bout running observed at `2026-09-12T11:16:01Z`.
+
+These timestamps are sampling bounds, not an exact downtime measurement. They demonstrate that the prior intentional ~60-second terminal hold is no longer present.
+
+The shared-LIVE supervisor also recycles terminal/stopped fixed-name Sandboxes from the current runtime base rather than trying to restart a dead Vercel session.
 
 ## Runtime snapshot / compilerless Cython — PASS
 
@@ -160,7 +182,7 @@ Before reward tuning or continuous learning is promoted, keep the following fixe
 8. README, STATUS, public-surface documentation and CI agree on the same architecture;
 9. failure/warming states are explicit and no fabricated LIVE fallback is introduced.
 
-`.github/workflows/public-surface-contract.yml` guards the static architecture wording. `.github/workflows/vercel-live-arena-smoke.yml` verifies the real production shared-LIVE contract after runtime publication.
+`.github/workflows/public-surface-contract.yml` guards the static architecture wording. `.github/workflows/vercel-live-arena-smoke.yml` verifies the real production shared-LIVE contract after runtime publication. `.github/workflows/precompile-arena-brian2-cython-cache.yml` now uses the same shared-LIVE contract for its final release E2E rather than the retired per-session POST path.
 
 ## Not yet demonstrated
 
