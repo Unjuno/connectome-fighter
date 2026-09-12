@@ -8,6 +8,7 @@ on:
       - 'scripts/run_live_screen_publisher.py'
       - 'deploy/arena-runtime/start-session.sh'
       - 'deploy/arena-runtime/bootstrap-proxy.mjs'
+      - 'deploy/arena-runtime/stage-fightingice-lightweight.sh'
       - '.github/workflows/live-screendata-smoke.yml'
   workflow_dispatch:
 
@@ -54,11 +55,24 @@ jobs:
           unzip -q external/downloads/game.zip -d external/v71
           GAME_JAR="$(find external/v71 -type f -name FightingICE.jar -print -quit)"
           unzip -q -o external/downloads/resource.zip -d "$(dirname "$GAME_JAR")"
-      - name: Capture official ScreenData during a real headless round
+      - name: Stage the same headless-capable game tree used by arena-runtime-latest
         run: |
           set -euo pipefail
           GAME_JAR="$(find external/v71 -type f -name FightingICE.jar -print -quit)"
-          GAME_DIR="$(dirname "$GAME_JAR")"
+          CONNECTOME_STAGE_PUBLIC_RENDERER=true \
+            bash deploy/arena-runtime/stage-fightingice-lightweight.sh \
+            "$(dirname "$GAME_JAR")" runs/packaged-public-fightingice
+          test -d runs/packaged-public-fightingice/lib/lwjgl/natives/linux/amd64
+          test -z "$(find runs/packaged-public-fightingice/data/ai -mindepth 1 -print -quit)"
+          bytes="$(du -sb runs/packaged-public-fightingice | awk '{print $1}')"
+          echo "packaged_public_fightingice_bytes=$bytes"
+          # Fail closed on accidental multi-gigabyte staging regressions while
+          # leaving room for official v7.1 renderer/resources.
+          test "$bytes" -lt $((800 * 1024 * 1024))
+      - name: Capture official ScreenData from the packaged public runtime
+        run: |
+          set -euo pipefail
+          GAME_DIR="$GITHUB_WORKSPACE/runs/packaged-public-fightingice"
           (
             cd "$GAME_DIR"
             java -cp 'FightingICE.jar:./lib/*:./lib/lwjgl/*:./lib/lwjgl/natives/linux/amd64/*:./lib/grpc/*' Main \
@@ -103,7 +117,7 @@ jobs:
             sleep 0.2
           done
           if [[ ! -s runs/screen-smoke/latest-screen.png ]]; then
-            echo 'ScreenData publisher did not produce a PNG.' >&2
+            echo 'ScreenData publisher did not produce a PNG from the packaged public runtime.' >&2
             echo '--- screen publisher ---' >&2
             cat runs/screen-smoke/screen.log >&2 || true
             echo '--- FightingICE ---' >&2
@@ -138,5 +152,5 @@ jobs:
           unique_rgb=len(np.unique(pixels.reshape(-1,3),axis=0))
           assert unique_rgb >= 8, unique_rgb
           assert float(channel_std.max()) >= 2.0, channel_std.tolist()
-          print({'bytes':len(raw),'width':width,'height':height,'unique_rgb':unique_rgb,'channel_std':channel_std.tolist(),'source':'official FightingICE ScreenData','renderer':'headless','policy_pixel_access':False})
+          print({'bytes':len(raw),'width':width,'height':height,'unique_rgb':unique_rgb,'channel_std':channel_std.tolist(),'source':'official FightingICE ScreenData','renderer':'headless','runtime_tree':'packaged-public','policy_pixel_access':False})
           PY
