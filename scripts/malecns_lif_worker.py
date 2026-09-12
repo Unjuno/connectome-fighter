@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import sys
 from typing import Any
@@ -44,6 +45,18 @@ def emit(payload: dict[str, Any]) -> None:
     sys.stdout.flush()
 
 
+def bundled_cython_cache_dir() -> Path | None:
+    """Return a precompiled arena-bundle cache when this worker is packaged.
+
+    In the source checkout there is normally no sibling ``runtime`` directory,
+    so canonical GitHub runs retain Brian2's ordinary cache behavior.  In the
+    arena bundle the worker lives at ``arena-runtime/repo/scripts`` and a
+    verified cache is stored at ``arena-runtime/runtime/brian2-cython-cache``.
+    """
+    candidate = Path(__file__).resolve().parents[2] / "runtime" / "brian2-cython-cache"
+    return candidate if candidate.is_dir() else None
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--reference-model", type=Path, required=True)
@@ -55,6 +68,26 @@ def main() -> int:
     args = p.parse_args()
 
     prefs.codegen.target = args.codegen_target
+    cython_cache_dir: Path | None = None
+    if args.codegen_target == "cython":
+        # Brian2 2.5.1 includes CC/CXX and sys.executable in its Cython cache
+        # key.  Normalizing compiler overrides keeps the build-time cache key
+        # identical to the compilerless Vercel runtime key.
+        os.environ.pop("CC", None)
+        os.environ.pop("CXX", None)
+        raw_cache = os.environ.get("CONNECTOME_BRIAN_CYTHON_CACHE_DIR", "").strip()
+        if raw_cache:
+            # Preserve the caller-visible path instead of resolving symlinks.
+            # The release builder intentionally invokes the portable Python via
+            # the exact Vercel absolute path so this value and the logged
+            # initial-state identity match production.
+            cython_cache_dir = Path(raw_cache).expanduser().absolute()
+            cython_cache_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            cython_cache_dir = bundled_cython_cache_dir()
+        if cython_cache_dir is not None:
+            prefs.codegen.runtime.cython.cache_dir = str(cython_cache_dir)
+
     interface = json.loads(args.interface.read_text(encoding="utf-8"))
     structural = json.loads((args.adapter_dir / "manifest.json").read_text(encoding="utf-8"))
     completeness = pd.read_csv(args.adapter_dir / "completeness.csv", index_col=0)
@@ -142,6 +175,7 @@ def main() -> int:
         "f_poi": int(params["f_poi"]),
         "stimulated_target_rfc_ms": 0.0,
         "codegen_target": str(prefs.codegen.target),
+        "cython_cache_dir": str(cython_cache_dir) if cython_cache_dir is not None else None,
         "precompiled_before_ready": True,
     }
     initial_identity = {
