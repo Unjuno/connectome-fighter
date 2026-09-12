@@ -128,16 +128,18 @@ BRIDGE_PY="$ROOT/$BRIDGE_REL"
 SITE310="$ROOT/runtime/site310"
 SITE311="$ROOT/runtime/site311"
 SITEFLYBODY="$ROOT/runtime/siteflybody"
+FLYBODY_AVAILABLE=false
+if [[ -d "$SITEFLYBODY/flybody" && -d "$SITEFLYBODY/dm_control" && -d "$SITEFLYBODY/mujoco" ]]; then
+  FLYBODY_AVAILABLE=true
+fi
 
 for required in \
   "$REF_PY" \
   "$BRIDGE_PY" \
   "$SITE310/brian2" \
   "$SITE311/pyftg" \
-  "$SITEFLYBODY/flybody" \
-  "$SITEFLYBODY/dm_control" \
   "$ROOT/data/malecns-shiu-strict-v1/connectivity.parquet" \
-  "$ROOT/data/malecns-valence-v1/kc_mbon_valence_candidates.parquet" \
+  "$ROOT/data/malecns-valence-v1/kc_mbon-valence_candidates.parquet" \
   "$ROOT/fightingice/FightingICE.jar" \
   "$ROOT/shiu/model.py"; do
   test -e "$required"
@@ -309,16 +311,20 @@ if [[ "${CONNECTOME_PUBLIC_BROADCAST:-false}" == "true" ]]; then
     --output "$ACTIVITY_FILE" \
     > "$WORK/live-activity-publisher.log" 2>&1 &
   ACTIVITY_PID=$!
-  MUJOCO_GL="${CONNECTOME_MUJOCO_GL:-egl}" \
-  PYTHONPATH="$ROOT/repo/src:$SITEFLYBODY" "$BRIDGE_PY" \
-    "$ROOT/repo/scripts/run_live_flybody_publisher.py" \
-    --jsonl "$WORK/live/live-decisions.jsonl" \
-    --p1-output "$FLYBODY_P1_FILE" \
-    --p2-output "$FLYBODY_P2_FILE" \
-    --state-output "$FLYBODY_STATE_FILE" \
-    --fps "${CONNECTOME_FLYBODY_FPS:-8}" \
-    > "$WORK/live-flybody-publisher.log" 2>&1 &
-  FLYBODY_PID=$!
+  if [[ "$FLYBODY_AVAILABLE" == "true" ]]; then
+    MUJOCO_GL="${CONNECTOME_MUJOCO_GL:-egl}" \
+    PYTHONPATH="$ROOT/repo/src:$SITEFLYBODY" "$BRIDGE_PY" \
+      "$ROOT/repo/scripts/run_live_flybody_publisher.py" \
+      --jsonl "$WORK/live/live-decisions.jsonl" \
+      --p1-output "$FLYBODY_P1_FILE" \
+      --p2-output "$FLYBODY_P2_FILE" \
+      --state-output "$FLYBODY_STATE_FILE" \
+      --fps "${CONNECTOME_FLYBODY_FPS:-8}" \
+      > "$WORK/live-flybody-publisher.log" 2>&1 &
+    FLYBODY_PID=$!
+  else
+    printf '%s\n' '{"kind":"flybody-spectator-unavailable","reason":"runtime-addon-not-present"}' > "$WORK/live-flybody-publisher.log"
+  fi
 fi
 
 write_status "starting-fightingice-malecns"
