@@ -139,7 +139,7 @@ for required in \
   "$SITE310/brian2" \
   "$SITE311/pyftg" \
   "$ROOT/data/malecns-shiu-strict-v1/connectivity.parquet" \
-  "$ROOT/data/malecns-valence-v1/kc_mbon-valence_candidates.parquet" \
+  "$ROOT/data/malecns-valence-v1/kc_mbon_valence_candidates.parquet" \
   "$ROOT/fightingice/FightingICE.jar" \
   "$ROOT/shiu/model.py"; do
   test -e "$required"
