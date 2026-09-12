@@ -47,7 +47,7 @@ jobs:
 
                 const game = page.getByText('Official FightingICE ScreenData', { exact: true });
                 const brain = page.getByText('P1 MaleCNS anatomy + activity', { exact: true });
-                const fly = page.getByText('secondary embodiment', { exact: true });
+                const fly = page.getByText('MaleCNS activity drives the actual FlyBody MuJoCo fly.', { exact: true });
                 await game.waitFor({ state: 'visible', timeout: 20_000 });
                 await brain.waitFor({ state: 'visible', timeout: 20_000 });
                 await fly.waitFor({ state: 'visible', timeout: 20_000 });
@@ -57,7 +57,7 @@ jobs:
                 const flyBox = await fly.boundingBox();
                 assert(gameBox && brainBox && flyBox, `${viewport.label}: missing publication sections`);
                 assert(gameBox.y < brainBox.y, `${viewport.label}: game must appear before neural anatomy`);
-                assert(brainBox.y < flyBox.y, `${viewport.label}: anatomy must appear before secondary fly embodiment`);
+                assert(brainBox.y < flyBox.y, `${viewport.label}: anatomy must appear before FlyBody physics`);
 
                 const layout = await page.evaluate(() => ({
                   innerWidth: window.innerWidth,
@@ -67,11 +67,15 @@ jobs:
                     (el) => getComputedStyle(el).position === 'fixed',
                   ).length,
                   syntheticWarning: document.body.textContent?.includes('No synthetic fight frame is substituted') ?? false,
+                  flyBoundary: document.body.textContent?.includes('No SVG or FightingICE-position puppet is substituted here.') ?? false,
+                  neuralPhysics: document.body.textContent?.includes('Real annotated MaleCNS motor/descending body activity') ?? false,
                 }));
                 assert(layout.htmlScrollWidth <= layout.innerWidth, `${viewport.label}: html horizontal overflow ${JSON.stringify(layout)}`);
                 assert(layout.bodyScrollWidth <= layout.innerWidth, `${viewport.label}: body horizontal overflow ${JSON.stringify(layout)}`);
                 assert.equal(layout.fixedElements, 0, `${viewport.label}: fixed overlay obscures mobile publication`);
                 assert(layout.syntheticWarning, `${viewport.label}: missing no-fake-frame publication boundary`);
+                assert(layout.flyBoundary, `${viewport.label}: missing no-SVG FlyBody boundary`);
+                assert(layout.neuralPhysics, `${viewport.label}: missing neural-to-physics explanation`);
 
                 await page.close();
                 console.log({ viewport: viewport.label, ...layout });
