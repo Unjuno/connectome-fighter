@@ -1,0 +1,147 @@
+name: publish-flybody-runtime-addon
+
+on:
+  workflow_run:
+    workflows: [publish-arena-runtime-bundle]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-flybody-runtime-addon-single-writer
+  cancel-in-progress: false
+
+env:
+  TARGET_TAG: arena-runtime-latest
+  FLYBODY_COMMIT: d015e9bfe441bd90ae431bac24c55cb74bdbce26
+  UV_VERSION: 0.12.12
+
+jobs:
+  package:
+    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Download the just-published canonical runtime
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf runs/flybody-addon
+          mkdir -p runs/flybody-addon/source runs/flybody-addon/extract
+          gh release download "$TARGET_TAG" \
+            --pattern 'arena-runtime.tar.gz' \
+            --pattern 'arena-runtime.tar.gz.sha256' \
+            --dir runs/flybody-addon/source
+          expected="$(grep -Eo '[a-f0-9]{64}' runs/flybody-addon/source/arena-runtime.tar.gz.sha256 | head -1)"
+          actual="$(sha256sum runs/flybody-addon/source/arena-runtime.tar.gz | awk '{print $1}')"
+          test -n "$expected"
+          test "$actual" = "$expected"
+          tar -C runs/flybody-addon/extract -xzf runs/flybody-addon/source/arena-runtime.tar.gz
+          test -d runs/flybody-addon/extract/arena-runtime
+
+      - name: Install pinned upstream FlyBody core into an isolated spectator site
+        run: |
+          set -euo pipefail
+          python -m pip install --quiet "uv==$UV_VERSION"
+          ROOT="$(realpath runs/flybody-addon/extract/arena-runtime)"
+          rm -rf "$ROOT/runtime/siteflybody"
+          mkdir -p "$ROOT/runtime/siteflybody"
+          uv pip install --python "$(which python)" --target "$ROOT/runtime/siteflybody" \
+            "flybody @ git+https://github.com/TuragaLab/flybody.git@$FLYBODY_COMMIT"
+          test -d "$ROOT/runtime/siteflybody/flybody"
+          test -d "$ROOT/runtime/siteflybody/dm_control"
+          test -d "$ROOT/runtime/siteflybody/mujoco"
+          test -s "$ROOT/repo/scripts/run_live_flybody_publisher.py"
+
+      - name: Prove the packaged body can step real MuJoCo physics
+        run: |
+          set -euo pipefail
+          ROOT="$(realpath runs/flybody-addon/extract/arena-runtime)"
+          PYTHONPATH="$ROOT/repo/src:$ROOT/runtime/siteflybody" MUJOCO_GL=egl python - <<'PY'
+          import numpy as np
+          from flybody.fly_envs import template_task
+          from connectome_fighter.flybody_neural_adapter import neural_fly_command, flybody_action
+          env=template_task(random_state=np.random.RandomState(7), disable_wings=True, time_limit=1.0)
+          env.reset()
+          spec=env.action_spec()
+          names=str(spec.name or '').split()
+          command=neural_fly_command([
+              {'body_id':1,'spikes':16,'superclass':'vnc_motor','soma_neuromere':'T1','root_side':'L'},
+              {'body_id':2,'spikes':8,'superclass':'vnc_motor','soma_neuromere':'T2','root_side':'R'},
+          ])
+          action=flybody_action(names,spec.minimum,spec.maximum,command,0.5)
+          ts=env.step(action)
+          assert action.shape==spec.shape
+          pixels=env.physics.render(height=120,width=160,camera_id=1)
+          assert pixels.shape==(120,160,3)
+          assert float(np.asarray(pixels).std())>1.0
+          print({'flybody_physics':True,'action_dim':int(spec.shape[0]),'render_shape':pixels.shape,'last':bool(ts.last())})
+          PY
+
+      - name: Mark FlyBody as spectator physics in the runtime manifest
+        run: |
+          set -euo pipefail
+          ROOT="$(realpath runs/flybody-addon/extract/arena-runtime)"
+          python - "$ROOT/manifest.json" "$FLYBODY_COMMIT" <<'PY'
+          import json, pathlib, sys
+          path=pathlib.Path(sys.argv[1]); commit=sys.argv[2]
+          m=json.loads(path.read_text(encoding='utf-8'))
+          assert m['kind']=='connectome-fighter-arena-runtime-bundle'
+          assert m['learning_enabled'] is False and m['policy_pixel_access'] is False
+          m['schema_version']=max(4,int(m.get('schema_version',0)))
+          m['bundle_profile']='public-screendata-flybody-jlink-v3'
+          m['flybody_physics_spectator']=True
+          m['flybody_upstream_repository']='TuragaLab/flybody'
+          m['flybody_upstream_commit']=commit
+          m['flybody_p1_path']='/flybody-p1.png'
+          m['flybody_p2_path']='/flybody-p2.png'
+          m['flybody_state_path']='/flybody.json'
+          m['flybody_policy_access']=False
+          m['flybody_game_telemetry_position_used']=False
+          m['flybody_neural_adapter']='malecns-annotated-motor-to-flybody-tripod-v1'
+          m['note']='Official FightingICE remains the primary game view. FlyBody is a separate spectator physics embodiment driven from annotated MaleCNS motor activity through an explicit project-defined adapter.'
+          path.write_text(json.dumps(m,indent=2,sort_keys=True)+'\n',encoding='utf-8')
+          print(json.dumps({k:m[k] for k in ['schema_version','bundle_profile','flybody_physics_spectator','flybody_upstream_commit','flybody_policy_access']},indent=2))
+          PY
+
+      - name: Repack and atomically replace the rolling runtime assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -f runs/flybody-addon/arena-runtime.tar.gz runs/flybody-addon/arena-runtime.tar.gz.sha256
+          tar -C runs/flybody-addon/extract -czf runs/flybody-addon/arena-runtime.tar.gz arena-runtime
+          (cd runs/flybody-addon && sha256sum arena-runtime.tar.gz > arena-runtime.tar.gz.sha256)
+          python - <<'PY'
+          import json, pathlib
+          archive=pathlib.Path('runs/flybody-addon/arena-runtime.tar.gz')
+          pathlib.Path('runs/flybody-addon/arena-runtime-size.json').write_text(
+              json.dumps({'archive_size_bytes':archive.stat().st_size,'bundle_profile':'public-screendata-flybody-jlink-v3'},indent=2)+'\n',encoding='utf-8')
+          PY
+          gh release upload "$TARGET_TAG" \
+            runs/flybody-addon/arena-runtime.tar.gz \
+            runs/flybody-addon/arena-runtime.tar.gz.sha256 \
+            runs/flybody-addon/arena-runtime-size.json \
+            runs/flybody-addon/extract/arena-runtime/manifest.json \
+            --clobber
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flybody-runtime-addon-proof
+          path: |
+            runs/flybody-addon/arena-runtime.tar.gz.sha256
+            runs/flybody-addon/arena-runtime-size.json
+            runs/flybody-addon/extract/arena-runtime/manifest.json
+          if-no-files-found: error
+          retention-days: 30
