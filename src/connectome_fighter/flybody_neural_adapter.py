@@ -182,6 +182,7 @@ def flybody_action(
     The generated action uses FlyBody's real actuator ranges and an explicit
     tripod-like phase convention.  It is intentionally simple and auditable;
     any future learned locomotor controller must be a separate versioned layer.
+    Zero motor drive produces no active gait or adhesion cycle.
     """
     lo = np.asarray(minimum, dtype=float)
     hi = np.asarray(maximum, dtype=float)
@@ -202,8 +203,9 @@ def flybody_action(
         local_drive = float(np.clip(0.5 * command.drive + 0.3 * segment_drive[segment] + 0.2 * side_drive, 0.0, 1.0))
 
         if "adhere" in name.lower():
-            # Claw adhesion is strongest during the stance half-cycle.
-            action[idx] = hi[idx] if math.sin(leg_phase) < 0 else lo[idx]
+            # No neural drive means no active adhesion cycle. During driven gait,
+            # adhesion is strongest in the stance half-cycle.
+            action[idx] = hi[idx] if local_drive > 1e-6 and math.sin(leg_phase) < 0 else lo[idx]
             continue
 
         amplitude = 0.16 * span[idx] * local_drive
