@@ -26,7 +26,6 @@ concurrency:
 
 env:
   TARGET_TAG: arena-runtime-latest
-  BASE: https://liveunjuno.vercel.app
   VERCEL_RUNTIME_ROOT: /home/vercel-sandbox/connectome-runtime/arena-runtime
 
 jobs:
@@ -62,8 +61,7 @@ jobs:
       - name: Overlay current canonical worker implementation
         run: |
           set -euo pipefail
-          install -m 0755 scripts/malecns_lif_worker.py \
-            "$RUNTIME_ROOT/repo/scripts/malecns_lif_worker.py"
+          install -m 0755 scripts/malecns_lif_worker.py "$RUNTIME_ROOT/repo/scripts/malecns_lif_worker.py"
           python -m py_compile scripts/precompile_arena_brian2_cache.py
 
       - name: Reproduce exact Vercel runtime path
@@ -130,7 +128,7 @@ jobs:
           m['brian2_expected_sys_executable']=c['expected_sys_executable']
           m['malecns_worker_sha256']=hashlib.sha256(worker_path.read_bytes()).hexdigest()
           m['bundle_profile']='minimal-fightingice-jlink-precompiled-cython-v1'
-          m['note']='Runtime assets, pinned interpreters, and the canonical Brian2 Cython extensions are prebuilt. The shared Vercel LIVE Sandbox requires no C compiler. Approved mutable character state remains a separate hash-verified inference handoff.'
+          m['note']='Canonical runtime plus precompiled Brian2 Cython cache. Deployment staging is intentionally owned by the dedicated Connectome Vercel project, not by this release workflow.'
           manifest_path.write_text(json.dumps(m,indent=2,sort_keys=True)+'\n')
           print(json.dumps(m,indent=2,sort_keys=True))
           PY
@@ -139,15 +137,11 @@ jobs:
         if: ${{ github.event_name != 'pull_request' }}
         run: |
           set -euo pipefail
-          rm -f runs/cache-postprocess/arena-runtime.tar.gz \
-                runs/cache-postprocess/arena-runtime.tar.gz.sha256 \
-                runs/cache-postprocess/arena-runtime-size.json
+          rm -f runs/cache-postprocess/arena-runtime.tar.gz runs/cache-postprocess/arena-runtime.tar.gz.sha256 runs/cache-postprocess/arena-runtime-size.json
           tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner \
-            -C runs/cache-postprocess -cf - arena-runtime \
-            | gzip -n > runs/cache-postprocess/arena-runtime.tar.gz
+            -C runs/cache-postprocess -cf - arena-runtime | gzip -n > runs/cache-postprocess/arena-runtime.tar.gz
           sha="$(sha256sum runs/cache-postprocess/arena-runtime.tar.gz | awk '{print $1}')"
-          printf '%s  %s\n' "$sha" arena-runtime.tar.gz \
-            > runs/cache-postprocess/arena-runtime.tar.gz.sha256
+          printf '%s  %s\n' "$sha" arena-runtime.tar.gz > runs/cache-postprocess/arena-runtime.tar.gz.sha256
           python - "$sha" <<'PY'
           import json, pathlib, sys
           archive=pathlib.Path('runs/cache-postprocess/arena-runtime.tar.gz')
@@ -161,7 +155,6 @@ jobs:
           pathlib.Path('runs/cache-postprocess/arena-runtime-size.json').write_text(json.dumps(payload,indent=2,sort_keys=True)+'\n')
           print(json.dumps(payload,indent=2,sort_keys=True))
           PY
-          echo "FINAL_RUNTIME_SHA=$sha" >> "$GITHUB_ENV"
 
       - name: Publish compilerless canonical runtime assets
         if: ${{ github.event_name != 'pull_request' }}
@@ -176,167 +169,23 @@ jobs:
             "$RUNTIME_ROOT/manifest.json" \
             "$RUNTIME_ROOT/runtime/brian2-cython-cache-manifest.json" \
             --clobber
-
+          expected="$(sha256sum runs/cache-postprocess/arena-runtime.tar.gz | awk '{print $1}')"
           visible=0
           for i in $(seq 1 60); do
-            remote="$(curl -fsSL \
-              "https://github.com/Unjuno/connectome-fighter/releases/download/$TARGET_TAG/arena-runtime.tar.gz.sha256" \
-              | grep -Eo '[a-f0-9]{64}' | head -1 || true)"
-            if [[ "$remote" == "$FINAL_RUNTIME_SHA" ]]; then
-              visible=1
-              break
-            fi
+            remote="$(curl -fsSL "https://github.com/Unjuno/connectome-fighter/releases/download/$TARGET_TAG/arena-runtime.tar.gz.sha256?t=$(date +%s%N)" | grep -Eo '[a-f0-9]{64}' | head -1 || true)"
+            if [[ "$remote" == "$expected" ]]; then visible=1; break; fi
             sleep 3
           done
           test "$visible" -eq 1
 
-      - name: Wait for Vercel to observe exact postprocessed release
-        if: ${{ github.event_name != 'pull_request' }}
-        run: |
-          set -euo pipefail
-          seen=0
-          for i in $(seq 1 90); do
-            body="$(curl -fsS "$BASE/api/connectome/live" || true)"
-            if [[ -n "$body" ]]; then
-              sha="$(echo "$body" | jq -r '.runtime_archive_sha256 // empty')"
-              echo "$body" | jq '{mode,broadcast_target,audience_scope,ready,status,source_runtime_base,runtime_archive_sha256,learning_enabled,policy_pixel_access,maintenance_action,reason}'
-              test "$(echo "$body" | jq -r '.mode')" = 'single-shared-live-broadcast'
-              test "$(echo "$body" | jq -r '.broadcast_target')" = 'connectome-live-broadcast'
-              test "$(echo "$body" | jq -r '.audience_scope')" = 'shared-global'
-              test "$(echo "$body" | jq -r '.learning_enabled')" = false
-              test "$(echo "$body" | jq -r '.policy_pixel_access')" = false
-              if [[ "$sha" == "$FINAL_RUNTIME_SHA" ]]; then
-                seen=1
-                break
-              fi
-            fi
-            sleep 4
-          done
-          test "$seen" -eq 1
-          echo "RUNTIME_BASE=connectome-runtime-${FINAL_RUNTIME_SHA:0:16}" >> "$GITHUB_ENV"
-
-      - name: Build SHA-addressed persistent Vercel runtime snapshot
-        if: ${{ github.event_name != 'pull_request' }}
-        run: |
-          set -euo pipefail
-          ready=0
-          for i in $(seq 1 180); do
-            tmp="$(mktemp)"
-            code="$(curl -sS -o "$tmp" -w '%{http_code}' "$BASE/api/connectome/runtime-base" || true)"
-            body="$(cat "$tmp")"
-            rm -f "$tmp"
-            if [[ -n "$body" ]]; then
-              echo "$body" | jq '{ready,status,name,snapshot_id,session_id,command_id,command_exit_code,stage_age_ms,runtime_archive_sha256,diagnostic,reason,learning_enabled,policy_pixel_access}'
-              test "$(echo "$body" | jq -r '.learning_enabled')" = false
-              test "$(echo "$body" | jq -r '.policy_pixel_access')" = false
-              test "$(echo "$body" | jq -r '.name // empty')" = "$RUNTIME_BASE"
-              test "$(echo "$body" | jq -r '.runtime_archive_sha256 // empty')" = "$FINAL_RUNTIME_SHA"
-              if [[ "$code" == 200 && "$(echo "$body" | jq -r '.ready')" == true && "$(echo "$body" | jq -r '.status')" == ready ]]; then
-                ready=1
-                break
-              fi
-              case "$(echo "$body" | jq -r '.status // empty')" in
-                create-error|stage-start-error|snapshot-stop-error|runtime-release-unavailable|inspect-error|auth-unavailable)
-                  echo "$body" | jq . >&2
-                  exit 1
-                  ;;
-              esac
-            fi
-            [[ "$code" == 200 || "$code" == 202 ]] || exit 1
-            sleep 6
-          done
-          test "$ready" -eq 1
-
-      - name: Require shared LIVE to adopt exact runtime base
-        if: ${{ github.event_name != 'pull_request' }}
-        run: |
-          set -euo pipefail
-          ready=0
-          last=''
-          for i in $(seq 1 240); do
-            tmp="$(mktemp)"
-            code="$(curl -sS -o "$tmp" -w '%{http_code}' "$BASE/api/connectome/live" || true)"
-            body="$(cat "$tmp")"
-            rm -f "$tmp"
-            if [[ -n "$body" ]]; then
-              last="$body"
-              echo "$body" | jq '{mode,broadcast_target,audience_scope,ready,status,p1,p2,stream_url,telemetry_url,session_id,source_runtime_base,runtime_archive_sha256,learning_enabled,policy_pixel_access,maintenance_action,reason}'
-              test "$(echo "$body" | jq -r '.mode')" = 'single-shared-live-broadcast'
-              test "$(echo "$body" | jq -r '.broadcast_target')" = 'connectome-live-broadcast'
-              test "$(echo "$body" | jq -r '.audience_scope')" = 'shared-global'
-              test "$(echo "$body" | jq -r '.p1')" = 'GARNET'
-              test "$(echo "$body" | jq -r '.p2')" = 'ZEN'
-              test "$(echo "$body" | jq -r '.learning_enabled')" = false
-              test "$(echo "$body" | jq -r '.policy_pixel_access')" = false
-              status="$(echo "$body" | jq -r '.status // empty')"
-              case "$status" in
-                auth-unavailable|runtime-unavailable)
-                  echo "$body" | jq . >&2
-                  exit 1
-                  ;;
-              esac
-              if [[ "$code" == 200 && \
-                    "$(echo "$body" | jq -r '.ready')" == true && \
-                    "$status" == running && \
-                    "$(echo "$body" | jq -r '.source_runtime_base // empty')" == "$RUNTIME_BASE" && \
-                    "$(echo "$body" | jq -r '.runtime_archive_sha256 // empty')" == "$FINAL_RUNTIME_SHA" ]]; then
-                telemetry="$(echo "$body" | jq -r '.telemetry_url // empty')"
-                test -n "$telemetry"
-                echo "TELEMETRY_URL=$telemetry" >> "$GITHUB_ENV"
-                ready=1
-                break
-              fi
-            fi
-            [[ "$code" == 200 || "$code" == 202 ]] || exit 1
-            sleep 3
-          done
-          if [[ "$ready" -ne 1 ]]; then
-            echo 'Shared LIVE did not adopt the exact compilerless runtime base before deadline.' >&2
-            [[ -n "$last" ]] && echo "$last" | jq . >&2 || true
-            exit 1
-          fi
-
-      - name: Require real FightingICE plus two MaleCNS decisions
-        if: ${{ github.event_name != 'pull_request' }}
-        run: |
-          set -euo pipefail
-          success=0
-          last=''
-          for i in $(seq 1 300); do
-            state="$(curl -fsS "$TELEMETRY_URL" || true)"
-            if [[ -n "$state" ]]; then
-              last="$state"
-              echo "$state" | jq '{status,round,frame,p1:{character:.p1.character,x:.p1.x,y:.p1.y,action:.p1.action},p2:{character:.p2.character,x:.p2.x,y:.p2.y,action:.p2.action},p1_decision:.brain.p1.decision_index,p2_decision:.brain.p2.decision_index,p1_spikes:.brain.p1.total_spikes,p2_spikes:.brain.p2.total_spikes,learning_enabled,policy_pixel_access,error,exit_code}'
-              test "$(echo "$state" | jq -r '.learning_enabled')" = false
-              test "$(echo "$state" | jq -r '.policy_pixel_access')" = false
-              status="$(echo "$state" | jq -r '.status // empty')"
-              if [[ "$status" == error ]]; then
-                echo "$state" | jq . >&2
-                exit 1
-              fi
-              if echo "$state" | jq -e '
-                .status == "running" and
-                (.frame | type == "number") and .frame > 0 and
-                .p1.character == "GARNET" and .p2.character == "ZEN" and
-                (.p1.x | type == "number") and (.p1.y | type == "number") and
-                (.p2.x | type == "number") and (.p2.y | type == "number") and
-                (.p1.action | type == "string") and (.p2.action | type == "string") and
-                (.brain.p1.decision_index | type == "number") and .brain.p1.decision_index > 0 and
-                (.brain.p2.decision_index | type == "number") and .brain.p2.decision_index > 0
-              ' >/dev/null; then
-                success=1
-                break
-              fi
-            fi
-            sleep 2
-          done
-          if [[ "$success" -ne 1 ]]; then
-            echo 'Compilerless shared Vercel LIVE produced no real two-brain decision before deadline.' >&2
-            [[ -n "$last" ]] && echo "$last" | jq . >&2 || true
-            exit 1
-          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: brian2-compilerless-runtime-proof
+          path: |
+            runs/cache-postprocess/brian2-cache-proof.json.log
+            runs/cache-postprocess/arena-runtime-size.json
 
       - name: Cleanup Vercel-path build alias
         if: always()
-        run: |
-          sudo rm -f "$VERCEL_RUNTIME_ROOT" || true
+        run: sudo rm -f "$VERCEL_RUNTIME_ROOT" || true

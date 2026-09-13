@@ -1,0 +1,72 @@
+name: deploy-dedicated-vercel
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_name:
+        description: Dedicated Vercel project name
+        required: false
+        default: connectome-fighter-live
+        type: string
+      team_slug:
+        description: Vercel team slug
+        required: false
+        default: unjunos-projects
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-dedicated-vercel
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VERCEL_TOKEN: ${{ secrets.CONNECTOME_VERCEL_TOKEN }}
+      PROJECT: ${{ inputs.project_name }}
+      SCOPE: ${{ inputs.team_slug }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require dedicated deployment credentials and safe name
+        run: |
+          set -euo pipefail
+          test -n "$VERCEL_TOKEN"
+          test -n "$PROJECT"
+          test "$PROJECT" != 'live.unjuno'
+          test "$PROJECT" != 'liveunjuno'
+      - name: Build dedicated app before deployment
+        run: |
+          npm install --no-audit --no-fund
+          npm run typecheck
+          npm run build
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+      - name: Create dedicated project if absent
+        run: |
+          set -euo pipefail
+          if ! vercel project inspect "$PROJECT" --scope "$SCOPE" --token "$VERCEL_TOKEN" >/dev/null 2>&1; then
+            vercel project add "$PROJECT" --scope "$SCOPE" --token "$VERCEL_TOKEN"
+          fi
+      - name: Deploy only to the dedicated project
+        run: |
+          set -euo pipefail
+          url="$(vercel deploy --prod --yes --project "$PROJECT" --scope "$SCOPE" --token "$VERCEL_TOKEN")"
+          echo "DEPLOYMENT_URL=$url" >> "$GITHUB_ENV"
+          echo "Dedicated deployment: $url"
+      - name: Verify deployment cannot be the legacy project
+        run: |
+          set -euo pipefail
+          case "$DEPLOYMENT_URL" in *liveunjuno*) echo 'Refusing legacy liveunjuno deployment target.' >&2; exit 1;; esac
+          code="$(curl -sS -o /tmp/root.html -w '%{http_code}' "$DEPLOYMENT_URL/")"
+          test "$code" = 200
+          grep -Fq 'Connectome Fighter LIVE' /tmp/root.html
+          api_code="$(curl -sS -o /tmp/live.json -w '%{http_code}' "$DEPLOYMENT_URL/api/live?t=$(date +%s%N)" || true)"
+          test "$api_code" = 200 -o "$api_code" = 202 -o "$api_code" = 503
+          jq '{ready,status,source_runtime_base,runtime_archive_sha256,reason,blocked_until}' /tmp/live.json
