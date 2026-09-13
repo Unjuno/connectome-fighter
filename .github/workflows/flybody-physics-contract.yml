@@ -1,0 +1,117 @@
+name: flybody-physics-contract
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/connectome_fighter/flybody_neural_adapter.py'
+      - 'scripts/run_live_flybody_publisher.py'
+      - 'tests/test_flybody_neural_adapter.py'
+      - '.github/workflows/flybody-physics-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flybody-physics-contract
+  cancel-in-progress: true
+
+env:
+  FLYBODY_COMMIT: d015e9bfe441bd90ae431bac24c55cb74bdbce26
+  UV_VERSION: 0.12.12
+
+jobs:
+  physics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install headless MuJoCo dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libosmesa6 libgl1-mesa-dri
+          ldconfig -p | grep -q 'libOSMesa.so'
+
+      - name: Install pinned FlyBody
+        run: |
+          python -m pip install --quiet "uv==$UV_VERSION"
+          uv pip install --system "flybody @ git+https://github.com/TuragaLab/flybody.git@$FLYBODY_COMMIT"
+
+      - name: Run adapter unit contract
+        env:
+          PYTHONPATH: src
+        run: pytest -q tests/test_flybody_neural_adapter.py
+
+      - name: Prove neural drive separates physical trajectories
+        env:
+          PYTHONPATH: src
+          MUJOCO_GL: osmesa
+        run: |
+          python - <<'PY'
+          import math
+          import numpy as np
+          from flybody.fly_envs import template_task
+          from connectome_fighter.flybody_neural_adapter import flybody_action, neural_fly_command
+
+          seed = 1701
+          zero_env = template_task(random_state=np.random.RandomState(seed), disable_wings=True, time_limit=2.0)
+          driven_env = template_task(random_state=np.random.RandomState(seed), disable_wings=True, time_limit=2.0)
+          zero_env.reset(); driven_env.reset()
+
+          zero_spec = zero_env.action_spec(); driven_spec = driven_env.action_spec()
+          assert zero_spec.shape == driven_spec.shape
+          assert zero_spec.shape[0] == 59, zero_spec.shape
+          names = str(zero_spec.name or '').split()
+          assert names == str(driven_spec.name or '').split()
+
+          zero = neural_fly_command([])
+          driven = neural_fly_command([
+              {'body_id':101,'spikes':24,'superclass':'vnc_motor','soma_neuromere':'T1','root_side':'L'},
+              {'body_id':102,'spikes':10,'superclass':'vnc_motor','soma_neuromere':'T2','root_side':'R'},
+              {'body_id':103,'spikes':7,'superclass':'descending_neuron','root_side':'L'},
+          ])
+          assert zero.drive == 0.0
+          assert driven.drive > 0.0
+
+          zero_a = flybody_action(names, zero_spec.minimum, zero_spec.maximum, zero, 0.1)
+          zero_b = flybody_action(names, zero_spec.minimum, zero_spec.maximum, zero, 4.9)
+          assert np.allclose(zero_a, zero_b), 'zero neural drive must be phase invariant'
+
+          driven_a = flybody_action(names, driven_spec.minimum, driven_spec.maximum, driven, 0.1)
+          driven_b = flybody_action(names, driven_spec.minimum, driven_spec.maximum, driven, 4.9)
+          assert not np.allclose(driven_a, driven_b), 'driven gait must depend on gait phase'
+          assert float(np.max(np.abs(driven_a - zero_a))) > 1e-3
+
+          initial_delta = float(np.linalg.norm(np.asarray(zero_env.physics.data.qpos) - np.asarray(driven_env.physics.data.qpos)))
+          assert initial_delta < 1e-9, initial_delta
+
+          for step in range(40):
+              phase = (step / 40.0) * 2.0 * math.pi
+              zero_env.step(flybody_action(names, zero_spec.minimum, zero_spec.maximum, zero, phase))
+              driven_env.step(flybody_action(names, driven_spec.minimum, driven_spec.maximum, driven, phase))
+
+          qpos_zero = np.asarray(zero_env.physics.data.qpos, dtype=float).copy()
+          qpos_driven = np.asarray(driven_env.physics.data.qpos, dtype=float).copy()
+          trajectory_separation = float(np.linalg.norm(qpos_driven - qpos_zero))
+          assert trajectory_separation > 1e-5, trajectory_separation
+
+          pixels = driven_env.physics.render(height=120, width=160, camera_id=1)
+          assert pixels.shape == (120, 160, 3)
+          assert float(np.asarray(pixels).std()) > 1.0
+          print({
+              'flybody_physics_contract': True,
+              'action_dimension': int(zero_spec.shape[0]),
+              'zero_phase_invariant': True,
+              'driven_phase_variant': True,
+              'trajectory_separation_l2': trajectory_separation,
+              'render_std': float(np.asarray(pixels).std()),
+              'backend': 'osmesa',
+              'upstream_commit': '${{ env.FLYBODY_COMMIT }}',
+          })
+          PY
