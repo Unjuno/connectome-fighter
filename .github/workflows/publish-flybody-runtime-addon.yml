@@ -4,21 +4,13 @@ on:
   workflow_run:
     workflows: [precompile-arena-brian2-cython-cache]
     types: [completed]
-  push:
-    branches: [main]
-    paths:
-      - 'src/connectome_fighter/flybody_neural_adapter.py'
-      - 'scripts/run_live_flybody_publisher.py'
-      - 'deploy/arena-runtime/bootstrap-proxy.mjs'
-      - 'deploy/arena-runtime/start-session.sh'
-      - '.github/workflows/publish-flybody-runtime-addon.yml'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: publish-flybody-runtime-addon-single-writer
+  group: arena-runtime-rolling-release-single-writer
   cancel-in-progress: false
 
 env:
