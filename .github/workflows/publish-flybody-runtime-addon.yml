@@ -187,7 +187,15 @@ jobs:
             body="$(curl -fsS "$PUBLIC_BASE/api/connectome/runtime-base?t=$(date +%s%N)" || true)"
             if [[ -n "$body" ]]; then
               last="$body"
-              echo "$body" | jq '{ready,status,name,snapshot_id,runtime_archive_sha256,stage_version,diagnostic}'
+              echo "$body" | jq '{ready,status,name,snapshot_id,runtime_archive_sha256,stage_version,reason,diagnostic}'
+              if echo "$body" | jq -e '
+                .status == "capacity-blocked" or
+                ((.reason // "") | test("payment_required|usage limit exceeded|upgrade to a Pro plan"; "i"))
+              ' >/dev/null; then
+                echo 'Vercel Sandbox capacity is exhausted; runtime bundle publication succeeded but the SHA-addressed base cannot be staged.' >&2
+                echo "$body" | jq . >&2
+                exit 1
+              fi
               if echo "$body" | jq -e \
                 --arg sha "$FINAL_RUNTIME_SHA" --arg base "$FINAL_RUNTIME_BASE" \
                 '.ready == true and .status == "ready" and .runtime_archive_sha256 == $sha and .name == $base and (.snapshot_id | type) == "string"' >/dev/null; then
@@ -204,6 +212,7 @@ jobs:
           fi
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: flybody-runtime-addon-proof
           path: |
