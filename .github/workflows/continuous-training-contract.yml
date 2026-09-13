@@ -66,8 +66,7 @@ jobs:
               'git add site/data/training-status.json',
           ]
           missing=[needle for needle in required if needle not in trainer]
-          if missing:
-              raise SystemExit(f'missing candidate-training contract text: {missing}')
+          if missing: raise SystemExit(f'missing candidate-training contract text: {missing}')
 
           history_workflow=Path('.github/workflows/training-history.yml').read_text(encoding='utf-8')
           history_required=[
@@ -80,48 +79,38 @@ jobs:
               'git add site/data/training-history.json',
           ]
           missing=[needle for needle in history_required if needle not in history_workflow]
-          if missing:
-              raise SystemExit(f'missing training-history contract text: {missing}')
+          if missing: raise SystemExit(f'missing training-history contract text: {missing}')
 
           forbidden_mutations=[
               'TRAINING_TAG: arena-inference-latest',
               'gh release upload arena-inference-latest',
               'gh release create arena-inference-latest',
-              'liveunjuno.vercel.app/api',
+              'CONNECTOME_PUBLIC_BASE_URL',
+              'VERCEL_PROJECT_ID',
+              'VERCEL_TEAM_ID',
               'VERCEL_TOKEN',
               'VERCEL_OIDC_TOKEN',
+              'vercel deploy',
               'cancel-in-progress: true',
           ]
           found=[needle for needle in forbidden_mutations if needle in trainer or needle in history_workflow]
-          if found:
-              raise SystemExit(f'forbidden auto-promotion/Vercel mutation returned: {found}')
+          if found: raise SystemExit(f'forbidden auto-promotion/Vercel mutation returned: {found}')
 
           app=Path('site/app.js').read_text(encoding='utf-8')
-          page_required=[
-              "json('./data/training-status.json', {})",
-              'background candidate learning',
-              'state currently served by Vercel',
-              'canonical-training-latest',
-              'served_by_vercel=',
-              'auto_promotion=',
-          ]
+          page_required=["json('./data/training-status.json', {})",'background candidate learning','state currently served by Vercel','canonical-training-latest','served_by_vercel=','auto_promotion=']
           page_missing=[needle for needle in page_required if needle not in app]
-          if page_missing:
-              raise SystemExit(f'missing candidate learning research-ledger boundary: {page_missing}')
+          if page_missing: raise SystemExit(f'missing candidate learning research-ledger boundary: {page_missing}')
 
           index=Path('site/index.html').read_text(encoding='utf-8')
           timeline=Path('site/training-history.js').read_text(encoding='utf-8')
           for needle in ['./training-history.js','./data/training-history.json','append-only public candidate generation ledger']:
-              if needle not in index:
-                  raise SystemExit(f'missing public training-history surface: {needle}')
+              if needle not in index: raise SystemExit(f'missing public training-history surface: {needle}')
           for needle in ['candidate learning history','Candidate-only ledger.','served_by_vercel=','auto_promotion=','source Actions run']:
-              if needle not in timeline:
-                  raise SystemExit(f'missing training-history interpretation boundary: {needle}')
+              if needle not in timeline: raise SystemExit(f'missing training-history interpretation boundary: {needle}')
 
           history=json.loads(Path('site/data/training-history.json').read_text(encoding='utf-8'))
           assert history['kind']=='canonical-continuous-training-history'
-          entries=history['entries']
-          assert isinstance(entries,list) and entries
+          entries=history['entries']; assert isinstance(entries,list) and entries
           generations=[int(row['generation']) for row in entries]
           assert generations==sorted(generations) and len(generations)==len(set(generations))
           assert history['entry_count']==len(entries)
@@ -132,10 +121,8 @@ jobs:
               assert row['served_by_vercel'] is False
               assert row['auto_promotion'] is False
               assert len(row['state_sha256'])==64
-
           print('continuous candidate training + append-only history contract: PASS')
           PY
-
       - name: Prove history writer is idempotent and rejects lineage forks
         run: |
           set -euo pipefail
@@ -149,10 +136,7 @@ jobs:
           test "$first" = "$second"
           python - "$tmp/status.json" <<'PY'
           import json,sys
-          p=sys.argv[1]
-          d=json.load(open(p,encoding='utf-8'))
-          d['state_sha256']='0'*64
-          json.dump(d,open(p,'w',encoding='utf-8'),indent=2,sort_keys=True)
+          p=sys.argv[1]; d=json.load(open(p,encoding='utf-8')); d['state_sha256']='0'*64; json.dump(d,open(p,'w',encoding='utf-8'),indent=2,sort_keys=True)
           PY
           if python scripts/append_training_history.py --status "$tmp/status.json" --history "$tmp/history.json"; then
             echo 'history writer accepted a forked state for an existing generation' >&2

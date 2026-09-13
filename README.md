@@ -1,8 +1,8 @@
 # Connectome Fighter
 
-Connectome Fighter is a cloud research testbed that connects the **MaleCNS v1.0 Drosophila connectome** to FightingICE through a pinned implementation of the Shiu et al. leaky integrate-and-fire dynamics. The project records real MaleCNS body-ID activity, keeps game I/O mappings explicit, and separates biological structure from project-defined reinforcement and plasticity assumptions.
+Connectome Fighter is a cloud research testbed that connects the **MaleCNS v1.0 Drosophila connectome** to FightingICE through a pinned implementation of the Shiu et al. leaky integrate-and-fire dynamics. The project records real MaleCNS body-ID activity, keeps game I/O mappings explicit, and separates biological structure from project-defined reinforcement, plasticity, and embodiment assumptions.
 
-**[Public LIVE](https://liveunjuno.vercel.app/connectome)** · [Research ledger](https://unjuno.github.io/connectome-fighter/) · [Status](docs/STATUS.md) · [Roadmap](ROADMAP.md) · [Public surface contract](docs/PUBLIC_SURFACE_SPLIT.md)
+**Dedicated LIVE:** deployment target is configured through the repository variable `CONNECTOME_PUBLIC_BASE_URL`; no unrelated Vercel project is a valid Connectome target. · [Research ledger](https://unjuno.github.io/connectome-fighter/) · [Status](docs/STATUS.md) · [Roadmap](ROADMAP.md) · [Public surface contract](docs/PUBLIC_SURFACE_SPLIT.md)
 
 ## Canonical control path
 
@@ -22,16 +22,34 @@ versioned action groups
 FightingICE action
 ```
 
-The canonical path does **not** replace the fly substrate with an MLP, RNN, PPO policy network, or the repository's older custom sigmoid scaffold. Legacy FlyWire/custom-network components are engineering history only.
+The canonical path does **not** replace the fly substrate with an MLP, RNN, PPO policy network, or the repository's older custom sigmoid scaffold.
+
+## Physical FlyBody spectator
+
+The physical fly is the upstream `TuragaLab/flybody` MuJoCo body pinned at commit `d015e9bfe441bd90ae431bac24c55cb74bdbce26`.
+
+```text
+annotated MaleCNS motor / descending activity
+        ↓
+project-defined bounded adapter
+        ↓
+59 FlyBody actuators
+        ↓
+MuJoCo physics
+        ↓
+FlyBody render
+```
+
+The adapter is `malecns-annotated-motor-to-flybody-tripod-v2`. It is a project interface, **not** a claimed biological motor-neuron→muscle map. FightingICE x/y/action values do not position the FlyBody body. Zero neural motor drive produces no active gait. FlyBody, FightingICE ScreenData, and neural anatomy are spectator outputs and never policy inputs.
 
 ## Scientific boundaries
 
 - MaleCNS anatomy is biological data.
 - Shiu LIF dynamics are a published neural-dynamics model applied to that anatomy.
-- FightingICE feature-to-sensory and output-to-action mappings are project-defined interfaces, not biological claims.
-- Reward and plasticity rules are research-added assumptions and must remain versioned.
-- Visualization is spectator-only. Screen pixels, decorative graphics and morphology rendering are never policy inputs.
-- Neural activity is not treated as proof of causal biological function. Causal claims require interventions or ablations.
+- FightingICE feature-to-sensory and output-to-action mappings are project-defined interfaces.
+- MaleCNS→FlyBody actuator mapping is project-defined.
+- Reward and plasticity rules are research-added assumptions and remain versioned.
+- Neural activity is not treated as proof of causal biological function; causal claims require interventions or ablations.
 
 ## Current demonstrated state
 
@@ -39,92 +57,52 @@ The canonical path does **not** replace the fly substrate with an MLP, RNN, PPO 
 - pinned Shiu LIF reference/runtime: **PASS**
 - strict runtime: approximately **156,675 neurons / 6,025,920 recurrent synapses** under the project filter
 - real MaleCNS-controlled FightingICE rounds: **PASS**
-- separate neural state and RNG per character: **PASS**
 - body-ID spike/event logs: **PASS**
-- released MaleCNS SWC X–Z morphology projection: **PASS**
 - compilerless Brian2 Cython runtime bundle: **PASS**
-- SHA-addressed persistent Vercel runtime base: **PASS**
-- production single shared Vercel LIVE with real FightingICE + two MaleCNS workers: **PASS**
-- **GARNET generation 2**: approved read-only inference state
-- **ZEN / LUD / NEZ generation 2**: candidate cross-run lineages; not promoted to production learned fighters
-- four independently trained production fighter checkpoints: **NOT YET ESTABLISHED**
+- FlyBody real MuJoCo physics contract: **PASS in independent CI**
+- FlyBody action dimension: **59**
+- neural-drive-vs-zero trajectory divergence: **PASS**
+- dedicated Next.js public control/viewer implementation: **IMPLEMENTED; production deployment verification pending**
+- dedicated Vercel shared-LIVE E2E: **NOT YET VERIFIED**
+- GARNET generation 2: approved read-only inference state
+- ZEN canonical baseline: current P2 serving contract
 - continuous production reward-driven learning: **OFF**
 
-Latest evidence and implementation gates are maintained in [`docs/STATUS.md`](docs/STATUS.md).
+The prior unrelated `Unjuno/live` application is not a Connectome deployment target and is not modified by the dedicated workflows.
 
-## Public surfaces
-
-### Vercel public LIVE
-
-The production arena is one **single shared read-only LIVE broadcast**. All viewers observe the same fixed-name Vercel Sandbox, `connectome-live-broadcast`; audience size does not create additional FightingICE/MaleCNS sessions.
+## Dedicated public architecture
 
 ```text
-GitHub-approved inference state
+GitHub rolling runtime release
         ↓
-SHA-addressed persistent runtime snapshot
+SHA-addressed persistent runtime base
+  (runtime + FightingICE fonts + OSMesa)
         ↓
-fixed-name shared Vercel LIVE Sandbox
+fixed-name connectome-fighter-live-broadcast Sandbox
         ↓
-FightingICE + MaleCNS + pinned Shiu LIF
+FightingICE + two MaleCNS/Shiu workers
         ↓
-shared live telemetry / neural activity
+Official ScreenData + neural activity + FlyBody physics
         ↓
-all viewers
+one shared public viewer surface
 ```
 
-Current LIVE matchup: **GARNET approved generation-2 checkpoint vs ZEN canonical baseline**. This must not be described as trained-vs-trained.
+The dedicated app lives in this repository under `app/` and `lib/`. Its control API is `/api/live`; runtime materialization is `/api/runtime-base`. It reads the Vercel deployment's own `VERCEL_PROJECT_ID` and contains no hard-coded identifier for another Vercel project.
 
-The Vercel surface:
+Production smoke workflows use `CONNECTOME_PUBLIC_BASE_URL`. If that variable is unset, they skip rather than falling back to another site.
 
-- performs read-only inference only;
-- exposes shared FightingICE HP, position, action, round and frame telemetry;
-- exposes decision-window MaleCNS activity for both sides;
-- renders released MaleCNS morphology and the fly-shaped fight visualization as spectator-only output;
-- never feeds screen pixels, morphology or decorative visualization back into the policy;
-- never mutates checkpoints or performs weight updates;
-- never substitutes a recorded fight and labels it LIVE.
+## Runtime publication boundary
 
-If the shared runtime is warming or unavailable, the public page reports that state instead of fabricating a fight.
+Runtime publication is GitHub-only:
 
-### GitHub Pages / Actions
+`publish-arena-runtime-bundle → precompile-arena-brian2-cython-cache → publish-flybody-runtime-addon`.
 
-GitHub is the research, training and provenance surface. It publishes or preserves:
-
-- canonical substrate and dynamics;
-- training workflows and experiment controls;
-- reward and plasticity contracts;
-- normalized/public match logs;
-- checkpoint lineage, hashes and resume evidence;
-- approved inference handoff manifests;
-- arena runtime provenance and checksums;
-- raw Actions artifacts and logs.
-
-Vercel is not the system of record for learning history.
-
-## Runtime boundary
-
-The canonical runtime keeps **Brian2 Cython** code generation. Because Vercel Sandbox images do not provide a C compiler, GitHub Actions precompiles the required Cython extensions using the production path identity and proves compilerless cache reuse before publishing the runtime bundle. This is a deployment optimization; it does not replace the MaleCNS topology or Shiu dynamics.
-
-The runtime archive is staged once into a SHA-addressed persistent Sandbox and its filesystem snapshot is used as the source of the shared LIVE Sandbox. Mutable character state remains a separately hash-verified inference handoff.
+These workflows publish immutable release assets but do not stage them into a Vercel project. The dedicated Vercel control plane owns runtime-base staging. This prevents release jobs from mutating an unrelated deployment.
 
 ## Learning status
 
-Continuous canonical learning is **not production-active**.
-
-GARNET generation 2 is the approved inference checkpoint. ZEN, LUD and NEZ have independent generation-2 cross-run candidate lineage evidence, but candidate lineage plumbing is not equivalent to a four-character production-trained league.
-
-Current scheduled baseline and spectator workflows produce evaluation/logging evidence without production weight updates. Reward tuning and continuous training remain downstream of the public-surface/runtime freeze.
-
-## Reward experiments
-
-Reward design is intentionally not being promoted while the public/runtime contracts are still being frozen. Existing reward/plasticity workflows remain research or engineering evidence.
-
-When reward experiments resume, model, game version, observation/action interface, compute budget, seeds and evaluation opponents must remain fixed so reward changes can be isolated from infrastructure changes.
-
-## Repository language
-
-Canonical code, public UI, GitHub Pages and canonical research documentation are maintained in English. Historical non-English documents may remain as translations or archival context but must not contradict the canonical contract.
+Continuous canonical learning is **not production-active**. Candidate training and append-only lineage history remain on GitHub and cannot auto-promote into the Vercel inference state.
 
 ## License
 
-Project-authored source code is MIT licensed. FightingICE, MaleCNS/connectome data, papers and other third-party resources retain their own licenses and terms; see [`THIRD_PARTY.md`](THIRD_PARTY.md).
+Project-authored source code is MIT licensed. FightingICE, MaleCNS/connectome data, FlyBody, papers, and other third-party resources retain their own licenses and terms; see [`THIRD_PARTY.md`](THIRD_PARTY.md).
