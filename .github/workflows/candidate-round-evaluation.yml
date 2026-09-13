@@ -26,6 +26,7 @@ env:
   VALENCE_CACHE_KEY: malecns-v1.0-kc-mbon-valence-v1
   TRAINING_TAG: canonical-training-latest
   EVALUATION_TAG: candidate-evaluation-latest
+  EVALUATION_PROTOCOL: fixed-full-round-v2
   GAME_URL: https://github.com/TeamFightingICE/FightingICE/releases/download/v7.1/DareFightingICE-7.1.zip
   GAME_SHA256: 510752a69a097b767677d3911b1407d6a08a721dad4faf2cb5b7a19b988f1c62
   RESOURCE_URL: https://github.com/TeamFightingICE/FightingICE/releases/download/v7.1/resource-7.1.zip
@@ -34,7 +35,9 @@ env:
   EVAL_P2: ZEN
   EVAL_SEED1: '800101'
   EVAL_SEED2: '20202'
-  EVAL_FRAME_LIMIT: '600'
+  # FightingICE competition documentation specifies a 60 s maximum round.
+  # At the nominal 60 game frames/s, 3600 frames preserves that full horizon.
+  EVAL_FRAME_LIMIT: '3600'
   EVAL_NOMINAL_GAME_FPS: '60'
   EVAL_SPECTATOR_FPS: '10'
 
@@ -198,17 +201,24 @@ jobs:
               --title 'Latest candidate one-round evaluation' \
               --notes 'Fixed-condition post-update candidate evaluation. Candidate-only; no automatic promotion to approved inference.'
           fi
-          if [ -s runs/candidate-evaluation/previous/latest-round.mp4 ]; then
-            cp runs/candidate-evaluation/previous/latest-round.mp4 runs/candidate-evaluation/previous-round.mp4
-          fi
-          if [ -s runs/candidate-evaluation/previous/evaluation-status.json ]; then
+          if [ -s runs/candidate-evaluation/previous/latest-round.mp4 ] && [ -s runs/candidate-evaluation/previous/evaluation-status.json ]; then
             python - <<'PY'
-          import json, pathlib
+          import json, os, pathlib, shutil
           src=pathlib.Path('runs/candidate-evaluation/previous/evaluation-status.json')
+          video_src=pathlib.Path('runs/candidate-evaluation/previous/latest-round.mp4')
           data=json.loads(src.read_text(encoding='utf-8'))
-          video=data.setdefault('video',{})
-          video['asset_url']='https://github.com/Unjuno/connectome-fighter/releases/download/candidate-evaluation-latest/previous-round.mp4'
-          pathlib.Path('site/data/evaluation-previous.json').write_text(json.dumps(data,indent=2,sort_keys=True)+'\n',encoding='utf-8')
+          previous_generation=int(data.get('generation',-1))
+          previous_protocol=str((data.get('evaluation') or {}).get('protocol') or '')
+          current_generation=int(os.environ['CANDIDATE_GENERATION'])
+          current_protocol=os.environ['EVALUATION_PROTOCOL']
+          if previous_generation != current_generation and previous_protocol == current_protocol:
+              shutil.copy2(video_src,'runs/candidate-evaluation/previous-round.mp4')
+              video=data.setdefault('video',{})
+              video['asset_url']='https://github.com/Unjuno/connectome-fighter/releases/download/candidate-evaluation-latest/previous-round.mp4'
+              pathlib.Path('site/data/evaluation-previous.json').write_text(json.dumps(data,indent=2,sort_keys=True)+'\n',encoding='utf-8')
+              print(f'preserved generation {previous_generation} under protocol {previous_protocol}')
+          else:
+              print(f'skipped previous generation={previous_generation} protocol={previous_protocol!r}; current generation={current_generation} protocol={current_protocol!r}')
           PY
           fi
 
@@ -236,7 +246,7 @@ jobs:
           done
           exit 1
 
-      - name: Record the updated candidate for exactly one round
+      - name: Record the updated candidate for exactly one full round
         run: |
           PYTHONPATH=src python scripts/run_game_malecns_lif.py \
             --host 127.0.0.1 --port 31416 \
@@ -269,12 +279,13 @@ jobs:
           size=int(probe['format']['size'])
           assert stream['codec_name']=='h264', stream
           assert int(stream['width'])==960 and int(stream['height'])==640, stream
-          assert 2.0 < duration < 30.0, duration
+          assert 2.0 < duration < 75.0, duration
           assert size > 10000, size
 
           trace_path=pathlib.Path('runs/candidate-evaluation/eval/candidate-evaluation/p1.jsonl')
           rows=[json.loads(line) for line in trace_path.read_text(encoding='utf-8').splitlines() if line.strip()]
-          remaining=(rows[-1].get('remaining_hps') if rows else None) or [None,None]
+          last=rows[-1] if rows else {}
+          remaining=last.get('remaining_hps') or [None,None]
           p1_hp=remaining[0] if len(remaining)>0 else None
           p2_hp=remaining[1] if len(remaining)>1 else None
           if isinstance(p1_hp,(int,float)) and isinstance(p2_hp,(int,float)):
@@ -284,8 +295,16 @@ jobs:
 
           frame_limit=int(os.environ['EVAL_FRAME_LIMIT'])
           nominal_fps=int(os.environ['EVAL_NOMINAL_GAME_FPS'])
+          elapsed_frame=int(last.get('elapsed_frame') or 0)
+          if isinstance(p1_hp,(int,float)) and isinstance(p2_hp,(int,float)) and min(p1_hp,p2_hp)<=0:
+              ended_by='KO'
+          elif elapsed_frame>=frame_limit:
+              ended_by='TIME_LIMIT'
+          else:
+              ended_by='ROUND_END'
+
           payload={
-              'schema_version':1,
+              'schema_version':2,
               'kind':'post-update-candidate-round-evaluation',
               'status':'COMPLETED',
               'evaluated_at':datetime.now(timezone.utc).isoformat().replace('+00:00','Z'),
@@ -302,6 +321,7 @@ jobs:
               'source_training_run_url':os.environ.get('SOURCE_TRAINING_RUN_URL') or None,
               'policy_pixel_access':False,
               'evaluation':{
+                  'protocol':os.environ['EVALUATION_PROTOCOL'],
                   'rounds':1,
                   'fixed_opponent':True,
                   'seed_p1':int(os.environ['EVAL_SEED1']),
@@ -315,6 +335,9 @@ jobs:
                   'winner':winner,
                   'p1_hp':p1_hp,
                   'p2_hp':p2_hp,
+                  'elapsed_frame':elapsed_frame,
+                  'elapsed_seconds':elapsed_frame/nominal_fps if elapsed_frame else None,
+                  'ended_by':ended_by,
               },
               'video':{
                   'asset_url':'https://github.com/Unjuno/connectome-fighter/releases/download/candidate-evaluation-latest/latest-round.mp4',
@@ -325,7 +348,7 @@ jobs:
                   'duration_seconds':duration,
                   'bytes':size,
               },
-              'interpretation_boundary':'This video evaluates the newest rolling candidate after its plasticity update under a fixed GARNET-vs-ZEN condition. It is candidate research evidence, not approved production inference and not proof of causal biological circuit function.',
+              'interpretation_boundary':'This video evaluates the newest rolling candidate after its plasticity update under a fixed full-round GARNET-vs-ZEN condition. It is candidate research evidence, not approved production inference and not proof of causal biological circuit function.',
           }
           pathlib.Path('runs/candidate-evaluation/evaluation-status.json').write_text(json.dumps(payload,indent=2,sort_keys=True)+'\n',encoding='utf-8')
           pathlib.Path('site/data/evaluation-status.json').write_text(json.dumps(payload,indent=2,sort_keys=True)+'\n',encoding='utf-8')
