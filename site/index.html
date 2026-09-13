@@ -6,23 +6,17 @@
   <meta name="color-scheme" content="dark" />
   <title>Connectome Fighter Research Ledger</title>
   <style>
-    :root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:dark;--bg:#05080d;--surface:#0b1119;--surface2:#0f1722;--line:#1e2b3a;--text:#edf4fb;--muted:#7f8da0;--cyan:#80e7ff;--amber:#ffc979;--rose:#ff9ab0}
-    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(circle at 20% 0,#0b1c27 0,transparent 28rem),var(--bg);color:var(--text)}a{color:inherit}.shell{max-width:1160px;margin:auto;padding:34px 18px 80px}
-    .eyebrow{font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:#5f7186}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.pill{border:1px solid #294052;background:#09131d;border-radius:999px;padding:6px 10px;font-size:.72rem;color:#9fb3c9}
-    h1{font-size:clamp(2.4rem,6vw,5rem);letter-spacing:-.055em;line-height:.96;margin:.22em 0}.lead{max-width:800px;color:var(--muted);line-height:1.75;font-size:1rem}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}.btn{display:inline-block;border:1px solid #31465a;border-radius:12px;padding:11px 15px;text-decoration:none;font-size:.85rem;font-weight:750}.btn.primary{background:#e8f5ff;color:#071019;border-color:#e8f5ff}.btn:hover{transform:translateY(-1px)}
-    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:24px 0}.card,.panel{border:1px solid var(--line);background:linear-gradient(180deg,rgba(15,23,34,.94),rgba(8,13,20,.96));border-radius:18px}.card{padding:16px}.panel{padding:20px;margin-top:16px}.label{font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:#64748b}.value{margin-top:7px;font-size:1.4rem;font-weight:800;letter-spacing:-.02em}.value.small{font-size:1rem;line-height:1.45}.section-title{display:flex;align-items:end;justify-content:space-between;gap:16px;margin-bottom:16px}.section-title h2{margin:0;font-size:1.35rem}.muted{color:var(--muted);line-height:1.65}.notice{border:1px solid #5c4929;background:#1a1409;border-radius:14px;padding:13px 14px;color:#e8c887;font-size:.84rem;line-height:1.6}.proof{border:1px solid #28546b;background:linear-gradient(180deg,rgba(7,31,43,.9),rgba(5,18,27,.96));border-radius:14px;padding:14px;color:#bdefff;font-size:.84rem;line-height:1.65}
-    .reward-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px}.reward{border:1px solid #223243;background:#09121b;border-radius:14px;padding:14px}.reward .n{font-size:1.6rem;font-weight:850;margin-top:6px}.formula{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#05090e;border:1px solid #192534;border-radius:12px;padding:12px;overflow:auto;color:#b7c7d9;font-size:.78rem;line-height:1.6}.two{display:grid;grid-template-columns:1fr;gap:12px}@media(min-width:850px){.two{grid-template-columns:1fr 1fr}}
-    table{width:100%;border-collapse:collapse;font-size:.82rem}th,td{padding:9px 7px;border-bottom:1px solid var(--line);text-align:right}th:first-child,td:first-child{text-align:left}th{color:var(--muted);font-weight:650}.files{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px}.files a{border:1px solid var(--line);border-radius:12px;padding:12px;text-decoration:none;background:#091019}.files a:hover{background:#101b28}.files strong{font-size:.86rem}.files span{font-size:.75rem}.statusline{display:inline-flex;align-items:center;gap:7px}.dot{width:7px;height:7px;border-radius:50%;background:#f5c46b;box-shadow:0 0 12px rgba(245,196,107,.5)}.dot.live{background:#78e8bd;box-shadow:0 0 12px rgba(120,232,189,.55)}
-    details{border-top:1px solid var(--line);padding:11px 0}summary{cursor:pointer}.boundary{font-size:.8rem;line-height:1.65;color:#9aa9ba;border-left:2px solid #35485d;padding-left:12px}.foot{margin-top:30px;padding-top:18px;border-top:1px solid var(--line);font-size:.75rem;color:#617083;line-height:1.6}code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+    :root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:dark;--bg:#05080d;--surface:#0b1119;--line:#1e2b3a;--text:#edf4fb;--muted:#8c9bae}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% 0,#0b1c27 0,transparent 28rem),var(--bg);color:var(--text)}a{color:#9bdcff}.shell{max-width:1120px;margin:auto;padding:32px 18px 72px}.row,.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.pill{border:1px solid #294052;background:#09131d;border-radius:999px;padding:6px 10px;font-size:.72rem;color:#9fb3c9}h1{font-size:clamp(2.3rem,6vw,4.8rem);letter-spacing:-.05em;line-height:.98;margin:.24em 0}.lead,.muted,.boundary{color:var(--muted);line-height:1.7}.actions{margin-top:18px}.btn{display:inline-block;border:1px solid #31465a;border-radius:10px;padding:10px 14px;text-decoration:none;font-size:.84rem;font-weight:700}.btn.primary{background:#e8f5ff;color:#071019;border-color:#e8f5ff}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:22px 0}.card,.panel{border:1px solid var(--line);background:rgba(10,17,25,.94);border-radius:16px}.card{padding:15px}.panel{padding:20px;margin-top:16px}.label,.eyebrow{font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:#71849a}.value{margin-top:7px;font-size:1.35rem;font-weight:800}.value.small{font-size:1rem;line-height:1.45}.section-title{display:flex;align-items:end;justify-content:space-between;gap:14px;margin-bottom:14px}.section-title h2{margin:0;font-size:1.3rem}.notice,.proof{border:1px solid #534522;background:#171309;border-radius:12px;padding:13px 14px;color:#dfc787;font-size:.84rem;line-height:1.6}.proof{border-color:#28546b;background:#071d28;color:#bdefff}.reward-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px}.reward{border:1px solid #223243;background:#09121b;border-radius:12px;padding:13px}.reward .n{font-size:1.5rem;font-weight:850;margin-top:6px}.two{display:grid;grid-template-columns:1fr;gap:12px}@media(min-width:850px){.two{grid-template-columns:1fr 1fr}}.formula{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#05090e;border:1px solid #192534;border-radius:10px;padding:12px;overflow:auto;color:#b7c7d9;font-size:.78rem;line-height:1.6;white-space:pre-wrap}.files{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px}.files>div,.files a{border:1px solid var(--line);border-radius:10px;padding:11px;text-decoration:none;background:#091019}table{width:100%;border-collapse:collapse;font-size:.82rem}th,td{padding:9px 7px;border-bottom:1px solid var(--line);text-align:right}th:first-child,td:first-child{text-align:left}details{border-top:1px solid var(--line);padding:10px 0}summary{cursor:pointer}.boundary{font-size:.8rem;border-left:2px solid #35485d;padding-left:12px}.foot{margin-top:28px;padding-top:16px;border-top:1px solid var(--line);font-size:.75rem;color:#617083}.statusline{display:inline-flex;gap:7px;align-items:center}.dot{width:7px;height:7px;border-radius:50%;background:#f5c46b}.dot.live{background:#78e8bd}code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
   </style>
 </head>
 <body><main class="shell">
-  <div class="row"><span class="pill">MaleCNS v1.0</span><span class="pill">pinned Shiu LIF</span><span class="pill">research / training / public-log surface</span></div>
+  <div class="row"><span class="pill">MaleCNS v1.0</span><span class="pill">pinned Shiu LIF</span><span class="pill">research / training / provenance</span></div>
   <h1>Connectome Fighter<br>Research Ledger</h1>
-  <p class="lead">This GitHub surface publishes the research and learning record behind Connectome Fighter: reward contracts, plasticity assumptions, checkpoint lineage, training workflows, normalized/public logs, runtime provenance, experimental conditions and evidence. Vercel is a separate presentation surface with one globally shared read-only LIVE fight; it is not a per-viewer training or experiment surface.</p>
+  <p class="lead">GitHub is the research and provenance surface. The dedicated Vercel LIVE viewer is implemented in this repository but is not considered production-verified until its own project passes the arena, media, browser and FlyBody same-decision smokes. No unrelated Vercel site is a fallback target.</p>
   <div class="actions">
-    <a class="btn primary" href="https://liveunjuno.vercel.app/connectome">Open shared Vercel LIVE →</a>
-    <a class="btn" href="https://github.com/Unjuno/connectome-fighter/actions">GitHub Actions evidence ↗</a>
+    <a class="btn primary" href="https://github.com/Unjuno/connectome-fighter/actions/workflows/deploy-dedicated-vercel.yml">Dedicated deployment workflow →</a>
+    <a class="btn" href="https://github.com/Unjuno/connectome-fighter/actions">Actions evidence ↗</a>
     <a class="btn" href="https://github.com/Unjuno/connectome-fighter">Repository ↗</a>
   </div>
 
@@ -31,112 +25,59 @@
     <div class="card"><div class="label">current public phase</div><div id="phase" class="value small">—</div></div>
     <div class="card"><div class="label">stored normalized matches</div><div id="match-count" class="value">—</div></div>
     <div class="card"><div class="label">reward contract</div><div id="reward-id" class="value small">—</div></div>
-    <div class="card"><div class="label">Vercel arena</div><div class="value small">one shared LIVE broadcast</div></div>
+    <div class="card"><div class="label">dedicated LIVE</div><div class="value small">deployment E2E pending</div></div>
   </div>
 
-  <div class="notice"><span class="statusline"><span class="dot"></span><strong>Important:</strong></span> The reward and plasticity configurations shown here are audited smoke/candidate contracts. This page does not claim that continuous canonical learning is enabled until a production lineage is explicitly promoted and its checkpoint provenance is published.</div>
+  <div class="notice"><strong>Boundary:</strong> background candidate learning is GitHub-only and never auto-promotes into the public inference state. The dedicated viewer is read-only, with <code>learning_enabled=false</code> and <code>policy_pixel_access=false</code>.</div>
 
   <section class="panel" id="arena-runtime-proof">
-    <div class="section-title"><div><div class="eyebrow">production inference proof</div><h2>Causal shared LIVE: sensory → network → motor → action → fight</h2></div><a id="proof-run" class="muted" href="https://github.com/Unjuno/connectome-fighter/actions/runs/34700813732">strict production smoke ↗</a></div>
-    <div class="proof"><span class="statusline"><span class="dot live"></span><strong id="proof-verified-at">Verified Sep 12, 2026, 2:58:21 PM UTC</strong></span>: the current runtime forked a SHA-addressed Vercel snapshot, kept one shared six-round FightingICE process, started two MaleCNS/Shiu workers, exposed real sensory-body drive and motor-body contributions, verified seven action-group counts against the selected action, and returned actual FightingICE x/y/HP/action telemetry. This is runtime/inference evidence, not trained-vs-trained evidence.</div>
+    <div class="section-title"><div><div class="eyebrow">historical runtime proof</div><h2>Compilerless MaleCNS/FightingICE evidence</h2></div><a id="proof-run" class="muted" href="#">Actions proof ↗</a></div>
+    <div class="proof"><strong id="proof-verified-at">Loading proof metadata…</strong> Historical runtime proof remains useful evidence for the runtime and neural-control path, but it does not certify the newly separated dedicated Vercel deployment.</div>
     <div class="grid" style="margin:12px 0 0">
-      <div class="card"><div class="label">LIVE matchup</div><div class="value small">GARNET checkpoint vs ZEN baseline</div></div>
-      <div class="card"><div class="label">broadcast scope</div><div class="value small">one global shared target</div></div>
-      <div class="card"><div class="label">LIVE telemetry</div><div class="value small">schema v3 · 6-round warm process</div></div>
-      <div class="card"><div class="label">compilerless cache</div><div id="proof-cache" class="value small">verified · 15 shared objects</div></div>
-      <div class="card"><div class="label">runtime model size</div><div id="proof-model-size" class="value small">156,675 neurons / 6,025,920 synapses</div></div>
+      <div class="card"><div class="label">approved P1</div><div class="value small">GARNET generation 2</div></div>
+      <div class="card"><div class="label">P2 contract</div><div class="value small">ZEN canonical baseline</div></div>
+      <div class="card"><div class="label">FlyBody adapter</div><div class="value small">motor activity → 59 actuators</div></div>
+      <div class="card"><div class="label">compilerless cache</div><div id="proof-cache" class="value small">—</div></div>
+      <div class="card"><div class="label">runtime model size</div><div id="proof-model-size" class="value small">—</div></div>
     </div>
-    <div id="proof-runtime" class="formula" style="margin-top:12px">proof runtime archive SHA-256: f304bc4f0e7c19faca517a550f36dd566cb2f8b34e9a33627370aa3fec074004
-runtime base: connectome-runtime-f304bc4f0e7c19fa
-snapshot: snap_GnmkXhXrF8QAbow2cxdqDq3q9rL5
-observed proof telemetry: round 1/6 · frame 421 · GARNET decision 7 / ZEN decision 7 · P1 spikes 8971 / P2 spikes 8813
-selected action: B / B · maximal B-group spikes: 55 / 56
-public broadcast target: connectome-live-broadcast
-learning_enabled=false · policy_pixel_access=false</div>
-    <p class="boundary">The canonical backend remains Brian2 Cython. The public viewer receives one shared process and synchronizes real sensory drive, recurrent activity, motor contributors, action-group competition, selected action and the actual fight. Training, reward/plasticity experiments and public research logs remain on GitHub. ZEN is not an approved learned arena checkpoint in this proof.</p>
-    <div class="actions">
-      <a class="btn" href="https://github.com/Unjuno/connectome-fighter/releases/tag/arena-runtime-latest">runtime release ↗</a>
-      <a id="proof-runtime-json" class="btn" href="./data/runtime-proof.json">proof JSON ↗</a>
-      <a class="btn" href="https://github.com/Unjuno/connectome-fighter/blob/main/docs/PUBLIC_SURFACE_SPLIT.ja.md">public-surface contract ↗</a>
-    </div>
+    <div id="proof-runtime" class="formula">loading…</div>
+    <p class="boundary">The physical FlyBody is the pinned upstream MuJoCo body. Its actuator mapping is project-defined and is driven by annotated MaleCNS motor/descending activity; FightingICE x/y/action does not position the FlyBody body.</p>
+    <div class="actions"><a id="proof-runtime-json" class="btn" href="./data/runtime-proof.json">proof JSON ↗</a><a class="btn" href="https://github.com/Unjuno/connectome-fighter/releases/tag/arena-runtime-latest">runtime release ↗</a></div>
   </section>
 
   <section class="panel" id="lineage">
-    <div class="section-title"><div><div class="eyebrow">checkpoint lineage</div><h2>Approved inference vs candidate resume evidence</h2></div></div>
+    <div class="section-title"><div><div class="eyebrow">checkpoint lineage</div><h2>Approved inference vs candidate states</h2></div></div>
     <div class="grid" style="margin:0">
-      <div class="card"><div class="label">GARNET generation 2</div><div class="value small">approved arena inference</div><p class="muted">Published in <code>arena-inference-latest</code> as a read-only inference state.</p></div>
-      <div class="card"><div class="label">ZEN generation 2</div><div class="value small">candidate cross-run resume proven</div><p class="muted">Independent state/RNG/history; not promoted to the public arena.</p></div>
-      <div class="card"><div class="label">LUD generation 2</div><div class="value small">candidate cross-run resume proven</div><p class="muted">Independent state/RNG/history; not promoted to the public arena.</p></div>
-      <div class="card"><div class="label">NEZ generation 2</div><div class="value small">candidate cross-run resume proven</div><p class="muted">Independent state/RNG/history; not promoted to the public arena.</p></div>
-    </div>
-    <p class="boundary">ZEN/LUD/NEZ were resumed from generation 1 to generation 2 in a separate GitHub Actions run under the current candidate smoke contract. This establishes checkpoint plumbing and lineage independence; it does not establish a production-trained four-character league or validate the reward as biological.</p>
-    <div class="actions">
-      <a class="btn" href="https://github.com/Unjuno/connectome-fighter/releases/tag/arena-inference-latest">approved arena snapshot ↗</a>
-      <a class="btn" href="https://github.com/Unjuno/connectome-fighter/releases/tag/canonical-missing-lineage-smoke-v1">candidate lineage release ↗</a>
+      <div class="card"><div class="label">GARNET generation 2</div><div class="value small">approved read-only inference</div></div>
+      <div class="card"><div class="label">ZEN / LUD / NEZ</div><div class="value small">candidate history or baseline; not auto-promoted</div></div>
     </div>
   </section>
 
   <section class="panel" id="reward">
-    <div class="section-title"><div><div class="eyebrow">reinforcement contract</div><h2>How reward is assigned</h2></div><a class="muted" href="./research-data/reward.json">raw JSON ↗</a></div>
-    <div class="reward-grid">
-      <div class="reward"><div class="label">win</div><div id="reward-win" class="n">—</div></div>
-      <div class="reward"><div class="label">loss</div><div id="reward-loss" class="n">—</div></div>
-      <div class="reward"><div class="label">ordinary draw</div><div id="reward-draw" class="n">—</div></div>
-      <div class="reward"><div class="label">no-damage draw</div><div id="reward-nodamage" class="n">—</div></div>
-    </div>
-    <div class="two" style="margin-top:12px">
-      <div><div class="label" style="margin-bottom:7px">damage component</div><div id="damage-formula" class="formula">loading…</div></div>
-      <div><div class="label" style="margin-bottom:7px">engagement potential</div><div id="engagement-formula" class="formula">loading…</div></div>
-    </div>
+    <div class="section-title"><div><div class="eyebrow">reinforcement contract</div><h2>How research reward is assigned</h2></div><a class="muted" href="./research-data/reward.json">raw JSON ↗</a></div>
+    <div class="reward-grid"><div class="reward"><div class="label">win</div><div id="reward-win" class="n">—</div></div><div class="reward"><div class="label">loss</div><div id="reward-loss" class="n">—</div></div><div class="reward"><div class="label">ordinary draw</div><div id="reward-draw" class="n">—</div></div><div class="reward"><div class="label">no-damage draw</div><div id="reward-nodamage" class="n">—</div></div></div>
+    <div class="two" style="margin-top:12px"><div><div class="label">damage component</div><div id="damage-formula" class="formula">loading…</div></div><div><div class="label">engagement potential</div><div id="engagement-formula" class="formula">loading…</div></div></div>
     <p id="reward-boundary" class="boundary">loading…</p>
   </section>
 
   <section class="panel" id="plasticity">
-    <div class="section-title"><div><div class="eyebrow">plasticity contract</div><h2>How reward changes trainable weights</h2></div><a class="muted" href="./research-data/plasticity.json">raw JSON ↗</a></div>
-    <div class="grid" style="margin:0">
-      <div class="card"><div class="label">model</div><div id="plasticity-id" class="value small">—</div></div>
-      <div class="card"><div class="label">status</div><div id="plasticity-status" class="value small">—</div></div>
-      <div class="card"><div class="label">learning rate</div><div id="plasticity-lr" class="value">—</div></div>
-      <div class="card"><div class="label">eligibility decay</div><div id="plasticity-decay" class="value">—</div></div>
-    </div>
-    <div id="plasticity-detail" class="formula" style="margin-top:12px">loading…</div>
-    <p id="plasticity-boundary" class="boundary">loading…</p>
+    <div class="section-title"><div><div class="eyebrow">plasticity contract</div><h2>Candidate weight-update assumptions</h2></div><a class="muted" href="./research-data/plasticity.json">raw JSON ↗</a></div>
+    <div class="grid" style="margin:0"><div class="card"><div class="label">model</div><div id="plasticity-id" class="value small">—</div></div><div class="card"><div class="label">status</div><div id="plasticity-status" class="value small">—</div></div><div class="card"><div class="label">learning rate</div><div id="plasticity-lr" class="value">—</div></div><div class="card"><div class="label">eligibility decay</div><div id="plasticity-decay" class="value">—</div></div></div>
+    <div id="plasticity-detail" class="formula" style="margin-top:12px">loading…</div><p id="plasticity-boundary" class="boundary">loading…</p>
   </section>
 
-  <section class="panel">
-    <div class="section-title"><div><div class="eyebrow">fixed controls</div><h2>Controls held constant during comparisons</h2></div></div>
-    <div id="fixed-controls" class="files"></div>
-  </section>
+  <section class="panel"><div class="section-title"><div><div class="eyebrow">fixed controls</div><h2>Controls held constant during comparisons</h2></div></div><div id="fixed-controls" class="files"></div></section>
 
-  <section class="panel">
-    <div class="section-title"><div><div class="eyebrow">observed baseline</div><h2>Character summary</h2></div><div id="updated" class="muted">—</div></div>
-    <table><thead><tr><th>Character</th><th>Rounds</th><th>W</th><th>L</th><th>D</th><th>Win rate</th></tr></thead><tbody id="characters"></tbody></table>
-  </section>
+  <section class="panel"><div class="section-title"><div><div class="eyebrow">baseline evidence</div><h2>Character summary</h2></div><span id="updated" class="muted">—</span></div><div style="overflow:auto"><table><thead><tr><th>character</th><th>rounds</th><th>wins</th><th>losses</th><th>draws</th><th>win rate</th></tr></thead><tbody id="characters"></tbody></table></div></section>
 
-  <section class="panel">
-    <div class="section-title"><div><div class="eyebrow">normalized evidence</div><h2>Recent matches</h2></div></div>
-    <div id="matches" class="muted">loading…</div>
-  </section>
+  <section class="panel"><div class="section-title"><div><div class="eyebrow">normalized public log</div><h2>Recent match records</h2></div></div><div id="matches"></div></section>
 
-  <section class="panel">
-    <div class="section-title"><div><div class="eyebrow">provenance</div><h2>Evidence & data endpoints</h2></div></div>
-    <div class="files">
-      <a href="./data/matches.json"><strong>matches.json</strong><br><span class="muted">normalized/public match ledger</span></a>
-      <a href="./data/status.json"><strong>status.json</strong><br><span class="muted">current aggregate phase and stats</span></a>
-      <a href="./data/runtime-proof.json"><strong>runtime-proof.json</strong><br><span class="muted">current production runtime and causal shared-LIVE proof</span></a>
-      <a href="./data/training-status.json"><strong>training-status.json</strong><br><span class="muted">latest rolling GitHub candidate state</span></a>
-      <a href="./data/training-history.json"><strong>training-history.json</strong><br><span class="muted">append-only public candidate generation ledger</span></a>
-      <a href="./research-data/reward.json"><strong>reward.json</strong><br><span class="muted">versioned reward contract copied from configs/</span></a>
-      <a href="./research-data/plasticity.json"><strong>plasticity.json</strong><br><span class="muted">versioned plasticity contract copied from configs/</span></a>
-      <a href="https://github.com/Unjuno/connectome-fighter/releases/tag/arena-runtime-latest"><strong>arena-runtime-latest</strong><br><span class="muted">portable compilerless Brian2 Cython runtime release</span></a>
-      <a href="https://github.com/Unjuno/connectome-fighter/actions/runs/34700529205"><strong>Compilerless runtime E2E</strong><br><span class="muted">runtime SHA → snapshot → shared LIVE → real FightingICE + dual MaleCNS decisions</span></a>
-      <a href="https://github.com/Unjuno/connectome-fighter/actions/runs/34700813732"><strong>Strict causal production smoke</strong><br><span class="muted">schema v3, six-round warm process, sensory/motor telemetry, action consistency and causal public UI</span></a>
-      <a href="https://github.com/Unjuno/connectome-fighter/releases/tag/canonical-state-smoke-v1"><strong>GARNET checkpoint smoke</strong><br><span class="muted">approved-lineage generation resume evidence</span></a>
-      <a href="https://github.com/Unjuno/connectome-fighter/releases/tag/canonical-missing-lineage-smoke-v1"><strong>ZEN / LUD / NEZ candidate checkpoint smoke</strong><br><span class="muted">generation-2 cross-run resume evidence; not arena-promoted</span></a>
-      <a href="https://github.com/Unjuno/connectome-fighter/actions"><strong>GitHub Actions</strong><br><span class="muted">training workflows, raw artifacts, checksums, logs and provenance</span></a>
-    </div>
-  </section>
+  <section class="panel"><div class="section-title"><div><div class="eyebrow">candidate learning history</div><h2>Append-only public candidate generation ledger</h2></div></div><p class="boundary">The timeline below loads <code>./data/training-history.json</code>. Candidate-only states are not arena approval.</p></section>
 
-  <div class="foot">Public-surface split: Vercel = one globally shared read-only LIVE inference broadcast. GitHub Pages/Actions = training workflows, public logs, reward/plasticity contracts, checkpoint lineage, runtime provenance and evidence. Continuous production reward-driven learning remains OFF.</div>
-  <p id="error" class="muted"></p>
-</main><script src="./app.js"></script><script src="./training-history.js"></script></body></html>
+  <div id="error" class="foot"></div>
+  <div class="foot">Research ledger only. Dedicated production verification is tracked by repository workflows and <code>CONNECTOME_PUBLIC_BASE_URL</code>.</div>
+</main>
+<script src="./app.js"></script>
+<script src="./training-history.js"></script>
+</body>
+</html>
