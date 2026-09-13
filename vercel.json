@@ -1,22 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "echo 'static spectator build'",
-  "outputDirectory": "spectator",
-  "rewrites": [
-    {
-      "source": "/live-data/:path*",
-      "destination": "https://unjuno.github.io/connectome-fighter/data/:path*"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/live-data/:path*",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0"
-        }
-      ]
-    }
-  ]
+  "framework": "nextjs",
+  "functions": {
+    "app/api/live/route.ts": { "maxDuration": 60 },
+    "app/api/runtime-base/route.ts": { "maxDuration": 60 }
+  }
 }
