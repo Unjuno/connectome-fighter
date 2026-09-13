@@ -27,7 +27,7 @@ def test_neural_command_uses_real_annotations_not_game_group_labels():
     assert neural_fly_command(changed, activity_scale_spikes=16) == command
 
 
-def test_flybody_action_is_bounded_and_lateralized():
+def test_flybody_action_is_bounded_lateralized_and_phase_driven():
     names = [
         "adhere_claw_T1_left", "coxa_T1_left", "femur_T1_left",
         "adhere_claw_T1_right", "coxa_T1_right", "femur_T1_right",
@@ -40,17 +40,22 @@ def test_flybody_action_is_bounded_and_lateralized():
         {"body_id": 21, "spikes": 2, "superclass": "vnc_motor", "soma_neuromere": "T1", "root_side": "R"},
     ], activity_scale_spikes=8)
     action = flybody_action(names, lo, hi, command, phase=math.pi / 2)
+    later = flybody_action(names, lo, hi, command, phase=math.pi)
     assert action.shape == lo.shape
     assert np.all(action >= lo) and np.all(action <= hi)
     assert action[1] != action[4]
+    assert not np.allclose(action, later)
     assert action[-1] == 0.0
+    assert later[-1] == 0.0
 
 
-def test_empty_motor_activity_keeps_leg_targets_neutral_and_adhesion_off():
+def test_empty_motor_activity_keeps_leg_targets_neutral_adhesion_off_and_phase_invariant():
     names = ["adhere_claw_T1_left", "coxa_T1_left", "femur_T2_right"]
     lo = [0.0, -2.0, -4.0]
     hi = [1.0, 2.0, 4.0]
     command = neural_fly_command([], activity_scale_spikes=16)
-    action = flybody_action(names, lo, hi, command, phase=1.2)
-    assert np.allclose(action, [0.0, 0.0, 0.0])
+    first = flybody_action(names, lo, hi, command, phase=0.2)
+    later = flybody_action(names, lo, hi, command, phase=4.7)
+    assert np.allclose(first, [0.0, 0.0, 0.0])
+    assert np.allclose(later, first)
     assert command.drive == 0.0
