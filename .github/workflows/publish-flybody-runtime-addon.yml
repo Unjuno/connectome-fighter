@@ -24,6 +24,7 @@ concurrency:
 env:
   TARGET_TAG: arena-runtime-latest
   FLYBODY_COMMIT: d015e9bfe441bd90ae431bac24c55cb74bdbce26
+  FLYBODY_ADAPTER_ID: malecns-annotated-motor-to-flybody-tripod-v2
   UV_VERSION: 0.12.12
   PUBLIC_BASE: https://liveunjuno.vercel.app
 
@@ -65,6 +66,41 @@ jobs:
           tar -C runs/flybody-addon/extract -xzf runs/flybody-addon/source/arena-runtime.tar.gz
           test -d runs/flybody-addon/extract/arena-runtime
 
+      - name: Overlay exact FlyBody spectator source from this commit
+        run: |
+          set -euo pipefail
+          ROOT="$(realpath runs/flybody-addon/extract/arena-runtime)"
+          install -m 0644 src/connectome_fighter/flybody_neural_adapter.py \
+            "$ROOT/repo/src/connectome_fighter/flybody_neural_adapter.py"
+          install -m 0755 scripts/run_live_flybody_publisher.py \
+            "$ROOT/repo/scripts/run_live_flybody_publisher.py"
+          install -m 0755 deploy/arena-runtime/bootstrap-proxy.mjs \
+            "$ROOT/bin/bootstrap-proxy.mjs"
+          install -m 0755 deploy/arena-runtime/start-session.sh \
+            "$ROOT/bin/start-session"
+
+          cmp -s src/connectome_fighter/flybody_neural_adapter.py \
+            "$ROOT/repo/src/connectome_fighter/flybody_neural_adapter.py"
+          cmp -s scripts/run_live_flybody_publisher.py \
+            "$ROOT/repo/scripts/run_live_flybody_publisher.py"
+          cmp -s deploy/arena-runtime/bootstrap-proxy.mjs \
+            "$ROOT/bin/bootstrap-proxy.mjs"
+          cmp -s deploy/arena-runtime/start-session.sh \
+            "$ROOT/bin/start-session"
+
+          ADAPTER_SHA="$(sha256sum src/connectome_fighter/flybody_neural_adapter.py | awk '{print $1}')"
+          PUBLISHER_SHA="$(sha256sum scripts/run_live_flybody_publisher.py | awk '{print $1}')"
+          BOOTSTRAP_SHA="$(sha256sum deploy/arena-runtime/bootstrap-proxy.mjs | awk '{print $1}')"
+          SESSION_SHA="$(sha256sum deploy/arena-runtime/start-session.sh | awk '{print $1}')"
+          SOURCE_COMMIT="$(git rev-parse HEAD)"
+          echo "FLYBODY_ADAPTER_SOURCE_SHA=$ADAPTER_SHA" >> "$GITHUB_ENV"
+          echo "FLYBODY_PUBLISHER_SOURCE_SHA=$PUBLISHER_SHA" >> "$GITHUB_ENV"
+          echo "FLYBODY_BOOTSTRAP_SOURCE_SHA=$BOOTSTRAP_SHA" >> "$GITHUB_ENV"
+          echo "FLYBODY_SESSION_SOURCE_SHA=$SESSION_SHA" >> "$GITHUB_ENV"
+          echo "FLYBODY_SOURCE_COMMIT=$SOURCE_COMMIT" >> "$GITHUB_ENV"
+          printf 'source_commit=%s\nadapter_sha=%s\npublisher_sha=%s\nbootstrap_sha=%s\nsession_sha=%s\n' \
+            "$SOURCE_COMMIT" "$ADAPTER_SHA" "$PUBLISHER_SHA" "$BOOTSTRAP_SHA" "$SESSION_SHA"
+
       - name: Install pinned upstream FlyBody core into an isolated spectator site
         run: |
           set -euo pipefail
@@ -78,10 +114,22 @@ jobs:
           test -d "$ROOT/runtime/siteflybody/dm_control"
           test -d "$ROOT/runtime/siteflybody/mujoco"
           test -s "$ROOT/repo/scripts/run_live_flybody_publisher.py"
-          # The runtime archive exposes one executable session entrypoint under
-          # bin/. Pin that packaged executable to the CPU OSMesa backend.
+          # Pin the packaged executable to the CPU OSMesa backend even if an
+          # older canonical base still carried the historical EGL default.
           sed -i 's/CONNECTOME_MUJOCO_GL:-egl/CONNECTOME_MUJOCO_GL:-osmesa/g' "$ROOT/bin/start-session"
           grep -Fq 'CONNECTOME_MUJOCO_GL:-osmesa' "$ROOT/bin/start-session"
+
+      - name: Prove the packaged source is the exact triggering source
+        run: |
+          set -euo pipefail
+          ROOT="$(realpath runs/flybody-addon/extract/arena-runtime)"
+          test "$(sha256sum "$ROOT/repo/src/connectome_fighter/flybody_neural_adapter.py" | awk '{print $1}')" = "$FLYBODY_ADAPTER_SOURCE_SHA"
+          test "$(sha256sum "$ROOT/repo/scripts/run_live_flybody_publisher.py" | awk '{print $1}')" = "$FLYBODY_PUBLISHER_SOURCE_SHA"
+          test "$(sha256sum "$ROOT/bin/bootstrap-proxy.mjs" | awk '{print $1}')" = "$FLYBODY_BOOTSTRAP_SOURCE_SHA"
+          grep -Fq "$FLYBODY_ADAPTER_ID" "$ROOT/repo/src/connectome_fighter/flybody_neural_adapter.py"
+          grep -Fq 'from connectome_fighter.flybody_neural_adapter import ADAPTER_ID' "$ROOT/repo/scripts/run_live_flybody_publisher.py"
+          node --check "$ROOT/bin/bootstrap-proxy.mjs"
+          bash -n "$ROOT/bin/start-session"
 
       - name: Prove the packaged body can step real MuJoCo physics
         run: |
@@ -90,7 +138,8 @@ jobs:
           PYTHONPATH="$ROOT/repo/src:$ROOT/runtime/siteflybody" MUJOCO_GL=osmesa python - <<'PY'
           import numpy as np
           from flybody.fly_envs import template_task
-          from connectome_fighter.flybody_neural_adapter import neural_fly_command, flybody_action
+          from connectome_fighter.flybody_neural_adapter import ADAPTER_ID, neural_fly_command, flybody_action
+          assert ADAPTER_ID == 'malecns-annotated-motor-to-flybody-tripod-v2'
           env=template_task(random_state=np.random.RandomState(7), disable_wings=True, time_limit=1.0)
           env.reset()
           spec=env.action_spec()
@@ -99,25 +148,32 @@ jobs:
               {'body_id':1,'spikes':16,'superclass':'vnc_motor','soma_neuromere':'T1','root_side':'L'},
               {'body_id':2,'spikes':8,'superclass':'vnc_motor','soma_neuromere':'T2','root_side':'R'},
           ])
+          zero=neural_fly_command([])
+          zero_a=flybody_action(names,spec.minimum,spec.maximum,zero,0.1)
+          zero_b=flybody_action(names,spec.minimum,spec.maximum,zero,4.9)
+          assert np.allclose(zero_a,zero_b), 'v2 requires zero neural drive to be phase invariant'
           action=flybody_action(names,spec.minimum,spec.maximum,command,0.5)
           ts=env.step(action)
           center=(np.asarray(spec.minimum,dtype=float)+np.asarray(spec.maximum,dtype=float))/2.0
           assert action.shape==spec.shape
-          assert spec.shape[0] >= 40, spec.shape
+          assert spec.shape[0] == 59, spec.shape
           assert float(np.max(np.abs(action-center))) > 1e-6, 'neural drive did not move any FlyBody actuator'
           pixels=env.physics.render(height=120,width=160,camera_id=1)
           assert pixels.shape==(120,160,3)
           assert float(np.asarray(pixels).std())>1.0
-          print({'flybody_physics':True,'action_dim':int(spec.shape[0]),'render_shape':pixels.shape,'last':bool(ts.last()),'backend':'osmesa','actuator_delta_max':float(np.max(np.abs(action-center)))})
+          print({'flybody_physics':True,'adapter':ADAPTER_ID,'action_dim':int(spec.shape[0]),'zero_phase_invariant':True,'render_shape':pixels.shape,'last':bool(ts.last()),'backend':'osmesa','actuator_delta_max':float(np.max(np.abs(action-center)))})
           PY
 
       - name: Mark FlyBody as spectator physics in the runtime manifest
         run: |
           set -euo pipefail
           ROOT="$(realpath runs/flybody-addon/extract/arena-runtime)"
-          python - "$ROOT/manifest.json" "$FLYBODY_COMMIT" <<'PY'
+          python - "$ROOT/manifest.json" "$FLYBODY_COMMIT" "$FLYBODY_ADAPTER_ID" \
+            "$FLYBODY_SOURCE_COMMIT" "$FLYBODY_ADAPTER_SOURCE_SHA" "$FLYBODY_PUBLISHER_SOURCE_SHA" \
+            "$FLYBODY_BOOTSTRAP_SOURCE_SHA" "$FLYBODY_SESSION_SOURCE_SHA" <<'PY'
           import json, pathlib, sys
-          path=pathlib.Path(sys.argv[1]); commit=sys.argv[2]
+          path=pathlib.Path(sys.argv[1])
+          commit, adapter_id, source_commit, adapter_sha, publisher_sha, bootstrap_sha, session_sha=sys.argv[2:]
           m=json.loads(path.read_text(encoding='utf-8'))
           assert m['kind']=='connectome-fighter-arena-runtime-bundle'
           assert m['learning_enabled'] is False and m['policy_pixel_access'] is False
@@ -132,10 +188,15 @@ jobs:
           m['flybody_policy_access']=False
           m['flybody_game_telemetry_position_used']=False
           m['flybody_mujoco_gl']='osmesa'
-          m['flybody_neural_adapter']='malecns-annotated-motor-to-flybody-tripod-v1'
+          m['flybody_neural_adapter']=adapter_id
+          m['flybody_source_commit']=source_commit
+          m['flybody_adapter_source_sha256']=adapter_sha
+          m['flybody_publisher_source_sha256']=publisher_sha
+          m['flybody_bootstrap_source_sha256']=bootstrap_sha
+          m['flybody_session_source_sha256']=session_sha
           m['note']='Official FightingICE remains the primary game view. FlyBody is a separate spectator physics embodiment driven from annotated MaleCNS motor activity through an explicit project-defined adapter.'
           path.write_text(json.dumps(m,indent=2,sort_keys=True)+'\n',encoding='utf-8')
-          print(json.dumps({k:m[k] for k in ['schema_version','bundle_profile','flybody_physics_spectator','flybody_upstream_commit','flybody_policy_access','flybody_mujoco_gl']},indent=2))
+          print(json.dumps({k:m[k] for k in ['schema_version','bundle_profile','flybody_physics_spectator','flybody_upstream_commit','flybody_neural_adapter','flybody_source_commit','flybody_adapter_source_sha256','flybody_publisher_source_sha256','flybody_policy_access','flybody_mujoco_gl']},indent=2))
           PY
 
       - name: Repack and atomically replace the rolling runtime assets
