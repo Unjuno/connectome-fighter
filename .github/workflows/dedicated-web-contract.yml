@@ -1,0 +1,82 @@
+name: dedicated-web-contract
+
+on:
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'lib/**'
+      - 'site/index.html'
+      - 'README.md'
+      - 'README.ja.md'
+      - 'ROADMAP.md'
+      - 'docs/**'
+      - 'package.json'
+      - 'tsconfig.json'
+      - 'next-env.d.ts'
+      - 'vercel.json'
+      - '.github/workflows/**'
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'lib/**'
+      - 'site/index.html'
+      - 'README.md'
+      - 'README.ja.md'
+      - 'ROADMAP.md'
+      - 'docs/**'
+      - 'package.json'
+      - 'tsconfig.json'
+      - 'next-env.d.ts'
+      - 'vercel.json'
+      - '.github/workflows/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dedicated-web-contract-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install web dependencies
+        run: npm install --no-audit --no-fund
+      - name: Typecheck dedicated public app
+        run: npm run typecheck
+      - name: Build dedicated public app
+        run: npm run build
+      - name: Prove project isolation and spectator boundaries
+        run: |
+          set -euo pipefail
+          legacy_host='liveunjuno.vercel'
+          legacy_host="${legacy_host}.app"
+          legacy_project='prj_T1i5PPgfjHXAKGLf9Gmoboae'
+          legacy_project="${legacy_project}61Tk"
+
+          if grep -R -F "$legacy_host" app lib site README.md README.ja.md ROADMAP.md docs; then
+            echo 'legacy Unjuno live URL returned to public Connectome sources/docs' >&2
+            exit 1
+          fi
+          if grep -R -F "$legacy_project" app lib site README.md README.ja.md ROADMAP.md docs; then
+            echo 'legacy Unjuno live project ID returned to public Connectome sources/docs' >&2
+            exit 1
+          fi
+          if grep -R -F "BASE: https://${legacy_host}" .github/workflows; then
+            echo 'a workflow again targets the unrelated Unjuno live deployment by default' >&2
+            exit 1
+          fi
+          grep -Fq 'process.env.VERCEL_PROJECT_ID' lib/vercel-sandbox.ts
+          grep -Fq 'flybody_game_telemetry_position_used: false' app/api/live/route.ts
+          grep -Fq 'policy_pixel_access: false' app/api/live/route.ts
+          grep -Fq 'No SVG or FightingICE-position puppet is substituted here.' app/live-client.tsx
+          grep -Fq 'FightingICE x/y/action do not position the FlyBody body.' app/live-client.tsx
+          grep -Fq 'CONNECTOME_PUBLIC_BASE_URL' .github/workflows/vercel-live-arena-smoke.yml
+          grep -Fq 'connectome-fighter-live-broadcast' lib/connectome-broadcast.ts

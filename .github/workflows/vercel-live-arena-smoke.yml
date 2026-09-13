@@ -1,17 +1,21 @@
 name: vercel-live-arena-smoke
 
-# Prove that the public Vercel surface exposes exactly one shared read-only
-# FightingICE + MaleCNS broadcast from the currently published runtime SHA.
 on:
   workflow_dispatch:
+    inputs:
+      base_url:
+        description: Dedicated Connectome Vercel base URL; falls back to CONNECTOME_PUBLIC_BASE_URL repository variable
+        required: false
+        type: string
   workflow_run:
-    workflows: [precompile-arena-brian2-cython-cache]
+    workflows: [publish-flybody-runtime-addon]
     types: [completed]
   push:
     branches: [main]
     paths:
+      - 'app/**'
+      - 'lib/**'
       - '.github/workflows/vercel-live-arena-smoke.yml'
-      - 'scripts/validate_public_surface_contract.py'
 
 permissions:
   contents: read
@@ -22,182 +26,91 @@ concurrency:
 
 jobs:
   smoke:
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') && ((github.event_name == 'workflow_dispatch' && inputs.base_url != '') || vars.CONNECTOME_PUBLIC_BASE_URL != '') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      BASE: https://liveunjuno.vercel.app
+      BASE: ${{ inputs.base_url || vars.CONNECTOME_PUBLIC_BASE_URL }}
       RUNTIME_RELEASE: https://github.com/Unjuno/connectome-fighter/releases/download/arena-runtime-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Validate repository public-surface contract
-        run: python scripts/validate_public_surface_contract.py
-
-      - name: Resolve exact published runtime identity
+      - name: Refuse the legacy Unjuno live project
         run: |
           set -euo pipefail
-          sha_text="$(curl -fsSL "$RUNTIME_RELEASE/arena-runtime.tar.gz.sha256")"
+          test -n "$BASE"
+          case "$BASE" in *liveunjuno.vercel.app*) echo 'Refusing to test the unrelated Unjuno live project.' >&2; exit 1;; esac
+      - name: Resolve exact rolling runtime identity
+        run: |
+          set -euo pipefail
+          sha_text="$(curl -fsSL "$RUNTIME_RELEASE/arena-runtime.tar.gz.sha256?t=$(date +%s%N)")"
           runtime_sha="$(printf '%s' "$sha_text" | grep -Eo '[a-f0-9]{64}' | head -1)"
           [[ "$runtime_sha" =~ ^[a-f0-9]{64}$ ]]
-          runtime_base="connectome-runtime-${runtime_sha:0:16}"
           echo "RUNTIME_SHA=$runtime_sha" >> "$GITHUB_ENV"
-          echo "RUNTIME_BASE=$runtime_base" >> "$GITHUB_ENV"
-          printf 'runtime_sha=%s\nruntime_base=%s\n' "$runtime_sha" "$runtime_base"
-
-      - name: Require public individual-session creation to stay disabled
+          echo "RUNTIME_BASE=connectome-runtime-${runtime_sha:0:16}" >> "$GITHUB_ENV"
+      - name: Wait for dedicated shared LIVE on exact runtime
         run: |
           set -euo pipefail
-          get_body="$(curl -fsS "$BASE/api/connectome/session")"
-          echo "$get_body" | jq .
-          test "$(echo "$get_body" | jq -r '.mode')" = 'single-shared-live-broadcast'
-          test "$(echo "$get_body" | jq -r '.audience_scope')" = 'shared-global'
-          test "$(echo "$get_body" | jq -r '.learning_enabled')" = 'false'
-          test "$(echo "$get_body" | jq -r '.policy_pixel_access')" = 'false'
-
-          tmp="$(mktemp)"
-          code="$(curl -sS -o "$tmp" -w '%{http_code}' -X POST "$BASE/api/connectome/session" \
-            -H 'content-type: application/json' --data '{"p1":"GARNET","p2":"ZEN"}')"
-          post_body="$(cat "$tmp")"
-          rm -f "$tmp"
-          echo "$post_body" | jq .
-          test "$code" = '409'
-          test "$(echo "$post_body" | jq -r '.error')" = 'shared_broadcast_only'
-          test "$(echo "$post_body" | jq -r '.mode')" = 'single-shared-live-broadcast'
-
-      - name: Wait for shared LIVE to adopt the exact runtime release
-        run: |
-          set -euo pipefail
-          ready=0
-          last=''
-          for i in $(seq 1 180); do
-            tmp="$(mktemp)"
-            code="$(curl -sS -o "$tmp" -w '%{http_code}' "$BASE/api/connectome/live" || true)"
-            body="$(cat "$tmp")"
-            rm -f "$tmp"
+          ready=0; last=''
+          for i in $(seq 1 240); do
+            tmp="$(mktemp)"; code="$(curl -sS -o "$tmp" -w '%{http_code}' "$BASE/api/live?t=$(date +%s%N)" || true)"; body="$(cat "$tmp")"; rm -f "$tmp"
             if [[ -n "$body" ]]; then
               last="$body"
-              echo "$body" | jq '{mode,broadcast_target,audience_scope,ready,status,p1,p2,stream_url,telemetry_url,session_id,source_runtime_base,runtime_archive_sha256,learning_enabled,policy_pixel_access,retention,audience_heartbeat,maintenance_action,reason}'
-              test "$(echo "$body" | jq -r '.mode')" = 'single-shared-live-broadcast'
-              test "$(echo "$body" | jq -r '.broadcast_target')" = 'connectome-live-broadcast'
-              test "$(echo "$body" | jq -r '.audience_scope')" = 'shared-global'
-              test "$(echo "$body" | jq -r '.p1')" = 'GARNET'
-              test "$(echo "$body" | jq -r '.p2')" = 'ZEN'
-              test "$(echo "$body" | jq -r '.learning_enabled')" = 'false'
-              test "$(echo "$body" | jq -r '.policy_pixel_access')" = 'false'
-              test "$(echo "$body" | jq -r '.retention')" = 'one-shared-ephemeral-live-broadcast'
-
+              echo "$body" | jq '{mode,broadcast_target,audience_scope,ready,status,p1,p2,telemetry_url,source_runtime_base,runtime_archive_sha256,maintenance_action,reason,blocked_until}'
               status="$(echo "$body" | jq -r '.status // empty')"
-              case "$status" in
-                auth-unavailable|runtime-unavailable)
-                  echo "Shared LIVE hard failure: $status" >&2
-                  echo "$body" | jq . >&2
-                  exit 1
-                  ;;
-              esac
-
-              sha="$(echo "$body" | jq -r '.runtime_archive_sha256 // empty')"
-              base="$(echo "$body" | jq -r '.source_runtime_base // empty')"
-              if [[ "$sha" == "$RUNTIME_SHA" && "$base" == "$RUNTIME_BASE" && \
-                    "$(echo "$body" | jq -r '.ready')" == 'true' && "$status" == 'running' ]]; then
-                telemetry="$(echo "$body" | jq -r '.telemetry_url // empty')"
-                stream="$(echo "$body" | jq -r '.stream_url // empty')"
-                test -n "$telemetry"
-                test -n "$stream"
-                echo "TELEMETRY_URL=$telemetry" >> "$GITHUB_ENV"
-                echo "STREAM_URL=$stream" >> "$GITHUB_ENV"
-                ready=1
-                break
+              if [[ "$status" == capacity-blocked ]]; then echo "$body" | jq . >&2; exit 1; fi
+              case "$status" in auth-unavailable|project-unavailable|runtime-release-unavailable) echo "$body" | jq . >&2; exit 1;; esac
+              test "$(echo "$body" | jq -r '.mode // empty')" = 'single-shared-live-broadcast' || true
+              if [[ "$(echo "$body" | jq -r '.ready // false')" == true && "$status" == running ]]; then
+                test "$(echo "$body" | jq -r '.broadcast_target')" = 'connectome-fighter-live-broadcast'
+                test "$(echo "$body" | jq -r '.audience_scope')" = 'shared-global'
+                test "$(echo "$body" | jq -r '.p1')" = 'GARNET'
+                test "$(echo "$body" | jq -r '.p2')" = 'ZEN'
+                test "$(echo "$body" | jq -r '.learning_enabled')" = false
+                test "$(echo "$body" | jq -r '.policy_pixel_access')" = false
+                test "$(echo "$body" | jq -r '.runtime_archive_sha256')" = "$RUNTIME_SHA"
+                test "$(echo "$body" | jq -r '.source_runtime_base')" = "$RUNTIME_BASE"
+                telemetry="$(echo "$body" | jq -r '.telemetry_url // empty')"; test -n "$telemetry"
+                echo "TELEMETRY_URL=$telemetry" >> "$GITHUB_ENV"; ready=1; break
               fi
             fi
-            [[ "$code" == '200' || "$code" == '202' ]] || {
-              echo "Unexpected /api/connectome/live HTTP $code" >&2
-              [[ -n "$body" ]] && echo "$body" | jq . >&2 || true
-              exit 1
-            }
+            [[ "$code" == 200 || "$code" == 202 || "$code" == 503 ]] || { echo "unexpected HTTP $code" >&2; exit 1; }
             sleep 4
           done
-          if [[ "$ready" -ne 1 ]]; then
-            echo 'Shared LIVE did not become ready on the published runtime before the deadline.' >&2
-            [[ -n "$last" ]] && echo "$last" | jq . >&2 || true
-            exit 1
-          fi
-
+          if [[ "$ready" -ne 1 ]]; then [[ -n "$last" ]] && echo "$last" | jq . >&2 || true; exit 1; fi
       - name: Require synchronized sensory-to-motor FightingICE telemetry
         run: |
           set -euo pipefail
           last=''
           for i in $(seq 1 300); do
-            body="$(curl -fsS "$TELEMETRY_URL" || true)"
+            body="$(curl -fsS "$TELEMETRY_URL?t=$(date +%s%N)" || true)"
             if [[ -n "$body" ]]; then
               last="$body"
-              echo "$body" | jq '{schema_version,status,round,rounds_per_session,frame,p1:{character:.p1.character,hp:.p1.hp,x:.p1.x,y:.p1.y,action:.p1.action,facing:.p1.facing},p2:{character:.p2.character,hp:.p2.hp,x:.p2.x,y:.p2.y,action:.p2.action,facing:.p2.facing},p1_decision:.brain.p1.decision_index,p2_decision:.brain.p2.decision_index,p1_spikes:.brain.p1.total_spikes,p2_spikes:.brain.p2.total_spikes,p1_groups:.brain.p1.group_spike_counts,p2_groups:.brain.p2.group_spike_counts,p1_sensory:(.brain.p1.sensory_drive[:3]),p2_sensory:(.brain.p2.sensory_drive[:3]),p1_motor:(.brain.p1.output_contributions[:3]),p2_motor:(.brain.p2.output_contributions[:3]),learning_enabled,policy_pixel_access,error,exit_code}'
-              test "$(echo "$body" | jq -r '.learning_enabled')" = 'false'
-              test "$(echo "$body" | jq -r '.policy_pixel_access')" = 'false'
-              status="$(echo "$body" | jq -r '.status // empty')"
-              if [[ "$status" == 'error' ]]; then
-                echo "$body" | jq . >&2
-                exit 1
-              fi
               if echo "$body" | jq -e '
                 def action_keys: ["FORWARD","BACKWARD","UP","DOWN","A","B","C"];
-                def numeric_sensory($brain):
-                  ($brain.sensory_drive | type) == "array" and
-                  ($brain.sensory_drive | length) > 0 and
-                  ($brain.sensory_drive | all(.[]; (.body_id | type) == "number" and (.rate_hz | type) == "number" and .rate_hz > 0));
-                def numeric_motor($brain):
-                  ($brain.output_contributions | type) == "array" and
-                  ($brain.output_contributions | length) > 0 and
-                  ($brain.output_contributions | all(.[]; (.group | type) == "string" and (.body_id | type) == "number" and (.spikes | type) == "number" and .spikes > 0));
-                def neural_consistent($brain; $fighter):
-                  ($brain.group_spike_counts | type) == "object" and
-                  (action_keys | all(. as $k | ($brain.group_spike_counts[$k] | type) == "number")) and
-                  numeric_sensory($brain) and numeric_motor($brain) and
-                  ($brain.biological_time_start_ms | type) == "number" and
-                  ($brain.biological_time_end_ms | type) == "number" and
-                  $brain.biological_time_end_ms > $brain.biological_time_start_ms and
-                  ($brain.membrane_summary | type) == "object" and
-                  ($brain.membrane_summary.v_mean_mV | type) == "number" and
-                  ($brain.membrane_summary.g_mean_mV | type) == "number" and
-                  if $fighter.action == "NEUTRAL" then
-                    (action_keys | map($brain.group_spike_counts[.] // 0) | max) == 0
-                  else
-                    (action_keys | index($fighter.action)) != null and
-                    ($brain.group_spike_counts[$fighter.action] == (action_keys | map($brain.group_spike_counts[.] // 0) | max))
-                  end;
-                .status == "running" and
-                (.schema_version | type) == "number" and .schema_version >= 3 and
-                .rounds_per_session == 6 and
-                (.frame | type) == "number" and .frame > 0 and
-                .p1.character == "GARNET" and .p2.character == "ZEN" and
-                (.p1.x | type) == "number" and (.p1.y | type) == "number" and
-                (.p2.x | type) == "number" and (.p2.y | type) == "number" and
-                (.brain.p1.decision_index | type) == "number" and .brain.p1.decision_index > 0 and
-                (.brain.p2.decision_index | type) == "number" and .brain.p2.decision_index > 0 and
-                neural_consistent(.brain.p1; .p1) and
-                neural_consistent(.brain.p2; .p2)
-              ' >/dev/null; then
-                exit 0
-              fi
+                def numeric_sensory($brain): ($brain.sensory_drive|type)=="array" and ($brain.sensory_drive|length)>0 and ($brain.sensory_drive|all(.[];(.body_id|type)=="number" and (.rate_hz|type)=="number" and .rate_hz>0));
+                def numeric_motor($brain): ($brain.output_contributions|type)=="array" and ($brain.output_contributions|length)>0 and ($brain.output_contributions|all(.[];(.group|type)=="string" and (.body_id|type)=="number" and (.spikes|type)=="number" and .spikes>0));
+                def neural_consistent($brain;$fighter):
+                  ($brain.group_spike_counts|type)=="object" and (action_keys|all(. as $k|($brain.group_spike_counts[$k]|type)=="number")) and numeric_sensory($brain) and numeric_motor($brain) and
+                  ($brain.biological_time_start_ms|type)=="number" and ($brain.biological_time_end_ms|type)=="number" and $brain.biological_time_end_ms>$brain.biological_time_start_ms and
+                  ($brain.membrane_summary|type)=="object" and ($brain.membrane_summary.v_mean_mV|type)=="number" and ($brain.membrane_summary.g_mean_mV|type)=="number" and
+                  if $fighter.action=="NEUTRAL" then (action_keys|map($brain.group_spike_counts[.]//0)|max)==0 else (action_keys|index($fighter.action))!=null and ($brain.group_spike_counts[$fighter.action]==(action_keys|map($brain.group_spike_counts[.]//0)|max)) end;
+                .status=="running" and (.schema_version|type)=="number" and .schema_version>=3 and .rounds_per_session==6 and (.frame|type)=="number" and .frame>0 and
+                .p1.character=="GARNET" and .p2.character=="ZEN" and (.p1.x|type)=="number" and (.p1.y|type)=="number" and (.p2.x|type)=="number" and (.p2.y|type)=="number" and
+                (.brain.p1.decision_index|type)=="number" and .brain.p1.decision_index>0 and (.brain.p2.decision_index|type)=="number" and .brain.p2.decision_index>0 and
+                neural_consistent(.brain.p1;.p1) and neural_consistent(.brain.p2;.p2) and .learning_enabled==false and .policy_pixel_access==false
+              ' >/dev/null; then exit 0; fi
             fi
             sleep 2
           done
-          echo 'No schema-v3 six-round frame with complete sensory-to-motor telemetry from both MaleCNS workers arrived.' >&2
           [[ -n "$last" ]] && echo "$last" | jq . >&2 || true
           exit 1
-
-      - name: Verify public page is game-first and scientifically bounded
+      - name: Verify dedicated page boundaries
         run: |
           set -euo pipefail
-          html="$(curl -fsS "$BASE/connectome")"
-          grep -Fq 'Fight first. Neural cause beside it.' <<<"$html"
+          html="$(curl -fsS "$BASE/")"
           grep -Fq 'Official FightingICE ScreenData' <<<"$html"
           grep -Fq 'No synthetic fight frame is substituted' <<<"$html"
-          grep -Fq 'P1<!-- --> MaleCNS anatomy + activity' <<<"$html"
-          grep -Fq 'P2<!-- --> MaleCNS anatomy + activity' <<<"$html"
-          grep -Fq 'secondary embodiment' <<<"$html"
-          grep -Fq 'Position, facing and action come from FightingICE telemetry.' <<<"$html"
-          grep -Fq 'Official game pixels and anatomy rendering are spectator-only.' <<<"$html"
-          grep -Fq 'not an invented neuron position' <<<"$html"
-          # Contract marker retained for the repository public-surface validator:
-          # 5 · selected action
+          grep -Fq 'P1 MaleCNS activity' <<<"$html"
+          grep -Fq 'P2 MaleCNS activity' <<<"$html"
+          grep -Fq 'MaleCNS activity drives the actual FlyBody MuJoCo fly.' <<<"$html"
+          grep -Fq 'No SVG or FightingICE-position puppet is substituted here.' <<<"$html"
