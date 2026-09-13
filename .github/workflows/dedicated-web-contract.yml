@@ -81,7 +81,10 @@ jobs:
           grep -Fq 'policy_pixel_access: false' app/api/live/route.ts
           grep -Fq 'policy_pixel_access=false' app/live-client.tsx
           grep -Fq 'candidate only' app/live-client.tsx
-          grep -Fq 'fixed opponent and fixed seeds' app/live-client.tsx
+          grep -Fq 'full-round protocol' app/live-client.tsx
+          grep -Fq 'max 60 s / 3600 frames' app/live-client.tsx
+          grep -Fq "EVAL_FRAME_LIMIT: '3600'" .github/workflows/candidate-round-evaluation.yml
+          grep -Fq 'fixed-full-round-v2' .github/workflows/candidate-round-evaluation.yml
           grep -Fq 'evaluation-status.json' app/api/evaluation/route.ts
           grep -Fq 'candidate-only-not-arena-approved' .github/workflows/candidate-round-evaluation.yml
           grep -Fq 'CONNECTOME_PUBLIC_BASE_URL' .github/workflows/vercel-live-arena-smoke.yml
