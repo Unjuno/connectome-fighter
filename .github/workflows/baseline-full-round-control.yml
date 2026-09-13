@@ -1,0 +1,259 @@
+name: baseline-full-round-control
+
+# One-shot scientific control for the public full-round candidate evaluation.
+# Runs unmodified GARNET under the exact same opponent/seed/horizon used by
+# candidate-round-evaluation, so we can test whether candidate plasticity has
+# changed observable policy behavior at all.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/baseline-full-round-control.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: baseline-full-round-control
+  cancel-in-progress: true
+
+env:
+  SHIU_COMMIT: 2a83ad611cd9768f8c9723fc613ed27761a5feb5
+  ADAPTER_CACHE_KEY: malecns-v1.0-shiu-strict-minw5-2a83ad611cd9768f8c9723fc613ed27761a5feb5-adapter-v1
+  GAME_URL: https://github.com/TeamFightingICE/FightingICE/releases/download/v7.1/DareFightingICE-7.1.zip
+  GAME_SHA256: 510752a69a097b767677d3911b1407d6a08a721dad4faf2cb5b7a19b988f1c62
+  RESOURCE_URL: https://github.com/TeamFightingICE/FightingICE/releases/download/v7.1/resource-7.1.zip
+  RESOURCE_SHA256: 386fd713f901db00583054528ccfbce315953c157dc16231c4367416d86dce53
+  CONTROL_P1: GARNET
+  CONTROL_P2: ZEN
+  CONTROL_SEED1: '800101'
+  CONTROL_SEED2: '20202'
+  CONTROL_FRAME_LIMIT: '3600'
+  CONTROL_NOMINAL_GAME_FPS: '60'
+  CONTROL_SPECTATOR_FPS: '10'
+
+jobs:
+  baseline-control:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up reference Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install pinned Shiu/Brian2 runtime
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install 'numpy==1.24.0' 'pandas==1.5.3' 'pyarrow==10.0.1' 'joblib==1.2.0' 'Cython==0.29.36' 'brian2==2.5.1'
+          echo "PY310=$(which python)" >> "$GITHUB_ENV"
+
+      - name: Set up bridge Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install bridge dependencies and recorder
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install 'numpy==2.3.5' 'pandas==2.3.3' 'pyarrow==23.0.1' 'pyftg==2.3'
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Restore canonical MaleCNS adapter cache
+        uses: actions/cache@v4
+        with:
+          path: data/processed/malecns-shiu-strict-v1
+          key: ${{ env.ADAPTER_CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: Build the same fixed game interface
+        run: |
+          mkdir -p data/processed/malecns-interface-v1
+          python scripts/build_malecns_game_interface.py \
+            --metadata data/processed/malecns-shiu-strict-v1/neuron_metadata.parquet \
+            --manifest data/processed/malecns-shiu-strict-v1/manifest.json \
+            --out data/processed/malecns-interface-v1/interface.json \
+            --seed 20260911 --input-bodies-per-polarity-feature 16 \
+            --max-poisson-rate-hz 150 --decision-window-ms 20 --neutral-min-spikes 1
+
+      - name: Fetch pinned Shiu reference model
+        run: |
+          mkdir -p external/shiu-reference
+          curl -fL --retry 3 -o external/shiu-reference/model.py \
+            "https://raw.githubusercontent.com/philshiu/Drosophila_brain_model/$SHIU_COMMIT/model.py"
+          echo 'fc45837d7122c6ce2a7f3f2f23c515992e4b232aadb919efabb72337fac88e4e  external/shiu-reference/model.py' | sha256sum -c -
+
+      - name: Restore FightingICE v7.1 cache
+        id: game-cache
+        uses: actions/cache@v4
+        with:
+          path: external/v71
+          key: fightingice-v71-510752a6-386fd713
+
+      - name: Download verified FightingICE v7.1 on cache miss
+        if: steps.game-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p external/v71 external/downloads
+          curl -fL --retry 3 -o external/downloads/game.zip "$GAME_URL"
+          curl -fL --retry 3 -o external/downloads/resource.zip "$RESOURCE_URL"
+          echo "$GAME_SHA256  external/downloads/game.zip" | sha256sum -c -
+          echo "$RESOURCE_SHA256  external/downloads/resource.zip" | sha256sum -c -
+          unzip -q external/downloads/game.zip -d external/v71
+          GAME_JAR="$(find external/v71 -type f -name FightingICE.jar -print -quit)"
+          test -n "$GAME_JAR"
+          unzip -q -o external/downloads/resource.zip -d "$(dirname "$GAME_JAR")"
+          rm -rf external/downloads
+
+      - name: Start fixed-condition FightingICE control
+        run: |
+          set -euo pipefail
+          mkdir -p runs/baseline-control
+          GAME_JAR="$(find external/v71 -type f -name FightingICE.jar -print -quit)"
+          GAME_DIR="$(dirname "$GAME_JAR")"
+          (
+            cd "$GAME_DIR"
+            nohup java -cp 'FightingICE.jar:./lib/*:./lib/lwjgl/*:./lib/lwjgl/natives/linux/amd64/*:./lib/grpc/*' \
+              Main --headless-mode --pyftg-mode --input-sync --limithp 400 400 \
+              --port 31417 -r 1 -f "$CONTROL_FRAME_LIMIT" \
+              > "$GITHUB_WORKSPACE/runs/baseline-control/fightingice.log" 2>&1 &
+            echo $! > "$GITHUB_WORKSPACE/runs/baseline-control/fightingice.pid"
+          )
+          for i in $(seq 1 90); do
+            grep -q 'Socket server is started' runs/baseline-control/fightingice.log 2>/dev/null && exit 0
+            kill -0 "$(cat runs/baseline-control/fightingice.pid)" 2>/dev/null || {
+              tail -120 runs/baseline-control/fightingice.log >&2 || true
+              exit 1
+            }
+            sleep 1
+          done
+          exit 1
+
+      - name: Run unmodified GARNET baseline for one full round
+        run: |
+          PYTHONPATH=src python scripts/run_game_malecns_lif.py \
+            --host 127.0.0.1 --port 31417 \
+            --character-p1 "$CONTROL_P1" --character-p2 "$CONTROL_P2" \
+            --seed-p1 "$CONTROL_SEED1" --seed-p2 "$CONTROL_SEED2" \
+            --reference-python "$PY310" --reference-model external/shiu-reference/model.py \
+            --adapter-dir data/processed/malecns-shiu-strict-v1 \
+            --adapter-dir-p1 data/processed/malecns-shiu-strict-v1 \
+            --adapter-dir-p2 data/processed/malecns-shiu-strict-v1 \
+            --interface data/processed/malecns-interface-v1/interface.json \
+            --decision-interval 60 --games 1 --expected-rounds 1 --timeout 900 \
+            --spectator-video runs/baseline-control/baseline-round.mp4 \
+            --spectator-fps "$CONTROL_SPECTATOR_FPS" \
+            --run-id baseline-control --out runs/baseline-control/eval
+
+      - name: Validate and summarize baseline behavior
+        run: |
+          set -euo pipefail
+          ffprobe -v error -show_entries format=duration,size \
+            -show_entries stream=width,height,codec_name \
+            -of json runs/baseline-control/baseline-round.mp4 \
+            > runs/baseline-control/video-probe.json
+          python - <<'PY'
+          from collections import Counter
+          import json, os, pathlib, statistics
+
+          probe=json.load(open('runs/baseline-control/video-probe.json',encoding='utf-8'))
+          stream=probe['streams'][0]
+          assert stream['codec_name']=='h264', stream
+          assert int(stream['width'])==960 and int(stream['height'])==640, stream
+          assert int(probe['format']['size'])>10000, probe
+
+          trace=pathlib.Path('runs/baseline-control/eval/baseline-control/p1.jsonl')
+          rounds=[json.loads(line) for line in trace.read_text(encoding='utf-8').splitlines() if line.strip()]
+          assert len(rounds)==1, len(rounds)
+          row=rounds[0]
+          transitions=row['transitions']
+          assert int(row['elapsed_frame'])==int(os.environ['CONTROL_FRAME_LIMIT']), row['elapsed_frame']
+          assert len(transitions)==60, len(transitions)
+
+          names={0:'NEUTRAL',1:'FORWARD',2:'BACKWARD',3:'UP',4:'DOWN',5:'A',6:'B',7:'C'}
+          hist=Counter(names[int(t['action'])] for t in transitions)
+          p1=[t['display']['p1'] for t in transitions]
+          p2=[t['display']['p2'] for t in transitions]
+          p1_x=[int(x['x']) for x in p1]
+          p2_x=[int(x['x']) for x in p2]
+          separation=[abs(b-a) for a,b in zip(p1_x,p2_x)]
+          group_names=['FORWARD','BACKWARD','UP','DOWN','A','B','C']
+          group_means={
+              name: statistics.fmean(float(t['brain']['group_spike_counts'][name]) for t in transitions)
+              for name in group_names
+          }
+          initial_p1=int(p1[0]['hp']); initial_p2=int(p2[0]['hp'])
+          final_p1=int(row['remaining_hps'][0]); final_p2=int(row['remaining_hps'][1])
+          summary={
+              'schema_version':1,
+              'kind':'unmodified-garnet-full-round-control',
+              'condition':{
+                  'p1':'GARNET',
+                  'p2':'ZEN',
+                  'p1_adapter':'unmodified-canonical',
+                  'p2_adapter':'unmodified-canonical',
+                  'seed_p1':int(os.environ['CONTROL_SEED1']),
+                  'seed_p2':int(os.environ['CONTROL_SEED2']),
+                  'round_frame_limit':int(os.environ['CONTROL_FRAME_LIMIT']),
+                  'nominal_game_fps':int(os.environ['CONTROL_NOMINAL_GAME_FPS']),
+              },
+              'result':{
+                  'elapsed_frame':int(row['elapsed_frame']),
+                  'elapsed_seconds':int(row['elapsed_frame'])/int(os.environ['CONTROL_NOMINAL_GAME_FPS']),
+                  'final_hps':[final_p1,final_p2],
+                  'damage_dealt':max(0,initial_p2-final_p2),
+                  'damage_taken':max(0,initial_p1-final_p1),
+              },
+              'behavior':{
+                  'decisions':len(transitions),
+                  'action_histogram':dict(sorted(hist.items())),
+                  'dominant_action':hist.most_common(1)[0][0],
+                  'p1_x_min':min(p1_x),
+                  'p1_x_max':max(p1_x),
+                  'p1_x_span':max(p1_x)-min(p1_x),
+                  'p2_x_min':min(p2_x),
+                  'p2_x_max':max(p2_x),
+                  'min_horizontal_separation':min(separation),
+                  'mean_action_group_spikes':group_means,
+              },
+              'video':{
+                  'duration_seconds':float(probe['format']['duration']),
+                  'bytes':int(probe['format']['size']),
+                  'codec':'h264',
+                  'width':int(stream['width']),
+                  'height':int(stream['height']),
+                  'encoded_fps':int(os.environ['CONTROL_SPECTATOR_FPS']),
+              },
+          }
+          pathlib.Path('runs/baseline-control/baseline-summary.json').write_text(json.dumps(summary,indent=2,sort_keys=True)+'\n',encoding='utf-8')
+          print(json.dumps(summary,indent=2,sort_keys=True))
+          PY
+
+      - name: Stop FightingICE
+        if: always()
+        run: |
+          if [ -f runs/baseline-control/fightingice.pid ]; then
+            kill "$(cat runs/baseline-control/fightingice.pid)" 2>/dev/null || true
+          fi
+
+      - name: Upload ablation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: baseline-full-round-control
+          path: |
+            runs/baseline-control/baseline-summary.json
+            runs/baseline-control/baseline-round.mp4
+            runs/baseline-control/video-probe.json
+            runs/baseline-control/eval/baseline-control/status.json
+            runs/baseline-control/eval/baseline-control/p1.jsonl
+          if-no-files-found: warn
+          retention-days: 30
