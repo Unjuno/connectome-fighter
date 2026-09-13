@@ -4,7 +4,7 @@ import math
 
 import numpy as np
 
-from connectome_fighter.flybody_neural_adapter import flybody_action, neural_fly_command
+from connectome_fighter.flybody_neural_adapter import ADAPTER_ID, flybody_action, neural_fly_command
 
 
 def test_neural_command_uses_real_annotations_not_game_group_labels():
@@ -15,6 +15,8 @@ def test_neural_command_uses_real_annotations_not_game_group_labels():
         {"group": "B", "body_id": 13, "spikes": 100, "superclass": "central"},
     ]
     command = neural_fly_command(rows, activity_scale_spikes=16)
+    assert ADAPTER_ID == "malecns-annotated-motor-to-flybody-tripod-v2"
+    assert command.to_json()["adapter"] == ADAPTER_ID
     assert command.drive > 0
     assert command.t1_drive > command.t2_drive
     assert command.right_drive > 0
