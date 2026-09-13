@@ -18,6 +18,7 @@ type Evaluation = {
   source_training_run_url?: string | null;
   policy_pixel_access?: boolean;
   evaluation?: {
+    protocol?: string;
     rounds?: number;
     fixed_opponent?: boolean;
     seed_p1?: number;
@@ -31,6 +32,9 @@ type Evaluation = {
     winner?: string;
     p1_hp?: number | null;
     p2_hp?: number | null;
+    elapsed_frame?: number;
+    elapsed_seconds?: number | null;
+    ended_by?: string;
   };
   video?: {
     asset_url?: string;
@@ -107,9 +111,10 @@ function when(value: string | undefined) {
 function resultLabel(evaluation: Evaluation | null | undefined) {
   if (!evaluation?.result) return "result pending";
   const winner = evaluation.result.winner ?? "UNKNOWN";
-  if (winner === "DRAW") return "DRAW";
-  if (winner === "UNKNOWN") return "result unknown";
-  return `${winner} wins`;
+  const endedBy = evaluation.result.ended_by ? ` · ${evaluation.result.ended_by.replaceAll("_", " ")}` : "";
+  if (winner === "DRAW") return `DRAW${endedBy}`;
+  if (winner === "UNKNOWN") return `result unknown${endedBy}`;
+  return `${winner} wins${endedBy}`;
 }
 
 function VideoCard({ evaluation, previous = false }: { evaluation: Evaluation; previous?: boolean }) {
@@ -152,13 +157,15 @@ function VideoCard({ evaluation, previous = false }: { evaluation: Evaluation; p
       </div>
 
       <div className="metrics compact-metrics">
-        <div><span>Round limit</span><strong>{fmt(roundLimit)} s</strong></div>
-        <div><span>Frame limit</span><strong>{evaluation.evaluation?.round_frame_limit ?? "—"}</strong></div>
+        <div><span>Configured limit</span><strong>{fmt(roundLimit)} s</strong></div>
+        <div><span>Round elapsed</span><strong>{fmt(evaluation.result?.elapsed_seconds)} s</strong></div>
         <div><span>Video</span><strong>{fmt(evaluation.video?.duration_seconds)} s</strong></div>
         <div><span>State</span><strong className="hash">{evaluation.state_sha256?.slice(0, 10) ?? "—"}</strong></div>
       </div>
 
-      <p className="mono card-foot">Evaluated {when(evaluation.evaluated_at)} · fixed seeds {evaluation.evaluation?.seed_p1 ?? "—"}/{evaluation.evaluation?.seed_p2 ?? "—"}</p>
+      <p className="mono card-foot">
+        {evaluation.evaluation?.round_frame_limit ?? "—"} frame max · {evaluation.evaluation?.protocol ?? "legacy protocol"} · evaluated {when(evaluation.evaluated_at)} · fixed seeds {evaluation.evaluation?.seed_p1 ?? "—"}/{evaluation.evaluation?.seed_p2 ?? "—"}
+      </p>
     </article>
   );
 }
@@ -213,7 +220,7 @@ export function LiveClient() {
         <h1>最新モデルの1ラウンドを見る。</h1>
         <p className="lead">
           GARNET candidate が更新されるたび、更新後のcheckpointを固定条件 GARNET vs ZEN で1ラウンド再評価します。
-          完了した動画だけを公開し、古い動画を新モデルとして扱いません。
+          観察用評価はFightingICEの60秒最大ラウンドを使い、完了した動画だけを公開します。
         </p>
         <div className="status-row">
           <span className={`pill ${latest && !evaluationBehind ? "ok" : "warm"}`}>{statusText}</span>
@@ -222,12 +229,12 @@ export function LiveClient() {
         </div>
         {evaluationBehind ? (
           <div className="notice">
-            <strong>Model updated.</strong> Candidate generation {training?.generation} exists, but its fixed-condition round video is still being generated. The page keeps generation {latest?.generation} labeled as the previous completed evaluation until the new artifact is complete.
+            <strong>Model updated.</strong> Candidate generation {training?.generation} exists, but its fixed-condition full-round video is still being generated. The page keeps generation {latest?.generation} labeled as the previous completed evaluation until the new artifact is complete.
           </div>
         ) : null}
         {!latest ? (
           <div className="notice">
-            <strong>First post-update evaluation is not published yet.</strong> Training status is generation {training?.generation ?? "—"}; the viewer will switch automatically after the first one-round evaluation finishes.
+            <strong>First post-update evaluation is not published yet.</strong> Training status is generation {training?.generation ?? "—"}; the viewer will switch automatically after the first full-round evaluation finishes.
           </div>
         ) : null}
         {error ? <div className="notice bad-notice">Evaluation API error: {error}</div> : null}
@@ -250,7 +257,7 @@ export function LiveClient() {
           <div><span>Reward signal</span><strong>{fmt(training?.signal_summary?.sum, 3)}</strong></div>
         </div>
         <p className="boundary">
-          This is the rolling research candidate. It is not automatically promoted into the approved Vercel inference state. The comparison round uses a fixed opponent and fixed seeds so behavioral differences across generations are less confounded by matchup or seed changes.
+          This is the rolling research candidate. It is not automatically promoted into the approved Vercel inference state. The comparison round uses a fixed opponent, fixed seeds, and the same full-round protocol so behavioral differences across generations are less confounded by matchup, seed, or horizon changes.
         </p>
       </section>
 
@@ -271,7 +278,7 @@ export function LiveClient() {
       ) : null}
 
       <footer className="footer">
-        <span>Evaluation: 1 round · fixed GARNET vs ZEN · frame limit 600</span>
+        <span>Evaluation: 1 round · fixed GARNET vs ZEN · max 60 s / 3600 frames</span>
         <span>Latest training update: {when(training?.updated_at)}</span>
         <a href="https://unjuno.github.io/connectome-fighter/">Research ledger</a>
       </footer>
