@@ -25,6 +25,7 @@ jobs:
     env:
       BASE: https://liveunjuno.vercel.app
       FLYBODY_COMMIT: d015e9bfe441bd90ae431bac24c55cb74bdbce26
+      FLYBODY_ADAPTER_ID: malecns-annotated-motor-to-flybody-tripod-v2
     steps:
       - uses: actions/checkout@v4
 
@@ -85,7 +86,7 @@ jobs:
             fly="$(curl -fsS "$FLYBODY_STATE_URL?t=$(date +%s%N)" || true)"
             [[ -n "$live" ]] && last_live="$live"
             [[ -n "$fly" ]] && last_fly="$fly"
-            if [[ -n "$live" && -n "$fly" ]] && echo "$fly" | jq -e --arg commit "$FLYBODY_COMMIT" '
+            if [[ -n "$live" && -n "$fly" ]] && echo "$fly" | jq -e --arg commit "$FLYBODY_COMMIT" --arg adapter "$FLYBODY_ADAPTER_ID" '
               .schema_version == 1 and
               .kind == "malecns-flybody-live-physics" and
               .policy_access == false and
@@ -93,7 +94,9 @@ jobs:
               .mujoco_gl == "osmesa" and
               .upstream.repository == "TuragaLab/flybody" and
               .upstream.commit == $commit and
-              .adapter == "malecns-annotated-motor-to-flybody-tripod-v1" and
+              .adapter == $adapter and
+              .sides.p1.neural_command.adapter == $adapter and
+              .sides.p2.neural_command.adapter == $adapter and
               (.sides.p1.physics.sim_steps | type) == "number" and .sides.p1.physics.sim_steps > 0 and
               (.sides.p2.physics.sim_steps | type) == "number" and .sides.p2.physics.sim_steps > 0 and
               .sides.p1.physics.action_dimension == 59 and
