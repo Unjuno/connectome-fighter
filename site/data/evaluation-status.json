@@ -1,0 +1,43 @@
+{
+  "auto_promotion": false,
+  "candidate_only": true,
+  "character": "GARNET",
+  "evaluated_at": "2026-09-13T20:13:48.262537Z",
+  "evaluation": {
+    "configured_round_limit_seconds": 10.0,
+    "decision_interval_frames": 60,
+    "fixed_opponent": true,
+    "nominal_game_fps": 60,
+    "round_frame_limit": 600,
+    "rounds": 1,
+    "seed_p1": 800101,
+    "seed_p2": 20202
+  },
+  "generation": 7,
+  "interpretation_boundary": "This video evaluates the newest rolling candidate after its plasticity update under a fixed GARNET-vs-ZEN condition. It is candidate research evidence, not approved production inference and not proof of causal biological circuit function.",
+  "kind": "post-update-candidate-round-evaluation",
+  "matches": 7,
+  "model": "KC-MBON-valence-depression-v0",
+  "opponent": "ZEN",
+  "policy_pixel_access": false,
+  "result": {
+    "p1_hp": 400,
+    "p2_hp": 400,
+    "winner": "DRAW"
+  },
+  "reward_id": "R2d-v0",
+  "schema_version": 1,
+  "served_by_vercel": false,
+  "source_training_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34769265449",
+  "state_sha256": "f84e7f479341e8b095b84eaa01635a9ce18c5913a5ef7caf75698502428a7021",
+  "status": "COMPLETED",
+  "video": {
+    "asset_url": "https://github.com/Unjuno/connectome-fighter/releases/download/candidate-evaluation-latest/latest-round.mp4",
+    "bytes": 431907,
+    "codec": "h264",
+    "duration_seconds": 11.1,
+    "fps": 10,
+    "height": 640,
+    "width": 960
+  }
+}
