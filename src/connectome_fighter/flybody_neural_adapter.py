@@ -13,6 +13,7 @@ from typing import Any, Iterable, Sequence
 
 import numpy as np
 
+ADAPTER_ID = "malecns-annotated-motor-to-flybody-tripod-v2"
 MOTOR_SUPERCLASSES = {
     "vnc_motor",
     "cb_motor",
@@ -41,6 +42,7 @@ class NeuralFlyCommand:
     def to_json(self) -> dict[str, Any]:
         payload = asdict(self)
         payload["source_body_ids"] = list(self.source_body_ids)
+        payload["adapter"] = ADAPTER_ID
         payload["interpretation_boundary"] = (
             "Real MaleCNS body IDs/annotations feed a project-defined neural-to-FlyBody "
             "motor adapter. The adapter is not a biological muscle innervation map."
