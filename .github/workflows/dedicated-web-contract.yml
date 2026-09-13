@@ -73,10 +73,16 @@ jobs:
             echo 'a workflow again targets the unrelated Unjuno live deployment by default' >&2
             exit 1
           fi
+
+          # The old frame-by-frame LIVE backend remains isolated and read-only,
+          # while the public viewer is now model-round-video first.
           grep -Fq 'process.env.VERCEL_PROJECT_ID' lib/vercel-sandbox.ts
           grep -Fq 'flybody_game_telemetry_position_used: false' app/api/live/route.ts
           grep -Fq 'policy_pixel_access: false' app/api/live/route.ts
-          grep -Fq 'No SVG or FightingICE-position puppet is substituted here.' app/live-client.tsx
-          grep -Fq 'FightingICE x/y/action do not position the FlyBody body.' app/live-client.tsx
+          grep -Fq 'policy_pixel_access=false' app/live-client.tsx
+          grep -Fq 'candidate only' app/live-client.tsx
+          grep -Fq 'fixed opponent and fixed seeds' app/live-client.tsx
+          grep -Fq 'evaluation-status.json' app/api/evaluation/route.ts
+          grep -Fq 'candidate-only-not-arena-approved' .github/workflows/candidate-round-evaluation.yml
           grep -Fq 'CONNECTOME_PUBLIC_BASE_URL' .github/workflows/vercel-live-arena-smoke.yml
           grep -Fq 'connectome-fighter-live-broadcast' lib/connectome-broadcast.ts
