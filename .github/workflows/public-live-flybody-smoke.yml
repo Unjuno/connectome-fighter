@@ -34,10 +34,20 @@ jobs:
           ready=0
           last=''
           for i in $(seq 1 240); do
+            capacity="$(curl -fsS "$BASE/api/connectome/runtime-base?t=$(date +%s%N)" || true)"
+            if [[ -n "$capacity" ]] && echo "$capacity" | jq -e '
+              .status == "capacity-blocked" or
+              ((.reason // "") | test("payment_required|usage limit exceeded|upgrade to a Pro plan"; "i"))
+            ' >/dev/null; then
+              echo 'Vercel Sandbox capacity is exhausted; the FlyBody production smoke cannot create/resume the required shared compute.' >&2
+              echo "$capacity" | jq . >&2
+              exit 1
+            fi
+
             body="$(curl -fsS "$BASE/api/connectome/live?t=$(date +%s%N)" || true)"
             if [[ -n "$body" ]]; then
               last="$body"
-              echo "$body" | jq '{ready,status,runtime_archive_sha256,source_runtime_base,flybody_source,flybody_neural_drive,flybody_policy_access,flybody_game_telemetry_position_used,flybody_p1_url,flybody_p2_url,flybody_state_url}'
+              echo "$body" | jq '{ready,status,runtime_archive_sha256,source_runtime_base,flybody_source,flybody_neural_drive,flybody_policy_access,flybody_game_telemetry_position_used,flybody_p1_url,flybody_p2_url,flybody_state_url,maintenance_action}'
               if echo "$body" | jq -e '
                 .ready == true and .status == "running" and
                 .flybody_source == "TuragaLab/flybody MuJoCo physics" and
