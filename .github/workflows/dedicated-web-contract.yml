@@ -56,12 +56,21 @@ jobs:
       - name: Prove project isolation and spectator boundaries
         run: |
           set -euo pipefail
-          if grep -R -F 'liveunjuno.vercel.app' app lib site README.md README.ja.md ROADMAP.md docs .github/workflows; then
-            echo 'legacy Unjuno live URL returned to Connectome sources' >&2
+          legacy_host='liveunjuno.vercel'
+          legacy_host="${legacy_host}.app"
+          legacy_project='prj_T1i5PPgfjHXAKGLf9Gmoboae'
+          legacy_project="${legacy_project}61Tk"
+
+          if grep -R -F "$legacy_host" app lib site README.md README.ja.md ROADMAP.md docs; then
+            echo 'legacy Unjuno live URL returned to public Connectome sources/docs' >&2
             exit 1
           fi
-          if grep -R -F 'prj_T1i5PPgfjHXAKGLf9Gmoboae61Tk' app lib site README.md README.ja.md ROADMAP.md docs .github/workflows; then
-            echo 'legacy Unjuno live Vercel project ID returned to Connectome sources' >&2
+          if grep -R -F "$legacy_project" app lib site README.md README.ja.md ROADMAP.md docs; then
+            echo 'legacy Unjuno live project ID returned to public Connectome sources/docs' >&2
+            exit 1
+          fi
+          if grep -R -F "BASE: https://${legacy_host}" .github/workflows; then
+            echo 'a workflow again targets the unrelated Unjuno live deployment by default' >&2
             exit 1
           fi
           grep -Fq 'process.env.VERCEL_PROJECT_ID' lib/vercel-sandbox.ts

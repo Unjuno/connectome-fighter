@@ -103,7 +103,7 @@ jobs:
 
           index=Path('site/index.html').read_text(encoding='utf-8')
           timeline=Path('site/training-history.js').read_text(encoding='utf-8')
-          for needle in ['./training-history.js','./data/training-history.json','append-only public candidate generation ledger']:
+          for needle in ['./training-history.js','./data/training-history.json','Append-only public candidate generation ledger']:
               if needle not in index: raise SystemExit(f'missing public training-history surface: {needle}')
           for needle in ['candidate learning history','Candidate-only ledger.','served_by_vercel=','auto_promotion=','source Actions run']:
               if needle not in timeline: raise SystemExit(f'missing training-history interpretation boundary: {needle}')
