@@ -135,12 +135,46 @@
         "potentiated_edges": 0
       },
       "updated_at": "2026-09-13T12:22:10.311206Z"
+    },
+    {
+      "auto_promotion": false,
+      "character": "GARNET",
+      "generation": 7,
+      "interpretation_boundary": "R2d-v0 and its mapping to MBON valence channels are project-defined game-learning interfaces, not identified endogenous FightingICE reinforcement pathways in Drosophila.",
+      "match_status": "COMPLETED_WITH_VALIDATED_CANONICAL_TRACES",
+      "matches": 7,
+      "model": "KC-MBON-valence-depression-v0",
+      "opponent": "LUD",
+      "reward_id": "R2d-v0",
+      "served_by_vercel": false,
+      "signal_summary": {
+        "decision_windows": 10,
+        "negative": 1,
+        "nonzero": 1,
+        "positive": 0,
+        "sum": -0.01
+      },
+      "source_kind": "rolling-candidate",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34769265449",
+      "state_sha256": "f84e7f479341e8b095b84eaa01635a9ce18c5913a5ef7caf75698502428a7021",
+      "status": "candidate-only-not-arena-approved",
+      "update_summary": {
+        "changed_approach_edges": 5933,
+        "changed_avoidance_edges": 0,
+        "changed_edges": 5933,
+        "depressed_edges": 5933,
+        "max_multiplier": 1.0,
+        "mean_multiplier": 0.9999439169014158,
+        "min_multiplier": 0.9993002414703369,
+        "potentiated_edges": 0
+      },
+      "updated_at": "2026-09-13T16:41:25.705514Z"
     }
   ],
-  "entry_count": 4,
+  "entry_count": 5,
   "interpretation_boundary": "This ledger records GitHub research-candidate updates only. Entries are not arena approval, not proof of improved fighting performance, and are never served by Vercel without a separate promotion gate.",
   "kind": "canonical-continuous-training-history",
-  "latest_generation": 6,
-  "latest_state_sha256": "e02961a03704870c8d22fd436ce6fce9f1b0dd52719a3af2b32416706c0f7501",
+  "latest_generation": 7,
+  "latest_state_sha256": "f84e7f479341e8b095b84eaa01635a9ce18c5913a5ef7caf75698502428a7021",
   "schema_version": 1
 }
