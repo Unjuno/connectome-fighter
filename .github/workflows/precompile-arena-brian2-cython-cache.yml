@@ -6,13 +6,23 @@ on:
     paths:
       - 'scripts/malecns_lif_worker.py'
       - 'scripts/precompile_arena_brian2_cache.py'
+      - 'src/connectome_fighter/flybody_neural_adapter.py'
+      - 'scripts/run_live_flybody_publisher.py'
+      - 'deploy/arena-runtime/bootstrap-proxy.mjs'
+      - 'deploy/arena-runtime/start-session.sh'
       - '.github/workflows/precompile-arena-brian2-cython-cache.yml'
+      - '.github/workflows/publish-flybody-runtime-addon.yml'
   push:
     branches: [main]
     paths:
       - 'scripts/malecns_lif_worker.py'
       - 'scripts/precompile_arena_brian2_cache.py'
+      - 'src/connectome_fighter/flybody_neural_adapter.py'
+      - 'scripts/run_live_flybody_publisher.py'
+      - 'deploy/arena-runtime/bootstrap-proxy.mjs'
+      - 'deploy/arena-runtime/start-session.sh'
       - '.github/workflows/precompile-arena-brian2-cython-cache.yml'
+      - '.github/workflows/publish-flybody-runtime-addon.yml'
   workflow_run:
     workflows: [publish-arena-runtime-bundle]
     types: [completed]
@@ -21,8 +31,8 @@ permissions:
   contents: write
 
 concurrency:
-  group: precompile-arena-brian2-cython-cache
-  cancel-in-progress: true
+  group: arena-runtime-rolling-release-single-writer
+  cancel-in-progress: false
 
 env:
   TARGET_TAG: arena-runtime-latest
