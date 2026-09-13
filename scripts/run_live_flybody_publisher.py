@@ -24,7 +24,7 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from connectome_fighter.flybody_neural_adapter import NeuralFlyCommand, flybody_action, neural_fly_command
+from connectome_fighter.flybody_neural_adapter import ADAPTER_ID, NeuralFlyCommand, flybody_action, neural_fly_command
 from connectome_fighter.rgb_png import encode_rgb_png
 
 FLYBODY_UPSTREAM = "TuragaLab/flybody"
@@ -233,7 +233,7 @@ def main() -> int:
                 "game_telemetry_position_used": False,
                 "mujoco_gl": os.environ.get("MUJOCO_GL", "osmesa"),
                 "upstream": {"repository": FLYBODY_UPSTREAM, "commit": FLYBODY_COMMIT},
-                "adapter": "malecns-annotated-motor-to-flybody-tripod-v1",
+                "adapter": ADAPTER_ID,
                 "render": {"width": args.width, "height": args.height, "frames": frame_count, "fps_target": args.fps},
                 "sides": {
                     "p1": {
