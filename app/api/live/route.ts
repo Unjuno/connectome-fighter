@@ -8,6 +8,23 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const maxDuration = 60;
 
+// Public API contract pins. Keep these literal values here as an independent
+// publication guard so a runtime-release refactor cannot silently change the
+// scientific identity exposed to spectators.
+const PUBLISHED_FLYBODY_CONTRACT = {
+  upstream_commit: "d015e9bfe441bd90ae431bac24c55cb74bdbce26",
+  adapter: "malecns-annotated-motor-to-flybody-tripod-v2",
+} as const;
+
+function assertPublishedFlyBodyContract() {
+  if (
+    FLYBODY_COMMIT !== PUBLISHED_FLYBODY_CONTRACT.upstream_commit ||
+    FLYBODY_ADAPTER_ID !== PUBLISHED_FLYBODY_CONTRACT.adapter
+  ) {
+    throw new Error("FlyBody runtime/publication contract mismatch");
+  }
+}
+
 function mediaUrls(telemetryUrl: unknown) {
   if (typeof telemetryUrl !== "string" || !telemetryUrl) return { screen_url: null, activity_url: null, flybody_p1_url: null, flybody_p2_url: null, flybody_state_url: null };
   try {
@@ -23,6 +40,7 @@ function mediaUrls(telemetryUrl: unknown) {
 }
 
 function publicBody(body: any, runtimeSha: string | null, extra: Record<string, unknown> = {}) {
+  assertPublishedFlyBodyContract();
   return {
     ...body,
     ...mediaUrls(body?.telemetry_url),
