@@ -1,0 +1,395 @@
+name: candidate-round-evaluation
+
+# Evaluate the newest rolling GARNET candidate after each successful training
+# update. This is a spectator/evaluation lane only; it never promotes candidate
+# weights into the approved Vercel inference state.
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["canonical-continuous-training"]
+    types: [completed]
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/candidate-round-evaluation.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: candidate-round-evaluation-single-writer
+  cancel-in-progress: true
+
+env:
+  SHIU_COMMIT: 2a83ad611cd9768f8c9723fc613ed27761a5feb5
+  ADAPTER_CACHE_KEY: malecns-v1.0-shiu-strict-minw5-2a83ad611cd9768f8c9723fc613ed27761a5feb5-adapter-v1
+  VALENCE_CACHE_KEY: malecns-v1.0-kc-mbon-valence-v1
+  TRAINING_TAG: canonical-training-latest
+  EVALUATION_TAG: candidate-evaluation-latest
+  GAME_URL: https://github.com/TeamFightingICE/FightingICE/releases/download/v7.1/DareFightingICE-7.1.zip
+  GAME_SHA256: 510752a69a097b767677d3911b1407d6a08a721dad4faf2cb5b7a19b988f1c62
+  RESOURCE_URL: https://github.com/TeamFightingICE/FightingICE/releases/download/v7.1/resource-7.1.zip
+  RESOURCE_SHA256: 386fd713f901db00583054528ccfbce315953c157dc16231c4367416d86dce53
+  EVAL_P1: GARNET
+  EVAL_P2: ZEN
+  EVAL_SEED1: '800101'
+  EVAL_SEED2: '20202'
+  EVAL_FRAME_LIMIT: '600'
+  EVAL_NOMINAL_GAME_FPS: '60'
+  EVAL_SPECTATOR_FPS: '10'
+
+jobs:
+  evaluate-latest-candidate:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Fast-forward to latest public data
+        run: git pull --ff-only origin main
+
+      - name: Set up reference Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install pinned Shiu/Brian2 runtime
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install 'numpy==1.24.0' 'pandas==1.5.3' 'pyarrow==10.0.1' 'joblib==1.2.0' 'Cython==0.29.36' 'brian2==2.5.1'
+          echo "PY310=$(which python)" >> "$GITHUB_ENV"
+
+      - name: Set up bridge Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install bridge dependencies and video recorder
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install 'numpy==2.3.5' 'pandas==2.3.3' 'pyarrow==23.0.1' 'pyftg==2.3'
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Restore canonical MaleCNS adapter cache
+        uses: actions/cache@v4
+        with:
+          path: data/processed/malecns-shiu-strict-v1
+          key: ${{ env.ADAPTER_CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: Restore canonical valence partition cache
+        uses: actions/cache@v4
+        with:
+          path: data/processed/malecns-valence-v1
+          key: ${{ env.VALENCE_CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: Restore latest post-update candidate checkpoint
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf runs/candidate-evaluation
+          mkdir -p runs/candidate-evaluation/source runs/candidate-evaluation/checkpoint
+          gh release download "$TRAINING_TAG" \
+            --pattern 'garnet-training-latest.tar.gz' \
+            --pattern 'garnet-training-latest.tar.gz.sha256' \
+            --pattern 'training-manifest.json' \
+            --dir runs/candidate-evaluation/source \
+            --clobber
+          expected="$(grep -Eo '[a-f0-9]{64}' runs/candidate-evaluation/source/garnet-training-latest.tar.gz.sha256 | head -1)"
+          actual="$(sha256sum runs/candidate-evaluation/source/garnet-training-latest.tar.gz | awk '{print $1}')"
+          test -n "$expected"
+          test "$actual" = "$expected"
+          tar -C runs/candidate-evaluation/checkpoint -xzf runs/candidate-evaluation/source/garnet-training-latest.tar.gz
+          python - <<'PY'
+          import hashlib, json, os, pathlib
+          state=pathlib.Path('runs/candidate-evaluation/checkpoint/state/GARNET.npz')
+          meta=json.load(open(str(state)+'.json',encoding='utf-8'))
+          manifest=json.load(open('runs/candidate-evaluation/source/training-manifest.json',encoding='utf-8'))
+          sha=hashlib.sha256(state.read_bytes()).hexdigest()
+          assert meta['state_sha256']==sha
+          assert manifest['state_sha256']==sha
+          assert manifest['character']=='GARNET'
+          assert manifest['status']=='candidate-only-not-arena-approved'
+          values={
+              'CANDIDATE_GENERATION':int(meta['generation']),
+              'CANDIDATE_MATCHES':int(meta['matches']),
+              'CANDIDATE_STATE_SHA256':sha,
+              'CANDIDATE_MODEL':str(meta['model']),
+              'CANDIDATE_REWARD_ID':str(meta['reward_id']),
+              'SOURCE_TRAINING_RUN_URL':str(manifest.get('source_run_url') or ''),
+          }
+          with open(os.environ['GITHUB_ENV'],'a',encoding='utf-8') as f:
+              for key,value in values.items():
+                  f.write(f'{key}={value}\n')
+          print(json.dumps(values,indent=2,sort_keys=True))
+          PY
+
+      - name: Build fixed game interface
+        run: |
+          mkdir -p data/processed/malecns-interface-v1
+          python scripts/build_malecns_game_interface.py \
+            --metadata data/processed/malecns-shiu-strict-v1/neuron_metadata.parquet \
+            --manifest data/processed/malecns-shiu-strict-v1/manifest.json \
+            --out data/processed/malecns-interface-v1/interface.json \
+            --seed 20260911 --input-bodies-per-polarity-feature 16 \
+            --max-poisson-rate-hz 150 --decision-window-ms 20 --neutral-min-spikes 1
+
+      - name: Materialize the updated candidate as the evaluation adapter
+        run: |
+          PYTHONPATH=src python scripts/materialize_malecns_valence_adapter.py \
+            --base-adapter data/processed/malecns-shiu-strict-v1 \
+            --candidates data/processed/malecns-valence-v1/kc_mbon_valence_candidates.parquet \
+            --state runs/candidate-evaluation/checkpoint/state/GARNET.npz \
+            --character GARNET \
+            --plasticity-config configs/plasticity_valence_v0.json \
+            --out runs/candidate-evaluation/garnet-adapter
+
+      - name: Fetch pinned Shiu reference model
+        run: |
+          mkdir -p external/shiu-reference
+          curl -fL --retry 3 -o external/shiu-reference/model.py \
+            "https://raw.githubusercontent.com/philshiu/Drosophila_brain_model/$SHIU_COMMIT/model.py"
+          echo 'fc45837d7122c6ce2a7f3f2f23c515992e4b232aadb919efabb72337fac88e4e  external/shiu-reference/model.py' | sha256sum -c -
+
+      - name: Restore FightingICE v7.1 cache
+        id: game-cache
+        uses: actions/cache@v4
+        with:
+          path: external/v71
+          key: fightingice-v71-510752a6-386fd713
+
+      - name: Download verified FightingICE v7.1 on cache miss
+        if: steps.game-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p external/v71 external/downloads
+          curl -fL --retry 3 -o external/downloads/game.zip "$GAME_URL"
+          curl -fL --retry 3 -o external/downloads/resource.zip "$RESOURCE_URL"
+          echo "$GAME_SHA256  external/downloads/game.zip" | sha256sum -c -
+          echo "$RESOURCE_SHA256  external/downloads/resource.zip" | sha256sum -c -
+          unzip -q external/downloads/game.zip -d external/v71
+          GAME_JAR="$(find external/v71 -type f -name FightingICE.jar -print -quit)"
+          test -n "$GAME_JAR"
+          unzip -q -o external/downloads/resource.zip -d "$(dirname "$GAME_JAR")"
+          rm -rf external/downloads
+
+      - name: Preserve the previous model round for comparison
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p runs/candidate-evaluation/previous site/data
+          if gh release view "$EVALUATION_TAG" >/dev/null 2>&1; then
+            gh release download "$EVALUATION_TAG" -p latest-round.mp4 -p evaluation-status.json \
+              -D runs/candidate-evaluation/previous --clobber || true
+          else
+            gh release create "$EVALUATION_TAG" --prerelease \
+              --title 'Latest candidate one-round evaluation' \
+              --notes 'Fixed-condition post-update candidate evaluation. Candidate-only; no automatic promotion to approved inference.'
+          fi
+          if [ -s runs/candidate-evaluation/previous/latest-round.mp4 ]; then
+            cp runs/candidate-evaluation/previous/latest-round.mp4 runs/candidate-evaluation/previous-round.mp4
+          fi
+          if [ -s runs/candidate-evaluation/previous/evaluation-status.json ]; then
+            python - <<'PY'
+          import json, pathlib
+          src=pathlib.Path('runs/candidate-evaluation/previous/evaluation-status.json')
+          data=json.loads(src.read_text(encoding='utf-8'))
+          video=data.setdefault('video',{})
+          video['asset_url']='https://github.com/Unjuno/connectome-fighter/releases/download/candidate-evaluation-latest/previous-round.mp4'
+          pathlib.Path('site/data/evaluation-previous.json').write_text(json.dumps(data,indent=2,sort_keys=True)+'\n',encoding='utf-8')
+          PY
+          fi
+
+      - name: Start fixed-condition one-round FightingICE evaluation
+        run: |
+          set -euo pipefail
+          mkdir -p runs/candidate-evaluation/eval
+          GAME_JAR="$(find external/v71 -type f -name FightingICE.jar -print -quit)"
+          GAME_DIR="$(dirname "$GAME_JAR")"
+          (
+            cd "$GAME_DIR"
+            nohup java -cp 'FightingICE.jar:./lib/*:./lib/lwjgl/*:./lib/lwjgl/natives/linux/amd64/*:./lib/grpc/*' \
+              Main --headless-mode --pyftg-mode --input-sync --limithp 400 400 \
+              --port 31416 -r 1 -f "$EVAL_FRAME_LIMIT" \
+              > "$GITHUB_WORKSPACE/runs/candidate-evaluation/eval/fightingice.log" 2>&1 &
+            echo $! > "$GITHUB_WORKSPACE/runs/candidate-evaluation/eval/fightingice.pid"
+          )
+          for i in $(seq 1 90); do
+            grep -q 'Socket server is started' runs/candidate-evaluation/eval/fightingice.log 2>/dev/null && exit 0
+            kill -0 "$(cat runs/candidate-evaluation/eval/fightingice.pid)" 2>/dev/null || {
+              tail -120 runs/candidate-evaluation/eval/fightingice.log >&2 || true
+              exit 1
+            }
+            sleep 1
+          done
+          exit 1
+
+      - name: Record the updated candidate for exactly one round
+        run: |
+          PYTHONPATH=src python scripts/run_game_malecns_lif.py \
+            --host 127.0.0.1 --port 31416 \
+            --character-p1 "$EVAL_P1" --character-p2 "$EVAL_P2" \
+            --seed-p1 "$EVAL_SEED1" --seed-p2 "$EVAL_SEED2" \
+            --reference-python "$PY310" --reference-model external/shiu-reference/model.py \
+            --adapter-dir data/processed/malecns-shiu-strict-v1 \
+            --adapter-dir-p1 runs/candidate-evaluation/garnet-adapter \
+            --adapter-dir-p2 data/processed/malecns-shiu-strict-v1 \
+            --interface data/processed/malecns-interface-v1/interface.json \
+            --decision-interval 60 --games 1 --expected-rounds 1 --timeout 900 \
+            --spectator-video runs/candidate-evaluation/latest-round.mp4 \
+            --spectator-fps "$EVAL_SPECTATOR_FPS" \
+            --run-id candidate-evaluation --out runs/candidate-evaluation/eval
+
+      - name: Validate video and publish evaluation metadata
+        run: |
+          set -euo pipefail
+          ffprobe -v error -show_entries format=duration,size \
+            -show_entries stream=width,height,codec_name \
+            -of json runs/candidate-evaluation/latest-round.mp4 \
+            > runs/candidate-evaluation/video-probe.json
+          python - <<'PY'
+          from datetime import datetime, timezone
+          import json, os, pathlib
+
+          probe=json.load(open('runs/candidate-evaluation/video-probe.json',encoding='utf-8'))
+          stream=probe['streams'][0]
+          duration=float(probe['format']['duration'])
+          size=int(probe['format']['size'])
+          assert stream['codec_name']=='h264', stream
+          assert int(stream['width'])==960 and int(stream['height'])==640, stream
+          assert 2.0 < duration < 30.0, duration
+          assert size > 10000, size
+
+          trace_path=pathlib.Path('runs/candidate-evaluation/eval/candidate-evaluation/p1.jsonl')
+          rows=[json.loads(line) for line in trace_path.read_text(encoding='utf-8').splitlines() if line.strip()]
+          remaining=(rows[-1].get('remaining_hps') if rows else None) or [None,None]
+          p1_hp=remaining[0] if len(remaining)>0 else None
+          p2_hp=remaining[1] if len(remaining)>1 else None
+          if isinstance(p1_hp,(int,float)) and isinstance(p2_hp,(int,float)):
+              winner=os.environ['EVAL_P1'] if p1_hp>p2_hp else os.environ['EVAL_P2'] if p2_hp>p1_hp else 'DRAW'
+          else:
+              winner='UNKNOWN'
+
+          frame_limit=int(os.environ['EVAL_FRAME_LIMIT'])
+          nominal_fps=int(os.environ['EVAL_NOMINAL_GAME_FPS'])
+          payload={
+              'schema_version':1,
+              'kind':'post-update-candidate-round-evaluation',
+              'status':'COMPLETED',
+              'evaluated_at':datetime.now(timezone.utc).isoformat().replace('+00:00','Z'),
+              'candidate_only':True,
+              'served_by_vercel':False,
+              'auto_promotion':False,
+              'character':os.environ['EVAL_P1'],
+              'opponent':os.environ['EVAL_P2'],
+              'generation':int(os.environ['CANDIDATE_GENERATION']),
+              'matches':int(os.environ['CANDIDATE_MATCHES']),
+              'state_sha256':os.environ['CANDIDATE_STATE_SHA256'],
+              'model':os.environ['CANDIDATE_MODEL'],
+              'reward_id':os.environ['CANDIDATE_REWARD_ID'],
+              'source_training_run_url':os.environ.get('SOURCE_TRAINING_RUN_URL') or None,
+              'policy_pixel_access':False,
+              'evaluation':{
+                  'rounds':1,
+                  'fixed_opponent':True,
+                  'seed_p1':int(os.environ['EVAL_SEED1']),
+                  'seed_p2':int(os.environ['EVAL_SEED2']),
+                  'round_frame_limit':frame_limit,
+                  'nominal_game_fps':nominal_fps,
+                  'configured_round_limit_seconds':frame_limit/nominal_fps,
+                  'decision_interval_frames':60,
+              },
+              'result':{
+                  'winner':winner,
+                  'p1_hp':p1_hp,
+                  'p2_hp':p2_hp,
+              },
+              'video':{
+                  'asset_url':'https://github.com/Unjuno/connectome-fighter/releases/download/candidate-evaluation-latest/latest-round.mp4',
+                  'codec':'h264',
+                  'width':int(stream['width']),
+                  'height':int(stream['height']),
+                  'fps':int(os.environ['EVAL_SPECTATOR_FPS']),
+                  'duration_seconds':duration,
+                  'bytes':size,
+              },
+              'interpretation_boundary':'This video evaluates the newest rolling candidate after its plasticity update under a fixed GARNET-vs-ZEN condition. It is candidate research evidence, not approved production inference and not proof of causal biological circuit function.',
+          }
+          pathlib.Path('runs/candidate-evaluation/evaluation-status.json').write_text(json.dumps(payload,indent=2,sort_keys=True)+'\n',encoding='utf-8')
+          pathlib.Path('site/data/evaluation-status.json').write_text(json.dumps(payload,indent=2,sort_keys=True)+'\n',encoding='utf-8')
+          print(json.dumps(payload,indent=2,sort_keys=True))
+          PY
+
+      - name: Stop FightingICE
+        if: always()
+        run: |
+          if [ -f runs/candidate-evaluation/eval/fightingice.pid ]; then
+            kill "$(cat runs/candidate-evaluation/eval/fightingice.pid)" 2>/dev/null || true
+          fi
+
+      - name: Publish latest and previous round videos
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          files=(
+            runs/candidate-evaluation/latest-round.mp4
+            runs/candidate-evaluation/evaluation-status.json
+          )
+          if [ -s runs/candidate-evaluation/previous-round.mp4 ]; then
+            files+=(runs/candidate-evaluation/previous-round.mp4)
+          fi
+          if [ -s site/data/evaluation-previous.json ]; then
+            cp site/data/evaluation-previous.json runs/candidate-evaluation/evaluation-previous.json
+            files+=(runs/candidate-evaluation/evaluation-previous.json)
+          fi
+          gh release upload "$EVALUATION_TAG" "${files[@]}" --clobber
+
+      - name: Publish evaluation status for the Vercel viewer
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add site/data/evaluation-status.json
+          if [ -f site/data/evaluation-previous.json ]; then
+            git add site/data/evaluation-previous.json
+          fi
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m 'Update latest candidate round evaluation [skip ci]'
+          for attempt in 1 2 3; do
+            if git pull --rebase origin main && git push origin HEAD:main; then
+              exit 0
+            fi
+            git rebase --abort >/dev/null 2>&1 || true
+            sleep $((attempt * 3))
+          done
+          exit 1
+
+      - name: Upload evaluation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-round-evaluation
+          path: |
+            runs/candidate-evaluation/evaluation-status.json
+            runs/candidate-evaluation/video-probe.json
+            runs/candidate-evaluation/eval/candidate-evaluation/status.json
+            runs/candidate-evaluation/eval/candidate-evaluation/p1.jsonl
+            site/data/evaluation-status.json
+            site/data/evaluation-previous.json
+          if-no-files-found: warn
+          retention-days: 30

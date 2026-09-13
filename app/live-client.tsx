@@ -2,173 +2,279 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-type LiveStatus = {
-  ready?: boolean;
+type Evaluation = {
   status?: string;
-  reason?: string | null;
-  blocked_until?: string | null;
-  runtime_archive_sha256?: string | null;
-  source_runtime_base?: string | null;
-  maintenance_action?: string | null;
-  telemetry_url?: string | null;
-  screen_url?: string | null;
-  activity_url?: string | null;
-  flybody_p1_url?: string | null;
-  flybody_p2_url?: string | null;
-  flybody_state_url?: string | null;
+  evaluated_at?: string;
+  candidate_only?: boolean;
+  served_by_vercel?: boolean;
+  auto_promotion?: boolean;
+  character?: string;
+  opponent?: string;
+  generation?: number;
+  matches?: number;
+  state_sha256?: string;
+  model?: string;
+  reward_id?: string;
+  source_training_run_url?: string | null;
+  policy_pixel_access?: boolean;
+  evaluation?: {
+    rounds?: number;
+    fixed_opponent?: boolean;
+    seed_p1?: number;
+    seed_p2?: number;
+    round_frame_limit?: number;
+    nominal_game_fps?: number;
+    configured_round_limit_seconds?: number;
+    decision_interval_frames?: number;
+  };
+  result?: {
+    winner?: string;
+    p1_hp?: number | null;
+    p2_hp?: number | null;
+  };
+  video?: {
+    asset_url?: string;
+    codec?: string;
+    width?: number;
+    height?: number;
+    fps?: number;
+    duration_seconds?: number;
+    bytes?: number;
+  };
+  interpretation_boundary?: string;
 };
 
-type BrainSample = { decision_index?: number; total_spikes?: number; unique_bodies?: number; output_group_spikes?: Record<string, number> };
-type Telemetry = { status?: string; round?: number; frame?: number; p1?: any; p2?: any; brain?: { p1?: BrainSample; p2?: BrainSample }; learning_enabled?: boolean; policy_pixel_access?: boolean };
-type ActivitySide = { decision_index?: number; round?: number; frame?: number; character?: string; neuromeres?: Array<{ name: string; value: number }>; top_bodies?: Array<{ body_id: number; spikes: number; superclass?: string; soma_neuromere?: string }>; motor_contributors?: Array<{ body_id: number; spikes: number; superclass?: string; soma_neuromere?: string }> };
-type Activity = { kind?: string; policy_access?: boolean; sides?: { p1?: ActivitySide | null; p2?: ActivitySide | null } };
-type FlySide = { decision?: { round?: number; frame?: number; decision_index?: number }; neural_command?: { adapter?: string; drive?: number; t1_drive?: number; t2_drive?: number; t3_drive?: number; source_body_ids?: number[] }; physics?: { sim_steps?: number; action_dimension?: number; thorax_world_position?: number[] } };
-type FlyState = { kind?: string; adapter?: string; mujoco_gl?: string; game_telemetry_position_used?: boolean; sides?: { p1?: FlySide; p2?: FlySide } };
+type TrainingStatus = {
+  generation?: number;
+  matches?: number;
+  updated_at?: string;
+  state_sha256?: string;
+  status?: string;
+  opponent?: string;
+  update_summary?: {
+    changed_edges?: number;
+    depressed_edges?: number;
+    min_multiplier?: number;
+    mean_multiplier?: number;
+    max_multiplier?: number;
+  };
+  signal_summary?: {
+    sum?: number;
+    positive?: number;
+    negative?: number;
+    nonzero?: number;
+  };
+};
 
-function sameDecision(telemetry: Telemetry | null, activity: Activity | null, fly: FlyState | null, side: "p1" | "p2") {
-  const brain = telemetry?.brain?.[side];
-  const a = activity?.sides?.[side];
-  const f = fly?.sides?.[side]?.decision;
-  return Boolean(
-    telemetry && brain && a && f &&
-    a.round === telemetry.round && a.frame === telemetry.frame && a.decision_index === brain.decision_index &&
-    f.round === telemetry.round && f.frame === telemetry.frame && f.decision_index === brain.decision_index
-  );
-}
+type EvaluationEnvelope = {
+  ready?: boolean;
+  status?: string;
+  latest?: Evaluation | null;
+  previous?: Evaluation | null;
+  training?: TrainingStatus | null;
+};
 
-function fmt(value: unknown, digits = 2) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n.toFixed(digits) : "—";
-}
-
-function cacheBust(url: string | null | undefined, tick: number) {
+function withVersion(url: string | undefined, token: string | number | undefined) {
   if (!url) return null;
   try {
     const parsed = new URL(url);
-    parsed.searchParams.set("t", String(tick));
+    if (token !== undefined) parsed.searchParams.set("v", String(token));
     return parsed.toString();
   } catch {
-    return `${url}${url.includes("?") ? "&" : "?"}t=${tick}`;
+    return url;
   }
 }
 
-async function fetchJson<T>(url: string | null | undefined): Promise<T | null> {
-  if (!url) return null;
-  try {
-    const response = await fetch(cacheBust(url, Date.now())!, { cache: "no-store" });
-    if (!response.ok) return null;
-    return (await response.json()) as T;
-  } catch {
-    return null;
-  }
+function fmt(value: unknown, digits = 1) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number.toFixed(digits) : "—";
+}
+
+function when(value: string | undefined) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(date);
+}
+
+function resultLabel(evaluation: Evaluation | null | undefined) {
+  if (!evaluation?.result) return "result pending";
+  const winner = evaluation.result.winner ?? "UNKNOWN";
+  if (winner === "DRAW") return "DRAW";
+  if (winner === "UNKNOWN") return "result unknown";
+  return `${winner} wins`;
+}
+
+function VideoCard({ evaluation, previous = false }: { evaluation: Evaluation; previous?: boolean }) {
+  const version = evaluation.state_sha256?.slice(0, 16) ?? evaluation.generation ?? "model";
+  const video = withVersion(evaluation.video?.asset_url, version);
+  const p1 = evaluation.character ?? "GARNET";
+  const p2 = evaluation.opponent ?? "ZEN";
+  const roundLimit = evaluation.evaluation?.configured_round_limit_seconds;
+
+  return (
+    <article className={`panel video-card ${previous ? "previous-card" : "latest-card"}`}>
+      <div className="section-head">
+        <div>
+          <p className="eyebrow">{previous ? "PREVIOUS MODEL" : "LATEST MODEL"}</p>
+          <h2>Generation {evaluation.generation ?? "—"}</h2>
+        </div>
+        <span className={`pill ${previous ? "neutral" : "ok"}`}>{previous ? "comparison" : "post-update evaluation"}</span>
+      </div>
+
+      <div className="media-frame game-frame video-frame">
+        {video ? (
+          <video
+            key={video}
+            src={video}
+            controls
+            autoPlay={!previous}
+            muted
+            playsInline
+            preload="metadata"
+          />
+        ) : (
+          <div className="placeholder">Round video is not available.</div>
+        )}
+      </div>
+
+      <div className="round-summary">
+        <strong>{p1} vs {p2}</strong>
+        <span>{resultLabel(evaluation)}</span>
+        <span>HP {evaluation.result?.p1_hp ?? "—"} / {evaluation.result?.p2_hp ?? "—"}</span>
+      </div>
+
+      <div className="metrics compact-metrics">
+        <div><span>Round limit</span><strong>{fmt(roundLimit)} s</strong></div>
+        <div><span>Frame limit</span><strong>{evaluation.evaluation?.round_frame_limit ?? "—"}</strong></div>
+        <div><span>Video</span><strong>{fmt(evaluation.video?.duration_seconds)} s</strong></div>
+        <div><span>State</span><strong className="hash">{evaluation.state_sha256?.slice(0, 10) ?? "—"}</strong></div>
+      </div>
+
+      <p className="mono card-foot">Evaluated {when(evaluation.evaluated_at)} · fixed seeds {evaluation.evaluation?.seed_p1 ?? "—"}/{evaluation.evaluation?.seed_p2 ?? "—"}</p>
+    </article>
+  );
 }
 
 export function LiveClient() {
-  const [live, setLive] = useState<LiveStatus | null>(null);
-  const [telemetry, setTelemetry] = useState<Telemetry | null>(null);
-  const [activity, setActivity] = useState<Activity | null>(null);
-  const [fly, setFly] = useState<FlyState | null>(null);
-  const [tick, setTick] = useState(Date.now());
+  const [data, setData] = useState<EvaluationEnvelope | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let stopped = false;
     const poll = async () => {
       try {
-        const response = await fetch(`/api/live?t=${Date.now()}`, { cache: "no-store" });
-        const body = (await response.json()) as LiveStatus;
-        if (!stopped) setLive(body);
-      } catch {
-        if (!stopped) setLive({ ready: false, status: "control-unreachable", reason: "The dedicated control API is unreachable." });
+        const response = await fetch(`/api/evaluation?t=${Date.now()}`, { cache: "no-store" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const body = (await response.json()) as EvaluationEnvelope;
+        if (!stopped) {
+          setData(body);
+          setError(null);
+        }
+      } catch (err) {
+        if (!stopped) setError(err instanceof Error ? err.message : "evaluation API unreachable");
       }
     };
     poll();
-    const id = window.setInterval(poll, 4000);
-    return () => { stopped = true; window.clearInterval(id); };
+    const id = window.setInterval(poll, 30_000);
+    return () => {
+      stopped = true;
+      window.clearInterval(id);
+    };
   }, []);
 
-  useEffect(() => {
-    if (!live?.telemetry_url) {
-      setTelemetry(null); setActivity(null); setFly(null); return;
-    }
-    let stopped = false;
-    const poll = async () => {
-      const [nextTelemetry, nextActivity, nextFly] = await Promise.all([
-        fetchJson<Telemetry>(live.telemetry_url),
-        fetchJson<Activity>(live.activity_url),
-        fetchJson<FlyState>(live.flybody_state_url),
-      ]);
-      if (!stopped) {
-        if (nextTelemetry) setTelemetry(nextTelemetry);
-        if (nextActivity) setActivity(nextActivity);
-        if (nextFly) setFly(nextFly);
-        setTick(Date.now());
-      }
-    };
-    poll();
-    const id = window.setInterval(poll, 800);
-    return () => { stopped = true; window.clearInterval(id); };
-  }, [live?.telemetry_url, live?.activity_url, live?.flybody_state_url]);
+  const latest = data?.latest ?? null;
+  const previous = data?.previous ?? null;
+  const training = data?.training ?? null;
+  const evaluationBehind = Boolean(
+    latest?.generation !== undefined &&
+    training?.generation !== undefined &&
+    training.generation > latest.generation,
+  );
 
-  const alignedP1 = sameDecision(telemetry, activity, fly, "p1");
-  const alignedP2 = sameDecision(telemetry, activity, fly, "p2");
-  const aligned = alignedP1 && alignedP2;
-  const screen = cacheBust(live?.screen_url, tick);
-  const flyP1 = cacheBust(live?.flybody_p1_url, tick);
-  const flyP2 = cacheBust(live?.flybody_p2_url, tick);
-  const capacity = live?.status === "capacity-blocked";
-  const decisionLabel = useMemo(() => {
-    if (!telemetry) return "waiting";
-    return `round ${telemetry.round ?? "—"} · frame ${telemetry.frame ?? "—"} · decisions ${telemetry.brain?.p1?.decision_index ?? "—"}/${telemetry.brain?.p2?.decision_index ?? "—"}`;
-  }, [telemetry]);
+  const statusText = useMemo(() => {
+    if (error) return "viewer data unavailable";
+    if (!latest) return "awaiting first post-update round";
+    if (evaluationBehind) return `generation ${training?.generation} evaluation running`;
+    return `generation ${latest.generation ?? "—"} ready`;
+  }, [error, latest, evaluationBehind, training?.generation]);
 
   return (
-    <main className="shell">
-      <header className="hero">
-        <p className="eyebrow">CONNECTOME FIGHTER · DEDICATED LIVE</p>
-        <h1>MaleCNS → action → FightingICE, with neural-driven FlyBody physics</h1>
-        <p className="lead">One shared public broadcast. The game screen, annotated neural activity, and FlyBody physics are spectator channels; policy pixels remain disabled and candidate training is never auto-promoted.</p>
+    <main className="shell evaluation-shell">
+      <header className="hero compact-hero">
+        <p className="eyebrow">CONNECTOME FIGHTER · MODEL ROUND EVALUATION</p>
+        <h1>最新モデルの1ラウンドを見る。</h1>
+        <p className="lead">
+          GARNET candidate が更新されるたび、更新後のcheckpointを固定条件 GARNET vs ZEN で1ラウンド再評価します。
+          完了した動画だけを公開し、古い動画を新モデルとして扱いません。
+        </p>
         <div className="status-row">
-          <span className={`pill ${live?.ready ? "ok" : capacity ? "bad" : "warm"}`}>{live?.status ?? "loading"}</span>
-          <span className={`pill ${aligned ? "ok" : "warm"}`}>{aligned ? "same-decision aligned" : "alignment pending"}</span>
-          <span className="mono">{decisionLabel}</span>
+          <span className={`pill ${latest && !evaluationBehind ? "ok" : "warm"}`}>{statusText}</span>
+          <span className="pill neutral">candidate only</span>
+          <span className="mono">policy_pixel_access=false</span>
         </div>
-        {capacity ? <div className="notice bad-notice"><strong>Vercel Sandbox compute is capacity-blocked.</strong><br />{live?.reason ?? "Shared compute cannot start."}{live?.blocked_until ? ` Provider reset: ${live.blocked_until}.` : ""} No fake body motion or synthetic fight frame is substituted.</div> : null}
-        {!capacity && !live?.ready ? <div className="notice"><strong>Shared LIVE is warming.</strong> {live?.maintenance_action ?? live?.reason ?? "Runtime base and shared Sandbox are being prepared."}</div> : null}
+        {evaluationBehind ? (
+          <div className="notice">
+            <strong>Model updated.</strong> Candidate generation {training?.generation} exists, but its fixed-condition round video is still being generated. The page keeps generation {latest?.generation} labeled as the previous completed evaluation until the new artifact is complete.
+          </div>
+        ) : null}
+        {!latest ? (
+          <div className="notice">
+            <strong>First post-update evaluation is not published yet.</strong> Training status is generation {training?.generation ?? "—"}; the viewer will switch automatically after the first one-round evaluation finishes.
+          </div>
+        ) : null}
+        {error ? <div className="notice bad-notice">Evaluation API error: {error}</div> : null}
       </header>
 
-      <section className="panel game-panel">
-        <div className="section-head"><div><p className="eyebrow">PRIMARY GAME VIEW</p><h2>Official FightingICE ScreenData</h2></div><span className="mono">policy_pixel_access=false</span></div>
-        <p className="boundary">No synthetic fight frame is substituted. This image is the official FightingICE ScreenData spectator stream and is not a policy input.</p>
-        <div className="media-frame game-frame">{screen && live?.ready ? <img src={screen} alt="Official FightingICE live frame" /> : <div className="placeholder">FightingICE frame unavailable while LIVE is warming.</div>}</div>
-        <div className="fighters"><strong>{telemetry?.p1?.character ?? "GARNET"}</strong><span>HP {telemetry?.p1?.hp ?? "—"} · {telemetry?.p1?.action ?? "—"}</span><strong>{telemetry?.p2?.character ?? "ZEN"}</strong><span>HP {telemetry?.p2?.hp ?? "—"} · {telemetry?.p2?.action ?? "—"}</span></div>
-      </section>
+      {latest ? <VideoCard evaluation={latest} /> : null}
 
-      <section className="grid2">
-        {(["p1", "p2"] as const).map((side) => {
-          const brain = telemetry?.brain?.[side];
-          const a = activity?.sides?.[side];
-          const f = fly?.sides?.[side];
-          const sideAligned = side === "p1" ? alignedP1 : alignedP2;
-          return <article className="panel" key={side}>
-            <div className="section-head"><div><p className="eyebrow">{side.toUpperCase()} NEURAL ACTIVITY</p><h2>{side.toUpperCase()} MaleCNS activity</h2></div><span className={`pill ${sideAligned ? "ok" : "warm"}`}>{sideAligned ? "aligned" : "pending"}</span></div>
-            <div className="metrics"><div><span>Total spikes</span><strong>{brain?.total_spikes ?? "—"}</strong></div><div><span>Active bodies</span><strong>{brain?.unique_bodies ?? "—"}</strong></div><div><span>Motor source bodies</span><strong>{f?.neural_command?.source_body_ids?.length ?? "—"}</strong></div><div><span>Fly drive</span><strong>{fmt(f?.neural_command?.drive)}</strong></div></div>
-            <h3>Top neuromere load</h3>
-            <div className="bars">{(a?.neuromeres ?? []).slice(0, 6).map((row) => <div className="bar-row" key={row.name}><span>{row.name}</span><meter min={0} max={Math.max(1, ...(a?.neuromeres ?? []).map((x) => Number(x.value) || 0))} value={row.value} /><strong>{fmt(row.value, 0)}</strong></div>)}</div>
-            <p className="boundary">Region loads aggregate only the bounded top-spiking real body-ID sample for this decision window; they are not an all-neuron activity map.</p>
-          </article>;
-        })}
-      </section>
-
-      <section className="panel">
-        <div className="section-head"><div><p className="eyebrow">PHYSICAL EMBODIMENT</p><h2>MaleCNS activity drives the actual FlyBody MuJoCo fly.</h2></div><span className="mono">adapter v2 · OSMesa</span></div>
-        <p className="boundary">Real annotated MaleCNS motor/descending body activity drives FlyBody through a project-defined actuator adapter. No SVG or FightingICE-position puppet is substituted here. FightingICE x/y/action do not position the FlyBody body.</p>
-        <div className="fly-grid">
-          <div><h3>P1 FlyBody</h3><div className="media-frame fly-frame">{flyP1 && live?.ready ? <img src={flyP1} alt="P1 FlyBody MuJoCo render" /> : <div className="placeholder">FlyBody paused</div>}</div><p className="mono">drive {fmt(fly?.sides?.p1?.neural_command?.drive)} · T1/T2/T3 {fmt(fly?.sides?.p1?.neural_command?.t1_drive)}/{fmt(fly?.sides?.p1?.neural_command?.t2_drive)}/{fmt(fly?.sides?.p1?.neural_command?.t3_drive)} · sim {fly?.sides?.p1?.physics?.sim_steps ?? "—"}</p></div>
-          <div><h3>P2 FlyBody</h3><div className="media-frame fly-frame">{flyP2 && live?.ready ? <img src={flyP2} alt="P2 FlyBody MuJoCo render" /> : <div className="placeholder">FlyBody paused</div>}</div><p className="mono">drive {fmt(fly?.sides?.p2?.neural_command?.drive)} · T1/T2/T3 {fmt(fly?.sides?.p2?.neural_command?.t1_drive)}/{fmt(fly?.sides?.p2?.neural_command?.t2_drive)}/{fmt(fly?.sides?.p2?.neural_command?.t3_drive)} · sim {fly?.sides?.p2?.physics?.sim_steps ?? "—"}</p></div>
+      <section className="panel model-panel">
+        <div className="section-head">
+          <div>
+            <p className="eyebrow">MODEL UPDATE</p>
+            <h2>What changed in the latest candidate checkpoint</h2>
+          </div>
+          <span className="mono">training generation {training?.generation ?? "—"}</span>
         </div>
+        <div className="metrics">
+          <div><span>Matches</span><strong>{training?.matches ?? latest?.matches ?? "—"}</strong></div>
+          <div><span>Changed edges</span><strong>{training?.update_summary?.changed_edges ?? "—"}</strong></div>
+          <div><span>Depressed edges</span><strong>{training?.update_summary?.depressed_edges ?? "—"}</strong></div>
+          <div><span>Reward signal</span><strong>{fmt(training?.signal_summary?.sum, 3)}</strong></div>
+        </div>
+        <p className="boundary">
+          This is the rolling research candidate. It is not automatically promoted into the approved Vercel inference state. The comparison round uses a fixed opponent and fixed seeds so behavioral differences across generations are less confounded by matchup or seed changes.
+        </p>
       </section>
 
-      <footer className="footer"><span>Runtime {live?.runtime_archive_sha256?.slice(0, 16) ?? "—"}</span><span>Base {live?.source_runtime_base ?? "—"}</span><a href="https://unjuno.github.io/connectome-fighter/">Research ledger</a></footer>
+      {previous ? (
+        <section className="comparison-section">
+          <div className="section-head comparison-head">
+            <div>
+              <p className="eyebrow">BEFORE / AFTER</p>
+              <h2>Compare with the previous completed model</h2>
+            </div>
+            <span className="mono">generation {previous.generation ?? "—"} → {latest?.generation ?? "—"}</span>
+          </div>
+          <div className="comparison-grid">
+            <VideoCard evaluation={previous} previous />
+            {latest ? <VideoCard evaluation={latest} /> : null}
+          </div>
+        </section>
+      ) : null}
+
+      <footer className="footer">
+        <span>Evaluation: 1 round · fixed GARNET vs ZEN · frame limit 600</span>
+        <span>Latest training update: {when(training?.updated_at)}</span>
+        <a href="https://unjuno.github.io/connectome-fighter/">Research ledger</a>
+      </footer>
     </main>
   );
 }
