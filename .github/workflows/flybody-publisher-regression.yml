@@ -68,11 +68,11 @@ jobs:
           PY
       - name: Software regression including startup/session boundary and publisher main loop
         run: python -m pytest -q tests/test_flybody_neural_adapter.py tests/test_flybody_publisher_contract.py tests/test_flybody_publisher_start_boundary.py --junitxml=runs/flybody-publisher-proof/software.xml
-      - name: Actual MuJoCo publisher integration (missing dependency is a failure)
+      - name: Actual MuJoCo integration and subprocess lifecycle (missing dependency is a failure)
         env:
           REQUIRE_FLYBODY_PHYSICS: '1'
           FLYBODY_EVIDENCE_DIR: runs/flybody-publisher-proof
-        run: python -m pytest -q tests/test_flybody_publisher_physics.py --junitxml=runs/flybody-publisher-proof/physics.xml
+        run: python -m pytest -q tests/test_flybody_publisher_physics.py tests/test_flybody_publisher_process.py --junitxml=runs/flybody-publisher-proof/physics.xml
       - uses: actions/upload-artifact@v4
         if: always()
         with:
