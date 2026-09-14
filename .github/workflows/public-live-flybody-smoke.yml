@@ -1,6 +1,17 @@
 name: public-live-flybody-smoke
 
 on:
+  pull_request:
+    paths:
+      - 'scripts/verify_live_flybody.py'
+      - 'tests/test_flybody_serving_proof.py'
+      - '.github/workflows/public-live-flybody-smoke.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/verify_live_flybody.py'
+      - 'tests/test_flybody_serving_proof.py'
+      - '.github/workflows/public-live-flybody-smoke.yml'
   workflow_dispatch:
     inputs:
       base_url:
@@ -14,67 +25,46 @@ permissions:
   contents: read
 
 concurrency:
-  group: public-live-flybody-smoke
+  group: public-live-flybody-smoke-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  flybody:
-    if: ${{ (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') && ((github.event_name == 'workflow_dispatch' && inputs.base_url != '') || vars.CONNECTOME_PUBLIC_BASE_URL != '') }}
+  contract:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-    env:
-      BASE: ${{ inputs.base_url || vars.CONNECTOME_PUBLIC_BASE_URL }}
-      FLYBODY_COMMIT: d015e9bfe441bd90ae431bac24c55cb74bdbce26
-      FLYBODY_ADAPTER_ID: malecns-annotated-motor-to-flybody-tripod-v2
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Resolve neural FlyBody endpoints
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate proof reader with engineering fixtures (no network)
         run: |
-          set -euo pipefail
-          case "$BASE" in *liveunjuno.vercel.app*) exit 1;; esac
-          ready=0; last=''
-          for i in $(seq 1 240); do
-            capacity="$(curl -fsS "$BASE/api/runtime-base?t=$(date +%s%N)" || true)"
-            if [[ -n "$capacity" ]] && echo "$capacity" | jq -e '.status=="capacity-blocked" or ((.reason//"")|test("payment_required|usage limit exceeded|upgrade to a Pro plan";"i"))' >/dev/null; then echo "$capacity" | jq . >&2; exit 1; fi
-            body="$(curl -fsS "$BASE/api/live?t=$(date +%s%N)" || true)"; [[ -n "$body" ]] && last="$body"
-            if [[ -n "$body" ]] && echo "$body" | jq -e '.ready==true and .status=="running" and .flybody_source=="TuragaLab/flybody MuJoCo physics" and .flybody_neural_adapter=="malecns-annotated-motor-to-flybody-tripod-v2" and .flybody_policy_access==false and .flybody_game_telemetry_position_used==false and (.telemetry_url|type)=="string" and (.flybody_p1_url|type)=="string" and (.flybody_p2_url|type)=="string" and (.flybody_state_url|type)=="string"' >/dev/null; then
-              echo "TELEMETRY_URL=$(echo "$body"|jq -r '.telemetry_url')" >> "$GITHUB_ENV"; echo "FLYBODY_P1_URL=$(echo "$body"|jq -r '.flybody_p1_url')" >> "$GITHUB_ENV"; echo "FLYBODY_P2_URL=$(echo "$body"|jq -r '.flybody_p2_url')" >> "$GITHUB_ENV"; echo "FLYBODY_STATE_URL=$(echo "$body"|jq -r '.flybody_state_url')" >> "$GITHUB_ENV"; ready=1; break
-            fi
-            sleep 4
-          done
-          if [[ "$ready" -ne 1 ]]; then [[ -n "$last" ]] && echo "$last" | jq . >&2 || true; exit 1; fi
-      - name: Require same-decision neural FlyBody physics state
-        run: |
-          set -euo pipefail
-          ok=0; last_fly=''; last_live=''
-          for i in $(seq 1 180); do
-            live="$(curl -fsS "$TELEMETRY_URL?t=$(date +%s%N)" || true)"; fly="$(curl -fsS "$FLYBODY_STATE_URL?t=$(date +%s%N)" || true)"; [[ -n "$live" ]] && last_live="$live"; [[ -n "$fly" ]] && last_fly="$fly"
-            if [[ -n "$live" && -n "$fly" ]] && echo "$fly" | jq -e --arg commit "$FLYBODY_COMMIT" --arg adapter "$FLYBODY_ADAPTER_ID" '.schema_version==1 and .kind=="malecns-flybody-live-physics" and .policy_access==false and .game_telemetry_position_used==false and .mujoco_gl=="osmesa" and .upstream.repository=="TuragaLab/flybody" and .upstream.commit==$commit and .adapter==$adapter and .sides.p1.neural_command.adapter==$adapter and .sides.p2.neural_command.adapter==$adapter and .sides.p1.physics.sim_steps>0 and .sides.p2.physics.sim_steps>0 and .sides.p1.physics.action_dimension==59 and .sides.p2.physics.action_dimension==59' >/dev/null; then
-              if jq -n -e --argjson live "$live" --argjson fly "$fly" '($live.status=="running") and ($fly.sides.p1.decision.round==$live.round) and ($fly.sides.p1.decision.frame==$live.frame) and ($fly.sides.p1.decision.decision_index==$live.brain.p1.decision_index) and ($fly.sides.p2.decision.round==$live.round) and ($fly.sides.p2.decision.frame==$live.frame) and ($fly.sides.p2.decision.decision_index==$live.brain.p2.decision_index)' >/dev/null; then ok=1; break; fi
-            fi
-            sleep 1
-          done
-          if [[ "$ok" -ne 1 ]]; then [[ -n "$last_live" ]] && echo "$last_live"|jq . >&2 || true; [[ -n "$last_fly" ]] && echo "$last_fly"|jq . >&2 || true; exit 1; fi
-      - name: Require nonblank physical FlyBody PNGs
-        run: |
-          set -euo pipefail
-          curl -fsS "$FLYBODY_P1_URL?t=$(date +%s%N)" -o /tmp/flybody-p1.png
-          curl -fsS "$FLYBODY_P2_URL?t=$(date +%s%N)" -o /tmp/flybody-p2.png
-          python - <<'PY'
-          import math,pathlib,struct,zlib
-          for name in ['p1','p2']:
-              raw=pathlib.Path(f'/tmp/flybody-{name}.png').read_bytes(); assert raw[:8]==b'\x89PNG\r\n\x1a\n' and raw[12:16]==b'IHDR'
-              w,h=struct.unpack('>II',raw[16:24]); assert (w,h)==(320,240)
-              off=8; chunks=[]
-              while off<len(raw):
-                  n=struct.unpack('>I',raw[off:off+4])[0]; kind=raw[off+4:off+8]; payload=raw[off+8:off+8+n]
-                  if kind==b'IDAT': chunks.append(payload)
-                  off+=12+n
-                  if kind==b'IEND': break
-              decoded=zlib.decompress(b''.join(chunks)); stride=1+w*3; unique=set(); vals=[]
-              for y in range(h):
-                  row=decoded[y*stride:(y+1)*stride]; assert row[0]==0
-                  for i in range(1,len(row),3): unique.add((row[i],row[i+1],row[i+2])); vals.extend((row[i],row[i+1],row[i+2]))
-              mean=sum(vals)/len(vals); std=math.sqrt(sum((v-mean)**2 for v in vals)/len(vals)); assert len(unique)>=8 and std>=2.0
-              print({'side':name,'width':w,'height':h,'unique_rgb':len(unique),'std':std})
-          PY
+          mkdir -p runs/flybody-serving-contract
+          set -o pipefail
+          python -m unittest discover -s tests -p test_flybody_serving_proof.py -v 2>&1 | tee runs/flybody-serving-contract/tests.txt
+          python -m py_compile scripts/verify_live_flybody.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: flybody-serving-contract-evidence
+          path: runs/flybody-serving-contract
+
+  flybody:
+    needs: contract
+    if: ${{ github.event_name != 'pull_request' && (github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')) && ((github.event_name == 'workflow_dispatch' && inputs.base_url != '') || vars.CONNECTOME_PUBLIC_BASE_URL != '') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      BASE: ${{ inputs.base_url || vars.CONNECTOME_PUBLIC_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Require two progressing hash-bound neural and physical snapshots
+        run: python scripts/verify_live_flybody.py --base-url "$BASE" --max-seconds 180 --output runs/flybody-serving-proof
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: flybody-public-serving-evidence
+          path: runs/flybody-serving-proof
