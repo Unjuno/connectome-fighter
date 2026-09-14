@@ -31,6 +31,11 @@ jobs:
       RUNTIME_ROOT: /home/vercel-sandbox/connectome-runtime/arena-runtime
       CONNECTOME_CI_RUNTIME_ORIGIN: http://127.0.0.1:18000
       NEXT_TELEMETRY_DISABLED: '1'
+      # Bound software rendering and numerical library threads on a shared
+      # four-vCPU runner. Record these conditions; no real-time speed claim.
+      LP_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
     steps:
       - uses: actions/checkout@v4
         with:
