@@ -1,0 +1,60 @@
+name: english-project-contract
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'site/**'
+      - 'docs/**'
+      - 'README*'
+      - 'scripts/check_project_english.py'
+      - '.github/workflows/english-project-contract.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: english-project-contract-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  language:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Inventory project language and preserve source identity
+        run: |
+          mkdir -p runs/english-contract
+          git rev-parse HEAD > runs/english-contract/checkout.txt
+          git archive --format=tar HEAD > runs/english-contract/source.tar
+          python - <<'PY'
+          import json, pathlib, re, subprocess
+          pattern = re.compile(r'[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]')
+          records = []
+          for name in subprocess.check_output(['git','ls-files','-z']).decode().split('\0'):
+              if not name: continue
+              path = pathlib.Path(name)
+              if path.suffix not in {'.md','.tsx','.ts','.js','.mjs','.html','.json','.py','.yml','.yaml'}: continue
+              try: text = path.read_text(encoding='utf-8')
+              except (UnicodeError, OSError): continue
+              rows = [{'line': i, 'text': line} for i, line in enumerate(text.splitlines(), 1) if pattern.search(line)]
+              if rows: records.append({'path': name, 'rows': rows})
+          pathlib.Path('runs/english-contract/language-inventory.json').write_text(json.dumps(records, ensure_ascii=False, indent=2)+'\n')
+          print(json.dumps({'files_with_cjk': len(records), 'lines_with_cjk': sum(len(r['rows']) for r in records)}))
+          PY
+      - name: Enforce English project surfaces when checker is available
+        run: |
+          if test -f scripts/check_project_english.py; then
+            python scripts/check_project_english.py
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: english-project-contract-evidence
+          path: runs/english-contract
+          retention-days: 3
