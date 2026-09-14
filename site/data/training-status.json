@@ -1,36 +1,36 @@
 {
   "auto_promotion": false,
   "character": "GARNET",
-  "generation": 8,
+  "generation": 9,
   "interpretation_boundary": "R2d-v0 and its mapping to MBON valence channels are project-defined game-learning interfaces, not identified endogenous FightingICE reinforcement pathways in Drosophila.",
   "kind": "canonical-continuous-training-candidate",
   "match_status": "COMPLETED_WITH_VALIDATED_CANONICAL_TRACES",
-  "matches": 8,
+  "matches": 9,
   "model": "KC-MBON-valence-depression-v0",
-  "opponent": "NEZ",
+  "opponent": "ZEN",
   "reward_id": "R2d-v0",
   "schema_version": 1,
   "served_by_vercel": false,
   "signal_summary": {
     "decision_windows": 10,
     "negative": 1,
-    "nonzero": 1,
-    "positive": 0,
-    "sum": -0.01
+    "nonzero": 3,
+    "positive": 2,
+    "sum": 0.005625
   },
   "source_kind": "rolling-candidate",
-  "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34782963317",
-  "state_sha256": "7c6fe736184047bb463e1adcc6b661880e1d20d2876f4a225aad7581e1f4df49",
+  "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34809870519",
+  "state_sha256": "15c786dc1e5833fdb4a3c1c790ec8813a44196907ae6f2a31c1f011c12cd5777",
   "status": "candidate-only-not-arena-approved",
   "update_summary": {
-    "changed_approach_edges": 5967,
-    "changed_avoidance_edges": 0,
-    "changed_edges": 5967,
-    "depressed_edges": 5967,
+    "changed_approach_edges": 5737,
+    "changed_avoidance_edges": 3082,
+    "changed_edges": 8819,
+    "depressed_edges": 8819,
     "max_multiplier": 1.0,
-    "mean_multiplier": 0.9999367673691173,
-    "min_multiplier": 0.9992003440856934,
+    "mean_multiplier": 0.9999275211719046,
+    "min_multiplier": 0.9991004467010498,
     "potentiated_edges": 0
   },
-  "updated_at": "2026-09-13T21:11:09.171228Z"
+  "updated_at": "2026-09-14T05:32:08.456738Z"
 }
