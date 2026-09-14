@@ -39,8 +39,7 @@ def write_json(path, value):
 
 
 def get(path):
-    # Fixed loopback origin. Never reuse the production verifier's HTTPS policy
-    # for local tests, nor relax its restrictions for public probes.
+    # Fixed loopback origin; production HTTPS restrictions remain unchanged.
     with urlopen(ORIGIN + path + '?ci=' + str(time.time_ns()), timeout=5) as response:
         raw = response.read(4 * 1024 * 1024 + 1)
         if len(raw) > 4 * 1024 * 1024:
@@ -121,10 +120,21 @@ def main():
         'shiu/model.py': 'shiu_model_sha256',
         'fightingice/FightingICE.jar': 'fightingice_jar_sha256',
     }
+    asset_audit = {}
     for path, key in assets.items():
-        assert sha(runtime / path) == manifest[key], path
-    # Test the PR checkout, not stale packaged source. Biological assets,
-    # interpreters and dependencies remain the SHA-verified runtime's bytes.
+        file_sha = sha(runtime / path)
+        actual = file_sha
+        if path == 'data/interface.json':
+            # The producer hashes canonical JSON before adding its own hash.
+            payload = json.loads((runtime / path).read_text())
+            embedded = payload.pop('interface_sha256')
+            actual = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+            assert embedded == actual, 'interface self-hash mismatch'
+        asset_audit[path] = {'file_sha256': file_sha, 'manifest_identity_sha256': actual,
+                             'expected': manifest[key], 'match': actual == manifest[key]}
+    write_json(out / 'asset-audit.json', asset_audit)
+    assert all(row['match'] for row in asset_audit.values()), asset_audit
+    # Test PR source, not stale packaged source. Assets/dependencies stay fixed.
     for directory in ('src', 'scripts', 'configs'):
         shutil.copytree(ROOT / directory, runtime / 'repo' / directory, dirs_exist_ok=True)
     for source, target in [('start-session.sh', 'start-session'), ('bootstrap-proxy.mjs', 'bootstrap-proxy.mjs')]:
@@ -220,8 +230,6 @@ def main():
             handle.close()
         result['finished_at'] = datetime.now(timezone.utc).isoformat()
         write_json(out / 'result.json', result)
-        # State files are research inference inputs; record hashes, do not
-        # redistribute checkpoint or biological parquet bytes in CI artifacts.
         inputs = work / 'snapshot'
         if inputs.exists():
             write_json(out / 'inference-input-hashes.json', {p.name: sha(p) for p in inputs.iterdir() if p.is_file()})

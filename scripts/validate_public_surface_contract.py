@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Validate the dedicated Connectome public/research boundary.
+"""Validate public/research boundaries, not dynamic E2E success.
 
-Historical runtime-proof JSON remains evidence for the neural/FightingICE runtime that
-was exercised before the dedicated Vercel-project split. It is intentionally not used
-to claim that the newly separated production deployment has passed E2E.
+Historical runtime proof is never used to claim dedicated Vercel deployment
+acceptance. CI functional E2E and public deployment E2E are separate gates.
 """
 from __future__ import annotations
 
@@ -15,12 +14,9 @@ FLYBODY_COMMIT = "d015e9bfe441bd90ae431bac24c55cb74bdbce26"
 FLYBODY_ADAPTER = "malecns-annotated-motor-to-flybody-tripod-v2"
 BROADCAST_TARGET = "connectome-fighter-live-broadcast"
 CAUSAL_PROOF_FLAGS = {
-    "sensory_drive_body_ids_and_rates",
-    "whole_network_activity",
-    "motor_output_contributors",
-    "seven_action_group_counts",
-    "selected_action_matches_max_group",
-    "real_fightingice_xy_hp_action",
+    "sensory_drive_body_ids_and_rates", "whole_network_activity",
+    "motor_output_contributors", "seven_action_group_counts",
+    "selected_action_matches_max_group", "real_fightingice_xy_hp_action",
     "all_fields_same_decision_window",
 }
 
@@ -44,13 +40,11 @@ def forbid(path: str, *needles: str) -> None:
 
 
 def validate_historical_runtime_proof() -> dict:
-    path = ROOT / "site/data/runtime-proof.json"
-    proof = json.loads(path.read_text(encoding="utf-8"))
+    proof = json.loads(read("site/data/runtime-proof.json"))
     if proof.get("kind") != "connectome-fighter-production-runtime-proof":
         raise SystemExit("site/data/runtime-proof.json: unexpected kind")
     if int(proof.get("schema_version", 0)) < 2:
         raise SystemExit("site/data/runtime-proof.json: historical causal proof requires schema >= 2")
-
     sha = str(proof.get("runtime_archive_sha256") or "")
     if len(sha) != 64 or any(ch not in "0123456789abcdef" for ch in sha):
         raise SystemExit("site/data/runtime-proof.json: invalid historical runtime SHA-256")
@@ -72,12 +66,10 @@ def validate_historical_runtime_proof() -> dict:
         raise SystemExit("site/data/runtime-proof.json: historical telemetry schema must be >= 3")
     if int(proof.get("rounds_per_shared_process", 0)) != 6:
         raise SystemExit("site/data/runtime-proof.json: historical shared process must prove six rounds")
-
     causal = proof.get("causal_live_contract") or {}
     missing_flags = sorted(flag for flag in CAUSAL_PROOF_FLAGS if causal.get(flag) is not True)
     if missing_flags:
         raise SystemExit(f"site/data/runtime-proof.json: incomplete historical causal proof: {missing_flags}")
-
     telemetry = proof.get("proof_telemetry") or {}
     if int(telemetry.get("frame", 0)) <= 0:
         raise SystemExit("site/data/runtime-proof.json: historical proof frame must be > 0")
@@ -98,18 +90,11 @@ def validate_no_legacy_public_target() -> None:
     legacy_host = "liveunjuno.vercel" + ".app"
     legacy_project = "prj_T1i5PPgfjHXAKGLf9Gmoboae" + "61Tk"
     paths = [
-        "README.md",
-        "README.ja.md",
-        "ROADMAP.md",
-        "docs/STATUS.md",
-        "docs/PUBLIC_SURFACE_SPLIT.md",
-        "docs/PUBLIC_SURFACE_SPLIT.ja.md",
-        "site/index.html",
-        "app/api/live/route.ts",
-        "app/api/runtime-base/route.ts",
-        "lib/vercel-sandbox.ts",
-        "lib/runtime-base.ts",
-        "lib/connectome-broadcast.ts",
+        "README.md", "README.ja.md", "ROADMAP.md", "docs/STATUS.md",
+        "docs/PUBLIC_SURFACE_SPLIT.md", "docs/PUBLIC_SURFACE_SPLIT.ja.md",
+        "site/index.html", "app/api/live/route.ts", "app/api/runtime-base/route.ts",
+        "app/live/page.tsx", "app/live/arena-client.tsx",
+        "lib/vercel-sandbox.ts", "lib/runtime-base.ts", "lib/connectome-broadcast.ts",
     ]
     for path in paths:
         forbid(path, legacy_host, legacy_project)
@@ -118,165 +103,71 @@ def validate_no_legacy_public_target() -> None:
 def main() -> int:
     proof = validate_historical_runtime_proof()
     validate_no_legacy_public_target()
-
-    require(
-        "README.md",
-        "Dedicated public architecture",
-        BROADCAST_TARGET,
-        FLYBODY_COMMIT,
-        FLYBODY_ADAPTER,
-        "FightingICE x/y/action values do not position the FlyBody body",
-        "dedicated Vercel shared-LIVE E2E: **NOT YET VERIFIED**",
-        "continuous production reward-driven learning: **OFF**",
-    )
-    require(
-        "README.ja.md",
-        BROADCAST_TARGET,
-        FLYBODY_COMMIT,
-        FLYBODY_ADAPTER,
-        "FightingICE の x/y/action を FlyBody の位置やposeにコピーしません",
-        "dedicated Vercel shared-LIVE E2E: **NOT YET VERIFIED**",
-        "continuous production reward-driven learning: **OFF**",
-    )
-    require(
-        "ROADMAP.md",
-        "P5 — Dedicated shared LIVE ← CURRENT",
-        BROADCAST_TARGET,
-        "Dedicated Vercel production project",
-        "Same-decision production FlyBody E2E",
-        "No other Vercel project may be used as a fallback target",
-    )
-    require(
-        "docs/STATUS.md",
-        "Dedicated public deployment — IMPLEMENTED, E2E PENDING",
-        BROADCAST_TARGET,
-        "FlyBody physical embodiment — CI PASS",
-        FLYBODY_COMMIT,
-        FLYBODY_ADAPTER,
-        "action dimension: **59**",
-        "production FlyBody E2E remains **NOT YET VERIFIED**",
-    )
-    require(
-        "docs/PUBLIC_SURFACE_SPLIT.md",
-        "Dedicated Vercel LIVE",
-        "CONNECTOME_PUBLIC_BASE_URL",
-        "/api/runtime-base",
-        "/api/live",
-        BROADCAST_TARGET,
-        FLYBODY_COMMIT,
-        FLYBODY_ADAPTER,
-        "FightingICE x/y/action does not position or pose the physical FlyBody",
-        "production E2E status is **NOT YET VERIFIED**",
-    )
-    require(
-        "docs/PUBLIC_SURFACE_SPLIT.ja.md",
-        "Dedicated Vercel LIVE",
-        "CONNECTOME_PUBLIC_BASE_URL",
-        BROADCAST_TARGET,
-        FLYBODY_COMMIT,
-        FLYBODY_ADAPTER,
-        "FightingICE x/y/actionをFlyBodyのposition/poseへコピーしません",
-    )
-    require(
-        "site/index.html",
-        "Dedicated deployment workflow",
-        "deployment E2E pending",
-        "FightingICE x/y/action does not position the FlyBody body",
-        "./data/training-history.json",
-        "Append-only public candidate generation ledger",
-    )
-    require(
-        "app/live-client.tsx",
-        "Official FightingICE ScreenData",
-        "MaleCNS activity drives the actual FlyBody MuJoCo fly.",
-        "No SVG or FightingICE-position puppet is substituted here.",
-        "FightingICE x/y/action do not position the FlyBody body.",
-        "same-decision aligned",
-    )
-    require(
-        "app/api/live/route.ts",
-        FLYBODY_COMMIT,
-        FLYBODY_ADAPTER,
-        'flybody_policy_access: false',
-        'flybody_game_telemetry_position_used: false',
-        'learning_enabled: false',
-        'policy_pixel_access: false',
-    )
-    require(
-        "lib/vercel-sandbox.ts",
-        "process.env.VERCEL_PROJECT_ID",
-        "process.env.VERCEL_OIDC_TOKEN",
-        "payment_required",
-    )
-    require(
-        "lib/connectome-broadcast.ts",
-        BROADCAST_TARGET,
-        'CONNECTOME_MUJOCO_GL: "osmesa"',
-        'CONNECTOME_LEARNING_ENABLED: "false"',
-        'CONNECTOME_POLICY_PIXEL_ACCESS: "false"',
-    )
-
-    require(
-        ".github/workflows/vercel-live-arena-smoke.yml",
-        "CONNECTOME_PUBLIC_BASE_URL",
-        "/api/live",
-        BROADCAST_TARGET,
-        "Require synchronized sensory-to-motor FightingICE telemetry",
-        "rounds_per_session==6",
-        "sensory_drive",
-        "output_contributions",
-    )
-    forbid(
-        ".github/workflows/vercel-live-arena-smoke.yml",
-        "/api/connectome/session",
-        "Launch real GARNET vs ZEN session from runtime snapshot",
-    )
-    require(
-        ".github/workflows/precompile-arena-brian2-cython-cache.yml",
-        "Publish compilerless canonical runtime assets",
-        "Repack deterministic runtime archive",
-        "Deployment staging is intentionally owned by the dedicated Connectome Vercel project",
-    )
-    forbid(
-        ".github/workflows/precompile-arena-brian2-cython-cache.yml",
-        "/api/connectome/runtime-base",
-        "/api/connectome/live",
-        "PUBLIC_BASE",
-    )
-    require(
-        ".github/workflows/publish-flybody-runtime-addon.yml",
-        "precompile-arena-brian2-cython-cache",
-        FLYBODY_COMMIT,
-        FLYBODY_ADAPTER,
-        "zero_phase_invariant",
-        "action_dim':59",
-        "Deterministically repack and replace rolling runtime assets",
-    )
-    require(
-        ".github/workflows/deploy-dedicated-vercel.yml",
-        "connectome-fighter-live",
-        "CONNECTOME_VERCEL_TOKEN",
-        "vercel project add",
-        "vercel deploy --prod",
-    )
-
-    require(
-        ".github/workflows/render-fightingice-video.yml",
-        "Historical ScreenData/video regression workflow",
-        "workflow_dispatch:",
-        "never substituted for LIVE",
-    )
-    forbid(
-        ".github/workflows/render-fightingice-video.yml",
-        "cron: '17 * * * *'",
-        "schedule:",
-    )
-
-    print(
-        "dedicated public-surface contract: PASS "
-        f"historical_runtime={str(proof['runtime_archive_sha256'])[:16]} "
-        f"broadcast={BROADCAST_TARGET} flybody_adapter={FLYBODY_ADAPTER} production_e2e=pending"
-    )
+    require("README.md", "Dedicated public architecture", BROADCAST_TARGET, FLYBODY_COMMIT,
+            FLYBODY_ADAPTER, "FightingICE x/y/action values do not position the FlyBody body",
+            "dedicated Vercel shared-LIVE E2E: **NOT YET VERIFIED**",
+            "continuous production reward-driven learning: **OFF**")
+    require("README.ja.md", BROADCAST_TARGET, FLYBODY_COMMIT, FLYBODY_ADAPTER,
+            "FightingICE の x/y/action を FlyBody の位置やposeにコピーしません",
+            "dedicated Vercel shared-LIVE E2E: **NOT YET VERIFIED**",
+            "continuous production reward-driven learning: **OFF**")
+    require("ROADMAP.md", "P5A — Functional full-stack E2E in CI",
+            "P5B — Dedicated shared-LIVE deployment acceptance", "ci-stack-e2e",
+            "never PASS or fallback to another application", "Production reward-driven learning",
+            "Passing CI does not authorize production learning or promotion")
+    require("docs/STATUS.md", "Dedicated public deployment — IMPLEMENTED, E2E PENDING",
+            BROADCAST_TARGET, "FlyBody physical embodiment — CI PASS", FLYBODY_COMMIT,
+            FLYBODY_ADAPTER, "action dimension: **59**", "production FlyBody E2E remains **NOT YET VERIFIED**")
+    require("docs/PUBLIC_SURFACE_SPLIT.md", "Dedicated Vercel LIVE", "CONNECTOME_PUBLIC_BASE_URL",
+            "/api/runtime-base", "/api/live", BROADCAST_TARGET, FLYBODY_COMMIT, FLYBODY_ADAPTER,
+            "FightingICE x/y/action does not position or pose the physical FlyBody",
+            "production E2E status is **NOT YET VERIFIED**")
+    require("docs/PUBLIC_SURFACE_SPLIT.ja.md", "Dedicated Vercel LIVE", "CONNECTOME_PUBLIC_BASE_URL",
+            BROADCAST_TARGET, FLYBODY_COMMIT, FLYBODY_ADAPTER,
+            "FightingICE x/y/actionをFlyBodyのposition/poseへコピーしません")
+    require("site/index.html", "Dedicated deployment workflow", "deployment E2E pending",
+            "FightingICE x/y/action does not position the FlyBody body", "./data/training-history.json",
+            "Append-only public candidate generation ledger")
+    # The home page is deliberately an evaluation-video surface. The live view
+    # is separately tested at /live, not by requiring obsolete home-page text.
+    require("app/live-client.tsx", "MODEL ROUND EVALUATION", "candidate only", "policy_pixel_access=false")
+    require("app/live/arena-client.tsx", "Official FightingICE ScreenData", FLYBODY_COMMIT,
+            FLYBODY_ADAPTER, "SHA-256", "Awaiting aligned fresh input", "verified-held-input",
+            "No synthetic fight, recorded LIVE, SVG fly or cached pose is substituted",
+            "not an identified biological muscle innervation map")
+    require("app/live/page.tsx", "process.env.CI", "process.env.VERCEL",
+            "http://127.0.0.1:18000", "CI runtime origin is forbidden outside standalone CI")
+    require("app/api/live/route.ts", FLYBODY_COMMIT, FLYBODY_ADAPTER,
+            'flybody_policy_access: false', 'flybody_game_telemetry_position_used: false',
+            'learning_enabled: false', 'policy_pixel_access: false')
+    require("lib/vercel-sandbox.ts", "process.env.VERCEL_PROJECT_ID", "process.env.VERCEL_OIDC_TOKEN", "payment_required")
+    require("lib/connectome-broadcast.ts", BROADCAST_TARGET, 'CONNECTOME_MUJOCO_GL: "osmesa"',
+            'CONNECTOME_LEARNING_ENABLED: "false"', 'CONNECTOME_POLICY_PIXEL_ACCESS: "false"')
+    require(".github/workflows/vercel-live-arena-smoke.yml", "CONNECTOME_PUBLIC_BASE_URL", "/api/live",
+            BROADCAST_TARGET, "Require synchronized sensory-to-motor FightingICE telemetry",
+            "rounds_per_session==6", "sensory_drive", "output_contributions")
+    forbid(".github/workflows/vercel-live-arena-smoke.yml", "/api/connectome/session",
+           "Launch real GARNET vs ZEN session from runtime snapshot")
+    require(".github/workflows/precompile-arena-brian2-cython-cache.yml",
+            "Publish compilerless canonical runtime assets", "Repack deterministic runtime archive",
+            "Deployment staging is intentionally owned by the dedicated Connectome Vercel project")
+    forbid(".github/workflows/precompile-arena-brian2-cython-cache.yml",
+           "/api/connectome/runtime-base", "/api/connectome/live", "PUBLIC_BASE")
+    require(".github/workflows/publish-flybody-runtime-addon.yml", "precompile-arena-brian2-cython-cache",
+            FLYBODY_COMMIT, FLYBODY_ADAPTER, "zero_phase_invariant", "action_dim':59",
+            "Deterministically repack and replace rolling runtime assets")
+    require(".github/workflows/deploy-dedicated-vercel.yml", "connectome-fighter-live", "CONNECTOME_VERCEL_TOKEN",
+            "vercel project add", "vercel deploy --prod")
+    require(".github/workflows/render-fightingice-video.yml", "Historical ScreenData/video regression workflow",
+            "workflow_dispatch:", "never substituted for LIVE")
+    forbid(".github/workflows/render-fightingice-video.yml", "cron: '17 * * * *'", "schedule:")
+    require(".github/workflows/ci-stack-e2e.yml", "contents: read", "scripts/ci_stack_e2e.py",
+            "sha256sum -c", "ci-real-stack-e2e-evidence")
+    forbid(".github/workflows/ci-stack-e2e.yml", "contents: write", "vercel deploy", "gh release upload")
+    print("dedicated public-surface contract: PASS "
+          f"historical_runtime={str(proof['runtime_archive_sha256'])[:16]} "
+          f"broadcast={BROADCAST_TARGET} flybody_adapter={FLYBODY_ADAPTER} "
+          "functional_e2e=separate-ci-result production_e2e=pending")
     return 0
 
 
