@@ -5,14 +5,17 @@ import yaml
 ROOT=Path(__file__).resolve().parents[1]
 
 
-def test_ten_minute_single_writer_with_read_only_pr_jobs():
+def test_legacy_r2e_requires_explicit_manual_opt_in():
     raw=(ROOT/'.github/workflows/continuous-training.yml').read_text();d=yaml.safe_load(raw)
     trigger=d.get('on',d.get(True))
     assert d['name']=='combat-candidate-training'
-    assert trigger['schedule']==[{'cron':'3,13,23,33,43,53 * * * *'}]
+    assert trigger=={'workflow_dispatch':None}
     assert d['concurrency']=={'group':'canonical-continuous-training-single-writer','cancel-in-progress':False}
     assert d['permissions']=={'contents':'read'}
-    assert 'CONNECTOME_TRAINING_PAUSED' in d['jobs']['train-and-evaluate']['if']
+    condition=d['jobs']['train-and-evaluate']['if']
+    assert 'CONNECTOME_TRAINING_PAUSED' in condition
+    assert "github.event_name == 'workflow_dispatch'" in condition
+    assert "CONNECTOME_LEGACY_R2E_ENABLED == 'true'" in condition
     publish=d['jobs']['publish'];assert publish['permissions']=={'contents':'write'}
     assert "github.event_name != 'pull_request'" in publish['if']
     assert "github.ref == 'refs/heads/main'" in publish['if']
@@ -22,6 +25,23 @@ def test_ten_minute_single_writer_with_read_only_pr_jobs():
     assert d['env']['SEED_TAG']=='canonical-training-latest'
     assert 'gh release upload arena-inference-latest' not in raw
     assert 'VERCEL_TOKEN' not in raw and 'vercel deploy' not in raw
+
+
+def test_paired_training_is_the_recurring_single_writer():
+    raw=(ROOT/'.github/workflows/paired-neural-training.yml').read_text();d=yaml.safe_load(raw)
+    trigger=d.get('on',d.get(True))
+    assert d['name']=='paired-neural-training'
+    assert trigger['schedule']==[{'cron':'7,17,27,37,47,57 * * * *'}]
+    assert d['concurrency']=={'group':'canonical-continuous-training-single-writer','cancel-in-progress':False}
+    assert d['permissions']=={'contents':'read'}
+    assert 'CONNECTOME_TRAINING_PAUSED' in d['jobs']['cycle']['if']
+    publish=d['jobs']['publish'];assert publish['permissions']=={'contents':'write'}
+    assert "github.event_name != 'pull_request'" in publish['if']
+    assert "github.ref == 'refs/heads/main'" in publish['if']
+    assert publish['needs']=='cycle'
+    assert all(j['timeout-minutes']<=30 for j in d['jobs'].values())
+    assert 'paired_training_release.py publish' in raw
+    assert 'git push' not in raw and 'VERCEL_TOKEN' not in raw
 
 
 def test_actual_pipeline_contains_both_frozen_evaluations_and_no_promotion():
