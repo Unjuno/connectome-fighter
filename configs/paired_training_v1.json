@@ -1,0 +1,27 @@
+{
+  "experiment": "paired-neural-training-v1",
+  "groups": 8,
+  "pairs_per_cycle": 2,
+  "sigma": 0.04,
+  "learning_rate": 0.05,
+  "max_step": 0.02,
+  "bounds": [0.8, 1.0],
+  "decision_interval_frames": 60,
+  "neural_window_ms": 20,
+  "round_frame_limit": 3600,
+  "schedule_minutes": 10,
+  "combat": {
+    "id": "outcome-hp-epsilon002-v1",
+    "win": 1.0,
+    "draw": 0.0,
+    "loss": -1.0,
+    "hp_weight": 0.02
+  },
+  "curriculum": {
+    "id": "approach-hit-damage-v1",
+    "progress": 0.1,
+    "hit": 0.4,
+    "damage": 0.5
+  },
+  "confirmation_seeds_per_proposal": 2
+}
