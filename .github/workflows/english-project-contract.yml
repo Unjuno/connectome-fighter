@@ -47,11 +47,10 @@ jobs:
           pathlib.Path('runs/english-contract/language-inventory.json').write_text(json.dumps(records, ensure_ascii=False, indent=2)+'\n')
           print(json.dumps({'files_with_cjk': len(records), 'lines_with_cjk': sum(len(r['rows']) for r in records)}))
           PY
-      - name: Enforce English project surfaces when checker is available
+      - name: Require English project surfaces and interpretation boundaries
         run: |
-          if test -f scripts/check_project_english.py; then
-            python scripts/check_project_english.py
-          fi
+          python scripts/check_project_english.py
+          python scripts/validate_public_surface_contract.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
