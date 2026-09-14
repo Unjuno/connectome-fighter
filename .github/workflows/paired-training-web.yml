@@ -1,0 +1,39 @@
+name: paired-training-web
+on:
+  pull_request:
+    paths: ['app/**', 'lib/paired-training-contract.ts', 'scripts/test_paired_training_web.mjs', '.github/workflows/paired-training-web.yml']
+  push:
+    branches: [main]
+    paths: ['app/**', 'lib/paired-training-contract.ts', 'scripts/test_paired_training_web.mjs', '.github/workflows/paired-training-web.yml']
+permissions:
+  contents: read
+concurrency:
+  group: paired-training-web-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  web:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: |
+          npm install --no-audit --no-fund
+          npm install --no-save --no-audit --no-fund playwright@1.57.0
+          npx playwright install --with-deps chromium
+          sudo apt-get install -y -qq ffmpeg
+      - run: npm run typecheck && npm run build
+      - name: Validate isolated browser states and public receipts
+        run: node scripts/test_paired_training_web.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: paired-training-web-evidence
+          path: runs/paired-training-web
+          retention-days: 3
