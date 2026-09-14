@@ -1,0 +1,24 @@
+{
+  "schema_version": 2,
+  "id": "R2e-combat-v1",
+  "status": "experimental-candidate-not-validated-strength",
+  "max_hp": 400,
+  "round_frame_limit": 3600,
+  "damage_weight": 1.0,
+  "terminal": {
+    "win": 2.0,
+    "loss": -2.0,
+    "ordinary_draw": -0.05,
+    "no_damage_draw_penalty": -0.25,
+    "early_ko_win_bonus": 0.25
+  },
+  "engagement_potential": {
+    "weight": 0.05,
+    "contact_band_px": 180.0,
+    "stage_width_px": 960.0,
+    "discount": 1.0,
+    "terminal_potential": 0.0
+  },
+  "specific_action_reward": false,
+  "interpretation_boundary": "Experimental FightingICE utility, not an identified biological reinforcement signal. These coefficients are a testable starting design, not demonstrated optimal values."
+}
