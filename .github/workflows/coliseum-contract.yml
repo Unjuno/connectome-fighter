@@ -1,0 +1,70 @@
+name: coliseum-contract
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - 'configs/**'
+      - 'src/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'app/**'
+      - 'site/**'
+      - 'docs/**'
+      - 'README*'
+      - 'ROADMAP.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: coliseum-contract-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Syntax and source audit
+        run: |
+          python -m compileall -q scripts src
+          mkdir -p runs/coliseum-contract
+          git rev-parse HEAD > runs/coliseum-contract/checkout.txt
+          python - <<'PY'
+          import json, pathlib, re, subprocess
+          pattern = re.compile('[\u3040-\u30ff\u3400-\u9fff]')
+          rows = []
+          for filename in subprocess.check_output(['git','ls-files','-z']).decode().split('\0'):
+              if not filename:
+                  continue
+              p = pathlib.Path(filename)
+              if not p.is_file() or p.stat().st_size > 2000000:
+                  continue
+              try:
+                  text = p.read_text(encoding='utf-8')
+              except UnicodeError:
+                  continue
+              lines = [{'line': i, 'text': line} for i, line in enumerate(text.splitlines(), 1) if pattern.search(line)]
+              if lines:
+                  rows.append({'path': filename, 'lines': lines})
+          pathlib.Path('runs/coliseum-contract/language-audit.json').write_text(json.dumps(rows,ensure_ascii=False,indent=2)+'\n')
+          PY
+      - name: Preserve exact public source for reproducibility
+        if: always()
+        run: |
+          mkdir -p runs/coliseum-contract
+          git archive --format=tar.gz HEAD > runs/coliseum-contract/tested-source.tar.gz
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coliseum-contract-evidence
+          path: runs/coliseum-contract
+          retention-days: 7
