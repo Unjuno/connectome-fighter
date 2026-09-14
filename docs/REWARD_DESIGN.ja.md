@@ -1,254 +1,98 @@
 # Reward design for canonical MaleCNS training
 
-## 目的
+> English translation of the historical reward investigation, retained at the original compatibility path. Numbers below are reports from the cited historical runs, not new measurements. Proposals and frozen conditions retain their original scope; they do not override current versioned configurations.
 
-この文書は、MaleCNS + pinned Shiu LIF の**行動生成を変えず**、FightingICEから与える外部modulatory signalだけを比較するための仕様である。
+## Goal
 
-現時点では学習を有効化しない。既存trajectoryをofflineで再採点し、reward density / scale / timingを先に固定する。
+Compare only the external FightingICE modulatory signal **without changing MaleCNS/pinned-Shiu action generation**. The original investigation rescored existing trajectories offline before enabling learning or freezing reward density, scale, and timing.
 
-## 固定条件
+## Fixed conditions
 
-reward比較中は次を固定する。
+Fix MaleCNS v1.0 anatomy, pinned Shiu LIF dynamics, observation-driven Poisson randomness, output-group spike-count argmax, no external epsilon-greedy/random action injection, a 60-FightingICE-frame decision interval, and hash-pinned action mapping. Treat GARNET/ZEN/LUD/NEZ as separate individuals and rescore the same trajectories for each reward candidate.
 
-- anatomy: MaleCNS v1.0
-- dynamics: pinned Shiu LIF
-- sensory stochasticity: observation-driven Poisson spikes
-- action readout: output-group spike-count argmax
-- external epsilon-greedy / random action injection: なし
-- decision interval: 60 FightingICE frames
-- action mapping: 固定interface hashで管理
-- GARNET / ZEN / LUD / NEZ: 別個体として扱う
-- 比較するreward候補は同一trajectoryを再採点する
+The scheduled baseline retained the Poisson mechanism but used deterministic, distinct seed blocks per chunk so six-hour runs did not repeat an identical random sequence.
 
-scheduled baselineではPoisson mechanism自体は固定したまま、workflow chunkごとに決定論的に別seed blockを使う。これにより6時間ごとのrunが同じ乱数列を繰り返すことを避ける。
+## First offline comparison
 
----
+Canonical four-character baseline run `34620984683` contained six pairings, 48 game rounds, 96 player-specific brain-round reward sequences, and 960 decision windows. No learning or weight update was performed. Run `34629201168` rescored R0/R1/R2 offline and passed its checks.
 
-## 初回offline比較の実測
+### Observed sparsity
 
-対象: canonical four-character baseline Actions run `34620984683`
+- Nonzero R0 terminal signs: 2/960 decisions, 0.2083%.
+- Nonzero terminal outcomes: 2/96 brain-rounds, 2.0833%.
+- Nonzero damage-difference decisions: 4/960, 0.4167%.
+- Brain-rounds with damage signal: 2/96.
+- Largest final HP margin: 20 HP.
 
-- 6 character pairings
-- 48 game rounds
-- 96 brain-rounds（各試合をP1/P2それぞれの報酬系列として数える）
-- 960 decision windows
-- 学習/weight更新: **なし**
+Only one ZEN–NEZ match exchanged damage in that chunk. Two damage windows produce four signed local signals when both players are counted. The main problem was insufficient game interaction and scarce reward events, not the absolute magnitude of +1.
 
-Actions run `34629201168` でR0/R1/R2をoffline再採点し、PASSした。
+## R0 — terminal HP sign (control)
 
-### 観測された疎さ
+Reward only final HP order: win +1, draw 0, loss -1. This is simple and close to the game objective. In the recorded chunk, 47/48 rounds were no-damage or equal-HP draws; decision-level nonzero density was 0.2083%. Retain R0 as a control, but the data gave little basis for using it alone as the first learning reward.
 
-- R0 terminal signが非0: 2 / 960 decisions = **0.2083%**
-- 非0 terminal outcome: 2 / 96 brain-rounds = **2.0833%**
-- damage差が非0のdecision: 4 / 960 = **0.4167%**
-- damage signalが存在したbrain-round: 2 / 96
-- 最大final HP margin: 20 HP
+## R1 — terminal sign plus normalized final HP margin
 
-このchunkで実際にdamageが生じたのはZEN–NEZの1試合だけだった。damage eventは2 windowあり、双方から見た正負を含めると4 local damage signalsになる。
+On the final decision, add final self-minus-opponent HP divided by 400 to the terminal sign. The largest 20-HP margin changed magnitude from 1.00 to 1.05. Density was unchanged from R0: 0.2083% of decisions and 2.0833% of brain-rounds. Margin information increased, but sparsity did not improve.
 
-したがって、現在の主問題は `+1` の絶対値ではなく、**game interactionそのものが少なくreward eventがほぼ発生しないこと**である。
+## R2a — local damage differential plus terminal outcome
 
----
+For each window, use damage dealt minus damage taken, divided by 10 HP, multiplied by the damage coefficient. Add a weighted terminal sign on the last decision.
 
-## R0 — terminal HP sign（control）
+The offline grid used damage coefficients 0.05, 0.10, 0.25, 0.50, and 1.00, crossed with terminal coefficients 0.25, 0.50, and 1.00. Local timing improved, but the representative decision-level nonzero rate remained approximately 0.625%, roughly three times R0 and still sparse.
 
-最終HP差だけを使う。
+Both damage windows occurred during B actions. The naive policy already strongly favored B, so immediately training on R2a might reinforce an initial accident. R2a can improve temporal credit assignment but does not by itself solve no-contact draws.
 
-```text
-win   +1
- draw   0
-loss  -1
-```
+## R2b — R2a plus a no-damage draw penalty (historical provisional candidate)
 
-長所:
+Apply a small negative signal on the final decision only if neither player's HP ever decreased and final HP is equal. Do not directly reward forward movement, attack-button selection, or approaching. Treat an uneventful timeout as an explicit engineering failure mode.
 
-- FightingICEの最終目的に最も近い。
-- 単純でcontrolとして維持しやすい。
+Use terminal +1/-1 for wins/losses; negative stalemate coefficient for a no-damage draw; zero for other draws; retain local weighted damage differences. Run `34629518296` performed the offline comparison and passed.
 
-実測上の問題:
+No-damage draws comprised 94/96 brain-rounds, 97.92%. Any positive penalty magnitude produced 100/960 nonzero decisions (10.4167%) and 96/96 brain-rounds with some nonzero signal. However, 97 of the 100 nonzero signals were negative, so a large penalty creates strong sign imbalance.
 
-- decision-level nonzero rate = 0.2083%。
-- 47/48試合が無damageまたは同HPのdrawだったため、ほぼ全trajectoryが無更新になる。
+### Historical provisional scales
 
-**結論:** controlとして保存するが、最初のlearning rewardとして単独使用する根拠は弱い。
+The proposed hierarchy was terminal win/loss ±1.00, a 10-HP differential ±0.10, and a no-damage draw penalty from -0.02 to -0.05.
 
----
+| Penalty magnitude | Nonzero decision rate | Mean absolute decision reward | Maximum absolute signal |
+|---|---|---|---|
+| 0.02 | 10.4167% | 0.00446 | 1.0 |
+| 0.05 | 10.4167% | 0.00740 | 1.0 |
 
-## R1 — terminal sign + normalized final HP margin
+All brain-rounds received a nonzero signal. The proposal retained damage weight 0.10, terminal weight 1.0, and stalemate magnitude 0.02–0.05 pending another independent Poisson-seed chunk's contact and damage measurements.
 
-最終decisionだけで、勝敗signに最終HP差を加える。
+R2b is not zero-sum: both individuals receive negative reward on a no-damage draw. This is explicitly an engineering shaping assumption, not a biological fact.
 
-```text
-R1_terminal = sign(HP_self - HP_opp)
-              + (HP_self - HP_opp) / 400
-```
+## R3 — valence/compartment-specific DAN gating (later biological comparison)
 
-初回baselineでは最大marginが20 HPだったため、非0試合では絶対値が `1.00 → 1.05` になっただけだった。
+R0/R1/R2 use an external scalar. Mushroom-body dopaminergic modulation is compartment-specific; KC-to-MBON plasticity should not automatically be modeled as one global mushroom-body update. A later condition would use MaleCNS DAN/MBON compartment annotations to map positive and negative valence through separate pathways. The game-outcome-to-DAN mapping remains an artificial, versioned interface, distinct from anatomy.
 
-重要なのは、**R1のsignal densityはR0と完全に同じ**だったことである。
+## Separation from the plasticity rule
 
-- decision-level nonzero rate: 0.2083%
-- brain-round nonzero rate: 2.0833%
+At the time of this document, the `reward_plasticity.py` extension allowed changes only to existing KC-to-MBON candidate edges, with fixed topology and transmitter sign. It accepted terminal -1/0/+1, depressed eligible magnitudes for positive reward, and strengthened them for negative reward: an anti-Hebbian-style proposal.
 
-**結論:** 勝利marginの情報は増えるが、現在の最大問題であるsparsityは解決しない。
+R2a/R2b require continuous local signals, so the proposal required freezing reward semantics before extending the plasticity API to a temporal modulatory sequence. Do not change reward choice and plasticity direction/rate together. The current `valence_plasticity.py` depression-only path is a separate version; this historical paragraph is not its specification.
 
----
+## Original adoption gate
 
-## R2a — local damage differential + terminal outcome
+1. Rescore R0/R1/R2a/R2b on at least two independent Poisson-seed chunks.
+2. Compare density, mean absolute magnitude, maximum magnitude, and sign imbalance.
+3. Preserve action randomness, readout, anatomy, LIF, and game interface.
+4. Freeze selected coefficients in a versioned configuration.
+5. Enable one character/one match and audit changed weights.
+6. Demonstrate checkpoint resume in a separate Actions run before continuous learning.
 
-各decision windowで、次のdecisionまでに変化したHPから局所signalを作る。
+## Do not reward directly
 
-```text
-damage_component_t = (damage_dealt_t - damage_taken_t) / 10 HP
-reward_t = w_damage * damage_component_t
-```
+In the initial comparison, do not reward moving forward, pressing attack, approaching, action diversity itself, or avoiding NEUTRAL. Such rewards make it harder to separate circuits improving game outcomes from circuits merely emitting designer-selected actions.
 
-最終decisionではさらに terminal win/loss bonus を加える。
+## Primary literature recorded by the investigation
 
-```text
-reward_T += w_terminal * sign(final HP margin)
-```
-
-10 HPを1 damage unitとして、offlineでは以下をgrid searchした。
-
-- `w_damage`: 0.05 / 0.10 / 0.25 / 0.50 / 1.00
-- `w_terminal`: 0.25 / 0.50 / 1.00
-
-signal timingはR0より改善したが、初回baselineではdamage自体が2 windowしかなかったため、代表的なR2a系列でもdecision-level nonzero rateは **0.625%** 程度だった。
-
-R0の約3倍だが、依然として非常に疎い。
-
-また、この2 damage windowで選択されていたactionはいずれもBだった。現在のnaive policyはもともとBに強く偏っているため、R2aだけをすぐ有効化すると初期偶然を固定する可能性を否定できない。
-
-**結論:** temporal credit assignment改善には有用だが、単独ではno-contact drawを解決しない。
-
----
-
-## R2b — R2a + no-damage draw penalty（現在の第一候補、未確定）
-
-R2aに加えて、**ラウンド全体で双方のHPが一度も減らず、最終HPも同じだった場合だけ**、最後のdecisionへ小さい負signalを与える。
-
-これは「前進」「攻撃」「接近」など特定のactionを褒めるものではない。何もゲーム上の結果が起きなかったtimeoutをengineering上の失敗として扱う。
-
-```text
-if win/loss:
-    terminal = +1 / -1
-elif draw and total_damage_exchanged == 0:
-    terminal = -δ_stalemate
-else:
-    terminal = 0
-
-reward_t += w_damage * damage_component_t
-```
-
-Actions run `34629518296` でoffline比較し、PASSした。
-
-初回baselineではno-damage drawが94/96 brain-rounds = **97.92%** だった。
-
-R2bではδが0より大きい限り、同じtrajectory上で:
-
-- decision-level nonzero rate: **100 / 960 = 10.4167%**
-- brain-round nonzero rate: **96 / 96 = 100%**
-
-となる。
-
-ただし100 nonzero decisionsのうち97が負signalになるため、δを大きくすると全体を負側へ強く偏らせる。
-
-### 現在の暫定scale候補
-
-最初に試すなら次の階層を候補とする。
-
-```text
-terminal win/loss : ±1.00
-10 HP damage      : ±0.10
-no-damage draw    : -0.02 ～ -0.05
-```
-
-`δ=0.02` のoffline統計:
-
-- decision nonzero: 10.4167%
-- mean |decision reward|: 0.00446
-- max |decision reward|: 1.0
-- 全brain-roundに非0signal
-
-`δ=0.05`:
-
-- decision nonzero: 10.4167%
-- mean |decision reward|: 0.00740
-- max |decision reward|: 1.0
-- 全brain-roundに非0signal
-
-**現時点の判断:** `w_damage=0.10, w_terminal=1.0, δ_stalemate=0.02～0.05` を最初のlearning experiment候補に残す。ただし次の独立Poisson seed chunkでもno-contact率とdamage頻度を再測定してからfreezeする。
-
-### 注意
-
-R2bはzero-sum rewardではない。no-damage drawでは両個体が同時に負signalを受ける。これは生物学的事実ではなく、探索を開始させるための明示的engineering shaping conditionである。
-
----
-
-## R3 — valence/compartment-specific DAN gating（後段の生物学的比較条件）
-
-R0/R1/R2ではgame outcomeを外部scalar signalとして扱う。一方、Drosophila mushroom bodyではdopaminergic modulationはcompartment-specificであり、KC→MBON plasticityは単一の全MB scalar updateとして理解すべきではない。
-
-後段ではMaleCNS annotation上のDAN / MBON compartmentを利用し、positive / negative valenceを別経路へmappingする比較条件を作る。
-
-これはgame outcome→DAN mapping自体が人工interfaceであるため、解剖学的配線と混同せずversion管理する。
-
----
-
-## Plasticity ruleとの分離
-
-現在の `reward_plasticity.py` はproject extensionとして:
-
-- real KC→MBON candidate edgeのみ変更可能
-- topology固定
-- transmitter sign固定
-- terminal reward `-1/0/+1` 専用
-- positive rewardでeligible KC→MBON magnitudeをdepress
-- negative rewardでstrengthen
-
-というanti-Hebbian型を実装している。
-
-R2a/R2bを採用する場合、rewardはtime-localかつ連続値になるため、**reward definitionをfreezeした後にplasticity APIを時系列modulatory signalへ拡張する必要がある**。
-
-rewardの選択とplasticity direction/learning rateの選択を同時に変更してはいけない。
-
----
-
-## 採用Gate
-
-最初のcanonical learning rewardをfreezeする条件:
-
-1. 少なくとも2つ以上の独立Poisson seed chunksでR0/R1/R2a/R2bをoffline採点する。
-2. reward density / mean absolute signal / max signal / sign imbalanceを比較する。
-3. action randomness、readout、anatomy、LIF、game interfaceは変更しない。
-4. 採用rewardの係数をversioned configへ固定する。
-5. その後、1キャラ・1matchだけplasticityを有効化してweight変化を監査する。
-6. 連続学習はさらにcheckpoint resumeを別Actions runで実証してから有効化する。
-
----
-
-## rewardにしないもの
-
-少なくとも最初の比較では次を直接rewardにしない。
-
-- 前進したこと
-- 攻撃ボタンを押したこと
-- 相手へ近づいたこと
-- action diversityそのもの
-- NEUTRALを避けたこと
-
-これらを直接rewardすると、「ゲーム結果を改善した回路」と「設計者指定actionを出す回路」を分離しにくくなる。
-
----
-
-## 関連一次文献
-
-- Hige T, Aso Y, Rubin GM, Turner GC. *Plasticity-driven individualization of olfactory coding in mushroom body output neurons.* Nature 526, 258–262 (2015). DOI: `10.1038/nature15396`.
-- Felsenberg J et al. *Re-evaluation of learned information in Drosophila.* Nature 544, 240–244 (2017). DOI: `10.1038/nature21716`.
-- Felsenberg J et al. *Dopaminergic mechanism underlying reward-encoding of punishment omission during reversal learning in Drosophila.* Nature Communications 12, 1115 (2021). DOI: `10.1038/s41467-021-21388-w`.
-- *Dopamine-mediated interactions between short- and long-term memory dynamics.* Nature (2024). DOI: `10.1038/s41586-024-07819-w`. The study/model explicitly examines compartmental DAN/MBON interactions and bidirectional anti-Hebbian KC→MBON plasticity.
+- Hige T, Aso Y, Rubin GM, Turner GC. *Plasticity-driven individualization of olfactory coding in mushroom body output neurons.* Nature 526, 258–262 (2015). DOI `10.1038/nature15396`.
+- Felsenberg J et al. *Re-evaluation of learned information in Drosophila.* Nature 544, 240–244 (2017). DOI `10.1038/nature21716`.
+- Felsenberg J et al. *Dopaminergic mechanism underlying reward-encoding of punishment omission during reversal learning in Drosophila.* Nature Communications 12, 1115 (2021). DOI `10.1038/s41467-021-21388-w`.
+- *Dopamine-mediated interactions between short- and long-term memory dynamics.* Nature (2024). DOI `10.1038/s41586-024-07819-w`. The recorded interpretation concerns compartmental DAN/MBON interactions and bidirectional anti-Hebbian KC-to-MBON plasticity.
 
 ## Interpretation boundary
 
-R0/R1/R2 game rewardは外部engineering signalであり、FightingICEの勝敗・damage・stalemateがハエの内因性dopamine signalそのものである、という主張ではない。R3でもMaleCNS anatomyを利用するが、game outcomeからDANへのmappingは人工interfaceである。
+Game outcomes, damage, and stalemate are external engineering signals, not identified endogenous fly dopamine signals. Using MaleCNS anatomy does not make game-outcome-to-DAN mapping biological.

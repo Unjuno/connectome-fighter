@@ -1,117 +1,61 @@
-# 継続学習リーグと観戦ページ設計
+# Historical continuous-learning league and spectator design
 
-## 目的
+> English translation retained at the original compatibility path. This is the **legacy PPO-readout proposal**, not the canonical MaleCNS/Shiu learning implementation. See `SUBSTRATE_CONTRACT.ja.md`, `STATUS.md`, and the current training workflow for current boundaries. The original proposal is preserved in Git history.
 
-Connectome Fighter の主成果物を、単発実験ではなく **FightingICE の4キャラクターそれぞれに独立したハエ由来connectome制御器のlineageを割り当て、checkpointを引き継いでクラウド上で継続学習し、その対戦と神経活動をWebで観戦できる系** にする。
+## Goal
 
-対象キャラクターは FightingICE 7.1 の `GARNET / ZEN / LUD / NEZ`。
+Make the primary deliverable a system in which each of FightingICE 7.1's four characters, `GARNET / ZEN / LUD / NEZ`, has an independent fly-connectome controller lineage. Restore checkpoints between bounded cloud-training runs and expose matches and neural activity on the web, rather than producing only isolated experiments.
 
-## キャラごとの脳
+## A separate brain for each character
 
-4キャラは同じ検証済みDrosophila connectome topologyとrouting契約を参照するが、以下はキャラごとに独立させる。
+Characters may reference the same verified Drosophila connectome topology and routing contract. Keep checkpoint lineage and ID, actor readout, value head, optimizer state, recurrent neural state, action-sampling RNG series, generation count, and training-match count independent.
 
-- checkpoint lineage / checkpoint ID
-- actor readout parameters
-- value-head parameters
-- optimizer state
-- recurrent neural state
-- action-sampling RNG seed series
-- generation / training-match counters
+A fixed-connectome experiment may share a large read-only sparse tensor within a process to save memory; this does not authorize shared trainable or recurrent state. Experiments with plastic internal edge weights must not share those mutable weights.
 
-固定connectome条件では、読み取り専用の巨大な疎行列テンソルを同一プロセス内で共有してよい。これはメモリ節約であり、trainable stateやrecurrent stateを共有することを意味しない。内部connectome edge weightsをplasticにする実験では共有しない。
+## Execution model
 
-## 実行モデル
-
-GitHub-hosted Actions の1 jobを永続プロセスとして扱わない。学習を bounded chunk に分割する。
+Do not treat a GitHub-hosted job as a permanent process. Divide training into bounded chunks:
 
 ```text
-4 character checkpoints
-      ↓ restore
-2 training fights / chunk
-(each character fights once)
-      ↓ PPO readout update
-4 new checkpoints
-      ↓
-1 frozen evaluation fight
-      ↓
-replay + neural telemetry + metrics
-      ↓
-GitHub Pages deploy
-      ↓
-next scheduled run restores new checkpoints
+four character checkpoints
+  -> restore
+  -> two training fights (each character fights once)
+  -> PPO readout update
+  -> four new checkpoints
+  -> one frozen evaluation fight
+  -> replay, neural telemetry, metrics
+  -> GitHub Pages deployment
+  -> next scheduled run restores the checkpoints
 ```
 
-4キャラのtraining pairingは3 chunkで6組を一巡するround-robin sliceとし、1 chunkの計算量を固定する。
+Rotate all six character pairings over three chunks with a fixed compute budget per chunk.
 
-### 学習jobの不変条件
+### Training-job invariants
 
-- 同時にcheckpointを書けるtraining jobは1つだけ。
-- 対戦中はpolicy versionを固定し、更新は対戦データ収集後に行う。
-- incomplete / disconnected roundはlossとして学習しない。
-- evaluation matchではweightを更新しない。
-- terminal rewardは勝利 `+1`、敗北 `-1`、引き分け `0`。
-- checkpointにはmodel/readout、optimizer、RNG、generation、match count、code SHA、connectome hash、routing hash、schema versionを含める。
-- Actions cacheをcheckpointの唯一の保存先にしない。cacheはimmutable graph/runtime依存物に使う。
-- rolling learned stateは `training-state` GitHub Release assetsへ保存する。
+- Only one training job may write checkpoints at a time. Freeze each policy during a fight and update only after collection.
+- Do not train incomplete/disconnected rounds as losses. Evaluation never updates weights.
+- The legacy terminal reward is win +1, loss -1, draw 0.
+- Checkpoints include model/readout, optimizer, RNG, generation, match count, code SHA, connectome hash, routing hash, and schema version.
+- Actions cache is for immutable graph/runtime dependencies, not the only checkpoint store. Rolling legacy state resides in the `training-state` GitHub release.
 
-## 初期学習範囲
+## Initial scope of the legacy proposal
 
-最初の継続学習では次を固定する。
+Fix connectome topology, edge weights, and sensory routing. Train only character-specific action readouts and value heads under `PPO-readout-v1`.
 
-- connectome topology: fixed
-- connectome edge weights: fixed
-- sensory routing: fixed
-- trainable: character-specific action readout + value head
-- algorithm: `PPO-readout-v1`
-
-したがって、現在の成功は「connectome内部の全シナプスが強化学習した」ことを意味しない。まず巨大な生物由来graphを制御経路に残したまま、継続学習・世代継承・観戦を成立させる段階である。
+Success of this proposal would not mean that all internal biological synapses learned by reinforcement learning. Its purpose was persistent training, inheritance, and observation while retaining a large biological graph in the control path. This legacy path is not the current canonical MaleCNS policy.
 
 ## Pages spectator
 
-Pagesは計算を行わない。Actionsが生成した静的JSONを描画する。
+Pages performs no simulation; it renders static JSON generated by Actions.
 
-### character cards
+Character cards display generation, training matches, operational league Elo, and checkpoint ID. `latest-replay.json` contains characters, checkpoint IDs, frame, HP, energy, x/y, selected action, and result. The legacy proposal reconstructed a simplified 2D replay from telemetry; Java/FightingICE did not run in the browser.
 
-各キャラについて以下を表示する。
+The proposed neural display included whole-brain activation mean/maximum, fraction above 0.75, real FlyWire node IDs with the largest activation increases (`delta`), and highly activated descending/readout neuron IDs (`D`). These were dimensionless engineering-model states, not measured firing rates. Do not invent anatomical region labels missing from annotations.
 
-- generation
-- training matches
-- Elo（運用上のleague可視化値）
-- checkpoint ID
+## From CI chunks to continuous computation
 
-### fight replay
+The historical plan used one hourly schedule and a single-writer lock, linking finite jobs through checkpoints. Only a genuine need for uninterrupted computation would justify moving the trainer to a self-hosted cloud runner, leaving Actions as orchestrator and Pages as viewer.
 
-`latest-replay.json` に以下を含める。
+## Separate engineering and scientific claims
 
-- P1/P2 character
-- P1/P2 checkpoint ID
-- frame
-- HP / energy / x / y
-- selected action
-- result
-
-FightingICE/Javaはブラウザでは起動しない。telemetryから簡易2D replayを再構成する。
-
-### brain activity
-
-各意思決定について以下を表示する。
-
-- whole-brain activation mean / max
-- activation > 0.75 の割合
--直前状態からactivationが最も増えた実FlyWire node ID (`Δ`)
-- 高活性descending/readout neuron ID (`D`)
-
-値はこの工学モデルのdimensionless stateであり、実測発火率ではない。annotationに存在しない解剖領域名を推測して表示しない。
-
-## CIから常時学習へ
-
-GitHub-hosted runnerではjob時間に上限があるため、短いjobをcheckpointで連結する。scheduleは毎時1回、single-writer concurrency lockを使う。真の24/7計算が必要になった時だけtrainerをself-hosted cloud runnerへ移し、Actionsをscheduler/orchestrator、Pagesを観戦UIとして残す。
-
-## 研究上の分離
-
-「4キャラのpersistent agentが継続学習する」と「Drosophila由来topologyがmatched rewiringより優れている」は別命題。
-
-- 継続学習系: persistent agentの工学的成立
-- A/B研究: biological topology と matched rewiring の差
-
-前者が成功しても後者の証拠にはしない。
+Persistent agents learning across runs and biological topology outperforming matched rewiring are different propositions. A functioning training system is engineering evidence, not evidence for a topology-specific advantage.
