@@ -1,287 +1,82 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from 'react';
+import { Observatory, metric, stamp } from './observatory';
 
-type Evaluation = {
-  status?: string;
-  evaluated_at?: string;
-  candidate_only?: boolean;
-  served_by_vercel?: boolean;
-  auto_promotion?: boolean;
-  character?: string;
-  opponent?: string;
-  generation?: number;
-  matches?: number;
-  state_sha256?: string;
-  model?: string;
-  reward_id?: string;
-  source_training_run_url?: string | null;
-  policy_pixel_access?: boolean;
-  evaluation?: {
-    protocol?: string;
-    rounds?: number;
-    fixed_opponent?: boolean;
-    seed_p1?: number;
-    seed_p2?: number;
-    round_frame_limit?: number;
-    nominal_game_fps?: number;
-    configured_round_limit_seconds?: number;
-    decision_interval_frames?: number;
-  };
-  result?: {
-    winner?: string;
-    p1_hp?: number | null;
-    p2_hp?: number | null;
-    elapsed_frame?: number;
-    elapsed_seconds?: number | null;
-    ended_by?: string;
-  };
-  video?: {
-    asset_url?: string;
-    codec?: string;
-    width?: number;
-    height?: number;
-    fps?: number;
-    duration_seconds?: number;
-    bytes?: number;
-  };
-  interpretation_boundary?: string;
-};
-
-type TrainingStatus = {
-  generation?: number;
-  matches?: number;
-  updated_at?: string;
-  state_sha256?: string;
-  status?: string;
-  opponent?: string;
-  update_summary?: {
-    changed_edges?: number;
-    depressed_edges?: number;
-    min_multiplier?: number;
-    mean_multiplier?: number;
-    max_multiplier?: number;
-  };
-  signal_summary?: {
-    sum?: number;
-    positive?: number;
-    negative?: number;
-    nonzero?: number;
-  };
-};
-
-type EvaluationEnvelope = {
-  ready?: boolean;
-  status?: string;
-  latest?: Evaluation | null;
-  previous?: Evaluation | null;
-  training?: TrainingStatus | null;
-};
-
-function withVersion(url: string | undefined, token: string | number | undefined) {
-  if (!url) return null;
+type Json = Record<string, any>;
+type Envelope = { latest?: Json | null; previous?: Json | null; training?: Json | null };
+function videoUrl(evaluation: Json | null) {
+  const raw = evaluation?.video?.asset_url;
+  if (typeof raw !== 'string') return null;
   try {
-    const parsed = new URL(url);
-    if (token !== undefined) parsed.searchParams.set("v", String(token));
-    return parsed.toString();
-  } catch {
-    return url;
-  }
+    const url = new URL(raw);
+    if (url.protocol !== 'https:') return null;
+    url.searchParams.set('v', String(evaluation?.state_sha256 || evaluation?.generation || 'recording'));
+    return url.toString();
+  } catch { return null; }
 }
-
-function fmt(value: unknown, digits = 1) {
-  const number = Number(value);
-  return Number.isFinite(number) ? number.toFixed(digits) : "—";
-}
-
-function when(value: string | undefined) {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }).format(date);
-}
-
-function resultLabel(evaluation: Evaluation | null | undefined) {
-  if (!evaluation?.result) return "result pending";
-  const winner = evaluation.result.winner ?? "UNKNOWN";
-  const endedBy = evaluation.result.ended_by ? ` · ${evaluation.result.ended_by.replaceAll("_", " ")}` : "";
-  if (winner === "DRAW") return `DRAW${endedBy}`;
-  if (winner === "UNKNOWN") return `result unknown${endedBy}`;
-  return `${winner} wins${endedBy}`;
-}
-
-function VideoCard({ evaluation, previous = false }: { evaluation: Evaluation; previous?: boolean }) {
-  const version = evaluation.state_sha256?.slice(0, 16) ?? evaluation.generation ?? "model";
-  const video = withVersion(evaluation.video?.asset_url, version);
-  const p1 = evaluation.character ?? "GARNET";
-  const p2 = evaluation.opponent ?? "ZEN";
-  const roundLimit = evaluation.evaluation?.configured_round_limit_seconds;
-
-  return (
-    <article className={`panel video-card ${previous ? "previous-card" : "latest-card"}`}>
-      <div className="section-head">
-        <div>
-          <p className="eyebrow">{previous ? "PREVIOUS MODEL" : "LATEST MODEL"}</p>
-          <h2>Generation {evaluation.generation ?? "—"}</h2>
-        </div>
-        <span className={`pill ${previous ? "neutral" : "ok"}`}>{previous ? "comparison" : "post-update evaluation"}</span>
-      </div>
-
-      <div className="media-frame game-frame video-frame">
-        {video ? (
-          <video
-            key={video}
-            src={video}
-            controls
-            autoPlay={!previous}
-            muted
-            playsInline
-            preload="metadata"
-          />
-        ) : (
-          <div className="placeholder">Round video is not available.</div>
-        )}
-      </div>
-
-      <div className="round-summary">
-        <strong>{p1} vs {p2}</strong>
-        <span>{resultLabel(evaluation)}</span>
-        <span>HP {evaluation.result?.p1_hp ?? "—"} / {evaluation.result?.p2_hp ?? "—"}</span>
-      </div>
-
-      <div className="metrics compact-metrics">
-        <div><span>Configured limit</span><strong>{fmt(roundLimit)} s</strong></div>
-        <div><span>Round elapsed</span><strong>{fmt(evaluation.result?.elapsed_seconds)} s</strong></div>
-        <div><span>Video</span><strong>{fmt(evaluation.video?.duration_seconds)} s</strong></div>
-        <div><span>State</span><strong className="hash">{evaluation.state_sha256?.slice(0, 10) ?? "—"}</strong></div>
-      </div>
-
-      <p className="mono card-foot">
-        {evaluation.evaluation?.round_frame_limit ?? "—"} frame max · {evaluation.evaluation?.protocol ?? "legacy protocol"} · evaluated {when(evaluation.evaluated_at)} · fixed seeds {evaluation.evaluation?.seed_p1 ?? "—"}/{evaluation.evaluation?.seed_p2 ?? "—"}
-      </p>
-    </article>
-  );
+function completed(value: unknown): value is Json {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const row = value as Json;
+  return row.status === 'COMPLETED' && row.candidate_only === true && row.auto_promotion === false && row.policy_pixel_access === false;
 }
 
 export function LiveClient() {
-  const [data, setData] = useState<EvaluationEnvelope | null>(null);
+  const [data, setData] = useState<Envelope | null>(null);
   const [error, setError] = useState<string | null>(null);
-
+  const [previous, setPrevious] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const [videoError, setVideoError] = useState(false);
   useEffect(() => {
+    if (paused) return;
     let stopped = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const controller = new AbortController();
     const poll = async () => {
       try {
-        const response = await fetch(`/api/evaluation?t=${Date.now()}`, { cache: "no-store" });
+        const response = await fetch('/api/evaluation', { cache: 'no-store', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(10_000)]) });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const body = (await response.json()) as EvaluationEnvelope;
-        if (!stopped) {
-          setData(body);
-          setError(null);
-        }
-      } catch (err) {
-        if (!stopped) setError(err instanceof Error ? err.message : "evaluation API unreachable");
-      }
+        const body = await response.json();
+        if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('Invalid evaluation response');
+        if (!stopped) { setData(body); setError(null); }
+      } catch (reason) {
+        if (!stopped) setError(reason instanceof Error ? reason.message : '評価データを取得できません');
+      } finally { if (!stopped) timer = setTimeout(poll, 30_000); }
     };
-    poll();
-    const id = window.setInterval(poll, 30_000);
-    return () => {
-      stopped = true;
-      window.clearInterval(id);
-    };
-  }, []);
+    void poll();
+    return () => { stopped = true; controller.abort(); clearTimeout(timer); };
+  }, [paused]);
+  const latest = completed(data?.latest) ? data!.latest! : null;
+  const older = completed(data?.previous) ? data!.previous! : null;
+  const selected = previous && older ? older : latest;
+  const training = data?.training;
+  const video = videoUrl(selected);
+  useEffect(() => setVideoError(false), [video]);
+  const behind = typeof training?.generation === 'number' && typeof latest?.generation === 'number' && training.generation > latest.generation;
+  const result = selected?.result;
+  const verdict = result?.winner === 'DRAW' ? 'DRAW' : typeof result?.winner === 'string' ? `${result.winner} WINS` : '結果未記録';
 
-  const latest = data?.latest ?? null;
-  const previous = data?.previous ?? null;
-  const training = data?.training ?? null;
-  const evaluationBehind = Boolean(
-    latest?.generation !== undefined &&
-    training?.generation !== undefined &&
-    training.generation > latest.generation,
-  );
+  const media = <>
+    <div className="ob-match"><strong className="p1">{selected?.character || 'GARNET'}</strong><span>VS</span><strong className="p2">{selected?.opponent || 'ZEN'}</strong></div>
+    <div className="ob-score"><span>GEN {metric(selected?.generation)}</span><span>FIXED-CONDITION EVALUATION</span><span>1 ROUND</span></div>
+    <div className="ob-screen">{video && !videoError ? <video key={video} data-testid="evaluation-video" src={video} controls muted playsInline preload="metadata" onError={() => setVideoError(true)} aria-label={`Generation ${selected?.generation} 評価録画`} /> : <div className="ob-empty"><span className="ob-crosshair" aria-hidden="true">+</span><strong>{videoError ? '動画を読み込めませんでした' : '評価動画を待機中'}</strong><p>{videoError ? '公開アセットの接続を確認してください。' : '完了済みの評価が公開されると表示します。'}</p>{videoError ? <button type="button" className="ob-button" onClick={() => setVideoError(false)}>動画を再読込み</button> : null}</div>}</div>
+    <div className="ob-result"><div><span className="ob-kicker">FINAL RESULT / 最終結果</span><strong>{verdict}</strong></div><div><span className="p1">HP {metric(result?.p1_hp)}</span><i> / </i><span className="p2">{metric(result?.p2_hp)}</span><small>{result?.ended_by || '—'} · game {metric(result?.elapsed_seconds, 1)} s</small></div></div>
+    <p className="ob-caption">Generation {metric(selected?.generation)} · {stamp(selected?.evaluated_at)} · video {metric(selected?.video?.duration_seconds, 1)} s<br />最終HPは録画の最終結果です。再生中のHPや時刻を表しません。</p>
+    <div className="ob-model-switch" role="group" aria-label="評価世代を切替"><button className="ob-button" type="button" aria-pressed={!previous || !older} onClick={() => setPrevious(false)}>最新完了 Gen {metric(latest?.generation)}</button><button className="ob-button" type="button" aria-pressed={previous && Boolean(older)} disabled={!older} onClick={() => setPrevious(true)}>前回 Gen {metric(older?.generation)}</button></div>
+  </>;
 
-  const statusText = useMemo(() => {
-    if (error) return "viewer data unavailable";
-    if (!latest) return "awaiting first post-update round";
-    if (evaluationBehind) return `generation ${training?.generation} evaluation running`;
-    return `generation ${latest.generation ?? "—"} ready`;
-  }, [error, latest, evaluationBehind, training?.generation]);
-
-  return (
-    <main className="shell evaluation-shell">
-      <header className="hero compact-hero">
-        <p className="eyebrow">CONNECTOME FIGHTER · MODEL ROUND EVALUATION</p>
-        <h1>最新モデルの1ラウンドを見る。</h1>
-        <p className="lead">
-          GARNET candidate が更新されるたび、更新後のcheckpointを固定条件 GARNET vs ZEN で1ラウンド再評価します。
-          観察用評価はFightingICEの60秒最大ラウンドを使い、完了した動画だけを公開します。
-        </p>
-        <div className="status-row">
-          <span className={`pill ${latest && !evaluationBehind ? "ok" : "warm"}`}>{statusText}</span>
-          <span className="pill neutral">candidate only</span>
-          <span className="mono">policy_pixel_access=false</span>
-        </div>
-        {evaluationBehind ? (
-          <div className="notice">
-            <strong>Model updated.</strong> Candidate generation {training?.generation} exists, but its fixed-condition full-round video is still being generated. The page keeps generation {latest?.generation} labeled as the previous completed evaluation until the new artifact is complete.
-          </div>
-        ) : null}
-        {!latest ? (
-          <div className="notice">
-            <strong>First post-update evaluation is not published yet.</strong> Training status is generation {training?.generation ?? "—"}; the viewer will switch automatically after the first full-round evaluation finishes.
-          </div>
-        ) : null}
-        {error ? <div className="notice bad-notice">Evaluation API error: {error}</div> : null}
-      </header>
-
-      {latest ? <VideoCard evaluation={latest} /> : null}
-
-      <section className="panel model-panel">
-        <div className="section-head">
-          <div>
-            <p className="eyebrow">MODEL UPDATE</p>
-            <h2>What changed in the latest candidate checkpoint</h2>
-          </div>
-          <span className="mono">training generation {training?.generation ?? "—"}</span>
-        </div>
-        <div className="metrics">
-          <div><span>Matches</span><strong>{training?.matches ?? latest?.matches ?? "—"}</strong></div>
-          <div><span>Changed edges</span><strong>{training?.update_summary?.changed_edges ?? "—"}</strong></div>
-          <div><span>Depressed edges</span><strong>{training?.update_summary?.depressed_edges ?? "—"}</strong></div>
-          <div><span>Reward signal</span><strong>{fmt(training?.signal_summary?.sum, 3)}</strong></div>
-        </div>
-        <p className="boundary">
-          This is the rolling research candidate. It is not automatically promoted into the approved Vercel inference state. The comparison round uses a fixed opponent, fixed seeds, and the same full-round protocol so behavioral differences across generations are less confounded by matchup, seed, or horizon changes.
-        </p>
-      </section>
-
-      {previous ? (
-        <section className="comparison-section">
-          <div className="section-head comparison-head">
-            <div>
-              <p className="eyebrow">BEFORE / AFTER</p>
-              <h2>Compare with the previous completed model</h2>
-            </div>
-            <span className="mono">generation {previous.generation ?? "—"} → {latest?.generation ?? "—"}</span>
-          </div>
-          <div className="comparison-grid">
-            <VideoCard evaluation={previous} previous />
-            {latest ? <VideoCard evaluation={latest} /> : null}
-          </div>
-        </section>
-      ) : null}
-
-      <footer className="footer">
-        <span>Evaluation: 1 round · fixed GARNET vs ZEN · max 60 s / 3600 frames</span>
-        <span>Latest training update: {when(training?.updated_at)}</span>
-        <a href="https://unjuno.github.io/connectome-fighter/">Research ledger</a>
-      </footer>
-    </main>
-  );
+  return <Observatory mode="replay" status="recorded-evaluation" media={media} controls={<><button className="ob-button" type="button" aria-pressed={paused} onClick={() => setPaused(value => !value)}>{paused ? '履歴更新を再開' : '履歴更新を停止'}</button><a className="ob-button ob-button-primary" href="/live">LIVE観測へ ↗</a></>}>
+    {error ? <p className="ob-notice" role="status">評価APIを取得できません: {error}。表示がある場合は最終取得時の記録です。</p> : null}
+    {paused ? <p className="ob-notice" role="status">履歴の自動更新を停止中。動画はプレイヤーの再生・停止操作で制御できます。</p> : null}
+    {behind ? <p className="ob-notice">CandidateはGen {metric(training?.generation)}に更新済み。ここに表示する最新完了評価はGen {metric(latest?.generation)}です。新世代の評価完了はまだ確認できていません。</p> : null}
+    <section id="evolution" className="ob-evolution">
+      <div className="ob-section-title"><div><span className="ob-kicker">03 / RESEARCH TIMELINE</span><h2>いまの行動と、これまでの変化。</h2></div><span className="ob-tag">candidate only · 自動昇格なし</span></div>
+      <div className="ob-history-grid">
+        <article className="ob-panel ob-history-card"><span className="ob-step-number">01</span><span className="ob-kicker">CANDIDATE UPDATE</span><h3>Gen {metric(training?.generation)}</h3><p>研究用checkpointの更新</p><div className="ob-data-pair"><span>累積matches</span><strong>{metric(training?.matches)}</strong></div><div className="ob-data-pair"><span>変更された結合</span><strong>{metric(training?.update_summary?.changed_edges)}</strong></div><small>{stamp(training?.updated_at)}</small></article>
+        <article className="ob-panel ob-history-card"><span className="ob-step-number">02</span><span className="ob-kicker">FROZEN EVALUATION</span><h3>Gen {metric(latest?.generation)}</h3><p>最新の完了済み固定条件評価</p><div className="ob-data-pair"><span>前回完了世代</span><strong>{metric(older?.generation)}</strong></div><div className="ob-data-pair"><span>評価ラウンド数</span><strong>{metric(latest?.evaluation?.rounds)}</strong></div><small>{stamp(latest?.evaluated_at)}</small></article>
+        <article className="ob-panel ob-history-card"><span className="ob-step-number">03</span><span className="ob-kicker">PROMOTION BOUNDARY</span><h3>Review, then promote.</h3><p>Candidateと承認済み推論を分離</p><div className="ob-data-pair"><span>自動昇格</span><strong>OFF</strong></div><p className="ob-caption">世代数や結合の変化だけでは、学習効果や性能向上を証明できません。</p><small>明示的な評価・承認が必要</small></article>
+      </div>
+      <details className="ob-evaluation-details"><summary>評価条件・checkpointの記録を開く</summary><p>full-round protocol: max 60 s / 3600 frames · policy_pixel_access=false</p><p>選択中の評価: {selected?.evaluation?.protocol || '未記録'} · seeds {metric(selected?.evaluation?.seed_p1)}/{metric(selected?.evaluation?.seed_p2)} · decision interval {metric(selected?.evaluation?.decision_interval_frames)} frames</p><p>Reward ID: {selected?.reward_id || '未記録'} · Model: {selected?.model || '未記録'}<br />State SHA-256: <code>{selected?.state_sha256 || '未記録'}</code></p><p>報酬の設定変更はこの画面から行いません。異なる評価条件を同一条件の比較として扱いません。</p></details>
+    </section>
+  </Observatory>;
 }
