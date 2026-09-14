@@ -16,6 +16,7 @@ on:
       - 'scripts/combat_training_run.py'
       - 'scripts/fetch_combat_dependencies.py'
       - 'scripts/publish_combat_candidate.py'
+      - 'scripts/publish_combat_view.py'
       - 'scripts/update_malecns_valence_plasticity.py'
       - 'src/connectome_fighter/combat_*.py'
       - 'configs/reward_r2e_combat_v1.json'
@@ -49,7 +50,7 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install 'numpy==1.26.4' 'pytest==8.3.5' 'PyYAML==6.0.2'
-      - run: PYTHONPATH=src python -m pytest -q tests/test_combat_reward.py tests/test_combat_checkpoint.py tests/test_combat_schedule.py
+      - run: PYTHONPATH=src python -m pytest -q tests/test_combat_reward.py tests/test_combat_checkpoint.py tests/test_combat_schedule.py tests/test_combat_publication.py
 
   train-and-evaluate:
     needs: contract
@@ -136,21 +137,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: python scripts/publish_combat_candidate.py --input runs/publication
       - name: Atomically expose paired evaluations and training history
-        run: |
-          set -euo pipefail
-          cp runs/publication/training-status.json site/data/training-status.json
-          cp runs/publication/evaluation-status.json site/data/evaluation-status.json
-          cp runs/publication/evaluation-previous.json site/data/evaluation-previous.json
-          python scripts/append_training_history.py --status site/data/training-status.json --history site/data/training-history.json
-          git checkout -B combat-publication-work
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add site/data/training-status.json site/data/training-history.json site/data/evaluation-status.json site/data/evaluation-previous.json
-          git diff --cached --quiet && exit 0
-          git commit -m 'Publish combat candidate and paired evaluation [skip ci]'
-          for attempt in 1 2 3; do
-            if git pull --rebase origin main && git push origin HEAD:main; then exit 0; fi
-            git rebase --abort >/dev/null 2>&1 || true
-            sleep $((attempt * 3))
-          done
-          exit 1
+        run: python scripts/publish_combat_view.py --input runs/publication
