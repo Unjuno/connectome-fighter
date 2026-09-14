@@ -61,8 +61,16 @@ jobs:
           sudo chown -R "$(id -u):$(id -g)" /home/vercel-sandbox
           python - <<'PY'
           import tarfile
+          # uv convenience aliases point to the build host. The pinned interpreter
+          # paths use actual versioned directories; never materialize external links.
+          aliases = {f'arena-runtime/runtime/pythons/cpython-{v}-linux-x86_64-gnu' for v in ('3.10','3.11')}
+          def runtime_filter(member, destination):
+              if member.issym() and member.linkname.startswith('/') and member.name in aliases:
+                  print('Skipping unused build-host alias:', member.name)
+                  return None
+              return tarfile.data_filter(member, destination)
           with tarfile.open('runs/coliseum-input/runtime.tar.gz','r:gz') as archive:
-              archive.extractall('/home/vercel-sandbox/connectome-runtime',filter='data')
+              archive.extractall('/home/vercel-sandbox/connectome-runtime',filter=runtime_filter)
           PY
           lscpu > runs/coliseum-input/cpu.txt
           git rev-parse HEAD > runs/coliseum-input/tested-checkout.txt

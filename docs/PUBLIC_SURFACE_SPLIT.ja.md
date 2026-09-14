@@ -1,62 +1,79 @@
-# Public LIVE / research ledger 分離
+# Public LIVE / research ledger split
 
-## 目的
+## Purpose
 
-Connectome Fighter は公開面を明示的に分離します。
+Connectome Fighter has two intentionally separate public surfaces:
 
-1. **Dedicated Vercel LIVE** — 1つの shared FightingICE/MaleCNS read-only inference broadcast と神経駆動FlyBody物理表示。
-2. **GitHub Pages / Actions** — training、reward/plasticity contract、checkpoint lineage、runtime provenance、logs、raw evidence。
+1. **Dedicated Vercel LIVE** — one globally shared FightingICE/MaleCNS read-only inference broadcast with a neural-driven FlyBody physics spectator.
+2. **GitHub Pages / Actions research ledger** — training workflows, reward/plasticity contracts, checkpoint lineage, runtime provenance, logs, and raw evidence.
 
-既存の `Unjuno/live` はこの構成の外です。
+The unrelated `Unjuno/live` application is outside this architecture.
 
 ## Dedicated Vercel LIVE
 
-専用projectをdeployして検証した後、repository variable `CONNECTOME_PUBLIC_BASE_URL` にcanonical URLを設定します。別サイトへのfallbackはありません。
+The canonical production URL is supplied through the repository variable `CONNECTOME_PUBLIC_BASE_URL` only after a dedicated project is deployed and verified. There is no fallback URL.
 
-- `/api/runtime-base`: rolling runtime SHAをpersistent Sandboxへstageし、font + OSMesaを入れてsnapshot化。
-- `/api/live`: `connectome-fighter-live-broadcast` という1つのshared ephemeral forkをmaintain/inspect。
-- `/`: spectator publication。
+Control endpoints:
 
-固定境界:
+- `/api/runtime-base` — materialize the current runtime release into a SHA-addressed persistent Sandbox, install fonts + OSMesa, and snapshot it;
+- `/api/live` — maintain and inspect one shared ephemeral `connectome-fighter-live-broadcast` fork;
+- `/` — spectator publication.
 
-- `mode=single-shared-live-broadcast`
-- `audience_scope=shared-global`
-- `learning_enabled=false`
-- `policy_pixel_access=false`
-- viewerごとのcompute sessionを作らない
-- current Vercel projectは `VERCEL_PROJECT_ID` から取得
-- 他project IDをhard-codeしない
-- runtime release workflowはVercelを直接stageしない
-- warming/capacity/errorを明示
-- fake/recorded LIVEへfallbackしない
+Contract:
+
+- `mode=single-shared-live-broadcast`;
+- `audience_scope=shared-global`;
+- `learning_enabled=false`;
+- `policy_pixel_access=false`;
+- one fixed shared broadcast, not one session per viewer;
+- current Vercel project identity comes from `VERCEL_PROJECT_ID`;
+- no hard-coded unrelated project ID;
+- no release workflow directly stages into Vercel;
+- explicit warming/capacity/error states;
+- no fake or recorded LIVE fallback.
 
 ## Spectator channels
 
-primary game viewはofficial FightingICE ScreenData。
+Primary game view: official FightingICE ScreenData.
 
-neural side channelは同一decision windowのreal annotated MaleCNS activity。
+Neural side channel: bounded annotated MaleCNS activity for the same decision window.
 
-physical side channelは `TuragaLab/flybody@d015e9bfe441bd90ae431bac24c55cb74bdbce26` のreal MuJoCo bodyで、`malecns-annotated-motor-to-flybody-tripod-v2` から駆動します。
+Physical side channel: real upstream FlyBody MuJoCo body, pinned to `TuragaLab/flybody@d015e9bfe441bd90ae431bac24c55cb74bdbce26`, driven by `malecns-annotated-motor-to-flybody-tripod-v2`.
 
-MaleCNS→FlyBody mappingはproject-definedです。FightingICE x/y/actionをFlyBodyのposition/poseへコピーしません。整合条件はspatial copyではなくround/frame/decision identityです。
+The FlyBody mapping is project-defined. FightingICE x/y/action does not position or pose the physical FlyBody. The public contract requires FlyBody and live telemetry to match round/frame/decision identity, not spatial coordinates.
+
+All visual channels are spectator-only and are not policy inputs.
 
 ## GitHub runtime publication
 
-`publish-arena-runtime-bundle → precompile-arena-brian2-cython-cache → publish-flybody-runtime-addon → arena-runtime-latest`
+```text
+publish-arena-runtime-bundle
+  → precompile-arena-brian2-cython-cache
+  → publish-flybody-runtime-addon
+  → arena-runtime-latest
+```
 
-ここでpublicationは終了します。専用Vercel appが必要時にexact SHAをstageします。
+Runtime publication ends at the GitHub release. The dedicated Vercel app stages the exact rolling SHA when needed. This separation prevents a publication workflow from mutating an unrelated project.
 
-## Production gate
+## Research / training ledger
 
-`CONNECTOME_PUBLIC_BASE_URL` に対して次が全部PASSするまでdedicated production E2Eは未検証です。
+GitHub publishes or preserves canonical substrate/dynamics, training/evaluation workflows, reward/plasticity contracts, checkpoint lineage, approved inference handoff, public match logs, runtime checksums, Actions artifacts, and interpretation boundaries.
 
-1. exact runtime SHA/base adoption
-2. shared LIVE running
-3. real FightingICE telemetry + advancing MaleCNS decisions
-4. nonblank official ScreenData
-5. real body-ID annotated activity
-6. FlyBody adapter v2 / OSMesa / 59 actuators / sim_steps>0
-7. P1/P2 round/frame/decision exact alignment
-8. nonblank 320×240 P1/P2 FlyBody render
-9. mobile no-overflow/no-fixed-overlay
-10. fake frame / SVG fly / FightingICE-position puppet / learning / policy pixel input 不在
+Continuous production reward-driven learning remains OFF. Candidate history is not an auto-promotion path.
+
+## Production verification gate
+
+Dedicated production is PASS only when all of the following hold against `CONNECTOME_PUBLIC_BASE_URL`:
+
+1. exact current runtime SHA/base is adopted;
+2. shared LIVE reaches running;
+3. GARNET vs ZEN telemetry has real frame/action/HP/position and advancing MaleCNS decisions;
+4. official 480×320 FightingICE ScreenData is nonblank;
+5. annotated MaleCNS activity contains real body IDs;
+6. P1/P2 FlyBody state uses adapter v2, OSMesa, 59 actuators, and `sim_steps > 0`;
+7. FlyBody decision identity exactly equals live round/frame/decision for both sides;
+8. P1/P2 320×240 FlyBody renders are nonblank;
+9. phone-width publication has no horizontal overflow or fixed overlay;
+10. no synthetic frame, SVG fly, FightingICE-position puppet, learning, or policy pixel access is substituted.
+
+Until this gate passes on the dedicated project, production E2E status is **NOT YET VERIFIED**.
