@@ -10,6 +10,7 @@ the FlyBody model.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -29,6 +30,7 @@ from connectome_fighter.rgb_png import encode_rgb_png
 
 FLYBODY_UPSTREAM = "TuragaLab/flybody"
 FLYBODY_COMMIT = "d015e9bfe441bd90ae431bac24c55cb74bdbce26"
+PUBLISHER_ID = "malecns-flybody-publisher-v2"
 
 
 def atomic_bytes(path: Path, payload: bytes) -> None:
@@ -71,38 +73,54 @@ class FlyBodySide:
         self.command = neural_fly_command([])
         self.sim_steps = 0
         self.resets = 0
+        self.pending_time_seconds = 0.0
+        self.sim_time_seconds = 0.0
+        self.dropped_time_seconds = 0.0
 
     @property
     def control_timestep(self) -> float:
-        try:
-            return float(self.env.task.control_timestep)
-        except Exception:
-            return 0.002
+        dt = float(self.env.task.control_timestep)
+        if not math.isfinite(dt) or dt <= 0:
+            raise ValueError("FlyBody control_timestep must be finite and positive")
+        return dt
 
     def set_command(self, command: NeuralFlyCommand) -> None:
+        # Also validate direct callers, not only JSONL ingestion.
+        values = (command.drive, command.left_drive, command.right_drive,
+                  command.t1_drive, command.t2_drive, command.t3_drive,
+                  command.descending_drive)
+        if (not all(math.isfinite(v) and 0 <= v <= 1 for v in values)
+                or not math.isfinite(command.lateral_bias)
+                or abs(command.lateral_bias) > 1
+                or not math.isfinite(command.source_spikes)
+                or command.source_spikes < 0):
+            raise ValueError("invalid or non-finite neural command")
         self.command = command
 
     def advance(self, real_dt: float) -> None:
+        if not math.isfinite(real_dt) or real_dt < 0:
+            raise ValueError("elapsed time must be finite and non-negative")
         dt = self.control_timestep
-        # Keep the physics bounded on shared CPU while approaching wall-clock
-        # stepping. The neural drive controls gait phase speed, not game x/y.
-        # Zero motor drive therefore produces no active gait phase progression.
-        steps = max(1, min(16, int(round(max(real_dt, dt) / dt))))
-        sim_dt = max(dt, real_dt / steps)
+        available = self.pending_time_seconds + real_dt
+        # Bounded slow-motion spectator: drop excess wall time explicitly, rather
+        # than advancing the gait phase faster than MuJoCo's actual step clock.
+        budget = min(available, 16 * dt)
+        self.dropped_time_seconds += available - budget
+        steps = min(16, int(math.floor(budget / dt + 1e-9)))
+        self.pending_time_seconds = max(0.0, budget - steps * dt)
         gait_hz = 6.0 * self.command.drive
         for _ in range(steps):
-            self.phase = (self.phase + 2.0 * math.pi * gait_hz * sim_dt) % (2.0 * math.pi)
+            phase = (self.phase + 2.0 * math.pi * gait_hz * dt) % (2.0 * math.pi)
             action = flybody_action(
-                self.names,
-                self.minimum,
-                self.maximum,
-                self.command,
-                self.phase,
+                self.names, self.minimum, self.maximum, self.command, phase,
             )
             timestep = self.env.step(action)
+            self.phase = phase
             self.sim_steps += 1
+            self.sim_time_seconds += dt
             if timestep.last():
                 self.env.reset()
+                self.phase = 0.0
                 self.resets += 1
 
     def render(self) -> np.ndarray:
@@ -118,6 +136,11 @@ class FlyBodySide:
             "resets": self.resets,
             "action_dimension": len(self.names),
             "gait_phase_rad": float(self.phase),
+            "control_timestep_seconds": self.control_timestep,
+            "sim_time_seconds": self.sim_time_seconds,
+            "pending_time_seconds": self.pending_time_seconds,
+            "dropped_time_seconds": self.dropped_time_seconds,
+            "timebase": "executed-physics-control-steps",
         }
         try:
             body_id = self.env.physics.model.name2id("walker/thorax", "body")
@@ -128,21 +151,166 @@ class FlyBodySide:
 
 
 def compact_command(event: dict[str, Any] | None) -> NeuralFlyCommand:
-    brain = (event or {}).get("brain") or {}
-    rows = brain.get("output_contributions_top_annotated") or []
-    return neural_fly_command(row for row in rows if isinstance(row, dict))
+    brain = event.get("brain") if isinstance(event, dict) else None
+    rows = brain.get("output_contributions_top_annotated") if isinstance(brain, dict) else None
+    if not isinstance(rows, list):
+        return neural_fly_command([])
+    clean = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        try:
+            spikes = float(row.get("spikes", 0))
+            raw_id = row.get("body_id", 0)
+            body_id = int(raw_id)
+            if isinstance(raw_id, (bool, float)) or not math.isfinite(spikes) or spikes <= 0 or body_id <= 0:
+                continue
+        except (TypeError, ValueError, OverflowError):
+            continue
+        clean.append(dict(row, body_id=body_id, spikes=spikes))
+    command = neural_fly_command(clean)
+    # Individually finite numbers can still overflow in the aggregate.
+    values = (command.drive, command.left_drive, command.right_drive,
+              command.t1_drive, command.t2_drive, command.t3_drive,
+              command.descending_drive, command.lateral_bias, command.source_spikes)
+    return command if all(math.isfinite(v) for v in values) else neural_fly_command([])
 
 
 def event_identity(event: dict[str, Any] | None) -> dict[str, Any] | None:
-    if not event:
+    if not isinstance(event, dict) or not isinstance(event.get("brain"), dict):
         return None
-    brain = event.get("brain") or {}
+    brain = event["brain"]
+    values = (event.get("round_id"), event.get("frame"), brain.get("trace_decision_index"))
+    # Missing or malformed identity must not become a plausible all-zero tuple.
+    if any(type(v) is not int or v < 0 for v in values):
+        return None
     return {
-        "round": int(event.get("round_id", 0)),
-        "frame": int(event.get("frame", 0)),
-        "decision_index": int(brain.get("trace_decision_index", 0)),
+        "round": values[0], "frame": values[1], "decision_index": values[2],
         "character": str(event.get("character") or brain.get("character") or ""),
     }
+
+
+class DecisionFeed:
+    """Bounded JSONL reader; never retain a command across an observed log reset.
+
+    Freshness is time since local receipt, not a claim about source event time.
+    Only the newest accepted decision per side is retained (not lossless replay).
+    ``start_at_end`` is used by the live publisher so content left by an older
+    session cannot become a fresh motor command merely because the process was
+    restarted. After truncation/replacement, the same tail-from-now rule is
+    applied before accepting newly appended decisions.
+    """
+
+    MAX_READ_BYTES = 4 * 1024 * 1024
+    MAX_LINE_BYTES = 1024 * 1024
+
+    def __init__(self, path: Path, *, stale_after_seconds: float = 30.0, start_at_end: bool = False) -> None:
+        if not math.isfinite(stale_after_seconds) or stale_after_seconds <= 0:
+            raise ValueError("stale_after_seconds must be finite and positive")
+        self.path = path
+        self.stale_after_seconds = stale_after_seconds
+        self.start_at_end = bool(start_at_end)
+        self._needs_tail_init = self.start_at_end
+        self.latest: dict[int, dict[str, Any]] = {}
+        self.received_at: dict[int, float] = {}
+        self.offset = 0
+        self.partial = b""
+        self.file_id: tuple[int, int] | None = None
+        self.discarding = False
+        self.epoch = 0
+        self.rejected_records = 0
+
+    def _reset(self) -> None:
+        self.latest.clear()
+        self.received_at.clear()
+        self.offset = 0
+        self.partial = b""
+        self.discarding = False
+        if self.start_at_end:
+            self._needs_tail_init = True
+        self.epoch += 1
+
+    def poll(self, now: float) -> None:
+        if not math.isfinite(now):
+            raise ValueError("receipt clock must be finite")
+        try:
+            with self.path.open("rb") as handle:
+                stat = os.fstat(handle.fileno())
+                identity = (stat.st_dev, stat.st_ino)
+                if (self.file_id is not None and identity != self.file_id) or stat.st_size < self.offset:
+                    self._reset()
+                self.file_id = identity
+                if self._needs_tail_init:
+                    self.offset = stat.st_size
+                    self.partial = b""
+                    self.discarding = False
+                    self._needs_tail_init = False
+                    return
+                handle.seek(self.offset)
+                chunk = handle.read(self.MAX_READ_BYTES)
+                self.offset = handle.tell()
+        except OSError:
+            if self.file_id is not None or self.latest:
+                self._reset()
+            self.file_id = None
+            return
+        if self.discarding:
+            boundary = chunk.find(b"\n")
+            if boundary < 0:
+                return
+            chunk = chunk[boundary + 1:]
+            self.discarding = False
+        lines = (self.partial + chunk).split(b"\n")
+        self.partial = lines.pop()
+        if len(self.partial) > self.MAX_LINE_BYTES:
+            self.partial = b""
+            self.discarding = True
+            self.rejected_records += 1
+        for line in lines:
+            if not line.strip():
+                continue
+            if len(line) > self.MAX_LINE_BYTES:
+                self.rejected_records += 1
+                continue
+            try:
+                event = json.loads(line)
+            except (json.JSONDecodeError, UnicodeDecodeError, RecursionError):
+                self.rejected_records += 1
+                continue
+            if not isinstance(event, dict) or event.get("kind") != "decision":
+                continue
+            side = event.get("side")
+            identity = event_identity(event)
+            if type(side) is not int or side not in (1, 2) or identity is None:
+                self.rejected_records += 1
+                continue
+            old = event_identity(self.latest.get(side))
+            if old is not None and (
+                identity["round"] < old["round"] or
+                (identity["round"] == old["round"] and (
+                    identity["frame"] < old["frame"] or
+                    identity["decision_index"] <= old["decision_index"]
+                ))
+            ):
+                self.rejected_records += 1
+                continue
+            self.latest[side] = event
+            self.received_at[side] = now
+
+    def state(self, side: int, now: float) -> dict[str, Any]:
+        age = max(0.0, now - self.received_at[side]) if side in self.received_at else None
+        fresh = age is not None and age < self.stale_after_seconds
+        return {
+            "input_status": "fresh" if fresh else "stale" if age is not None else "missing",
+            "input_age_seconds": age,
+            "input_epoch": self.epoch,
+            "decision": event_identity(self.latest.get(side)) if fresh else None,
+        }
+
+    def command(self, side: int, now: float) -> NeuralFlyCommand:
+        if self.state(side, now)["input_status"] != "fresh":
+            return neural_fly_command([])
+        return compact_command(self.latest.get(side))
 
 
 def main() -> int:
@@ -154,9 +322,12 @@ def main() -> int:
     parser.add_argument("--fps", type=float, default=8.0)
     parser.add_argument("--width", type=int, default=320)
     parser.add_argument("--height", type=int, default=240)
+    parser.add_argument("--stale-after-sec", type=float, default=30.0)
     args = parser.parse_args()
-    if args.fps <= 0 or args.width < 160 or args.height < 120:
+    if not math.isfinite(args.fps) or args.fps <= 0 or args.width < 160 or args.height < 120:
         parser.error("invalid FlyBody fps/render dimensions")
+    if not math.isfinite(args.stale_after_sec) or args.stale_after_sec <= 0:
+        parser.error("stale-after-sec must be finite and positive")
     for path in (args.p1_output, args.p2_output, args.state_output):
         path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -171,63 +342,32 @@ def main() -> int:
         1: FlyBodySide(seed=7101, width=args.width, height=args.height),
         2: FlyBodySide(seed=7202, width=args.width, height=args.height),
     }
-    latest: dict[int, dict[str, Any]] = {}
-    offset = 0
-    partial = ""
+    feed = DecisionFeed(args.jsonl, stale_after_seconds=args.stale_after_sec, start_at_end=True)
     last_tick = time.monotonic()
     last_publish = 0.0
     frame_count = 0
 
     while not stop:
-        try:
-            if args.jsonl.exists():
-                size = args.jsonl.stat().st_size
-                if size < offset:
-                    offset = 0
-                    partial = ""
-                    latest.clear()
-                with args.jsonl.open("r", encoding="utf-8") as handle:
-                    handle.seek(offset)
-                    chunk = handle.read()
-                    offset = handle.tell()
-                if chunk:
-                    partial += chunk
-                    lines = partial.split("\n")
-                    partial = lines.pop()
-                    changed: set[int] = set()
-                    for line in lines:
-                        if not line.strip():
-                            continue
-                        try:
-                            event = json.loads(line)
-                        except json.JSONDecodeError:
-                            continue
-                        if event.get("kind") != "decision":
-                            continue
-                        side = int(event.get("side", 0))
-                        if side not in (1, 2):
-                            continue
-                        latest[side] = event
-                        changed.add(side)
-                    for side in changed:
-                        sides[side].set_command(compact_command(latest.get(side)))
-        except OSError:
-            pass
-
         now = time.monotonic()
-        real_dt = min(0.1, max(0.001, now - last_tick))
+        feed.poll(now)
+        real_dt = max(0.0, now - last_tick)
         last_tick = now
-        for simulator in sides.values():
+        for side, simulator in sides.items():
+            simulator.set_command(feed.command(side, now))
             simulator.advance(real_dt)
 
         if now - last_publish >= 1.0 / args.fps:
             p1 = sides[1].render()
             p2 = sides[2].render()
-            atomic_bytes(args.p1_output, encode_rgb_png(p1))
-            atomic_bytes(args.p2_output, encode_rgb_png(p2))
+            png1, png2 = encode_rgb_png(p1), encode_rgb_png(p2)
+            atomic_bytes(args.p1_output, png1)
+            atomic_bytes(args.p2_output, png2)
             frame_count += 1
             payload = {
-                "schema_version": 1,
+                "schema_version": 2,
+                "publisher": PUBLISHER_ID,
+                "stale_after_seconds": args.stale_after_sec,
+                "rejected_input_records": feed.rejected_records,
                 "kind": "malecns-flybody-live-physics",
                 "policy_access": False,
                 "game_telemetry_position_used": False,
@@ -237,12 +377,14 @@ def main() -> int:
                 "render": {"width": args.width, "height": args.height, "frames": frame_count, "fps_target": args.fps},
                 "sides": {
                     "p1": {
-                        "decision": event_identity(latest.get(1)),
+                        **feed.state(1, now),
+                        "png_sha256": hashlib.sha256(png1).hexdigest(),
                         "neural_command": sides[1].command.to_json(),
                         "physics": sides[1].physical_state(),
                     },
                     "p2": {
-                        "decision": event_identity(latest.get(2)),
+                        **feed.state(2, now),
+                        "png_sha256": hashlib.sha256(png2).hexdigest(),
                         "neural_command": sides[2].command.to_json(),
                         "physics": sides[2].physical_state(),
                     },
@@ -250,7 +392,10 @@ def main() -> int:
                 "interpretation_boundary": (
                     "The rendered body and dynamics are TuragaLab/flybody MuJoCo physics. "
                     "MaleCNS body activity is real; the neural-to-actuator adapter is project-defined "
-                    "and is not claimed as a known biological motor innervation map."
+                    "and is not claimed as a known biological motor innervation map. "
+                    "The decision identifies the held input, not lossless frame-locked replay. "
+                    "Physics may run in slow motion under load; dropped wall time is reported. "
+                    "PNG hashes bind state to image bytes, but readers must verify them."
                 ),
             }
             atomic_json(args.state_output, payload)

@@ -1,0 +1,80 @@
+name: flybody-publisher-regression
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/run_live_flybody_publisher.py'
+      - 'src/connectome_fighter/flybody_neural_adapter.py'
+      - 'src/connectome_fighter/rgb_png.py'
+      - 'tests/test_flybody_publisher_*.py'
+      - 'tests/test_flybody_neural_adapter.py'
+      - '.github/workflows/flybody-publisher-regression.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/run_live_flybody_publisher.py'
+      - 'src/connectome_fighter/flybody_neural_adapter.py'
+      - 'src/connectome_fighter/rgb_png.py'
+      - 'tests/test_flybody_publisher_*.py'
+      - 'tests/test_flybody_neural_adapter.py'
+      - '.github/workflows/flybody-publisher-regression.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flybody-publisher-regression-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLYBODY_COMMIT: d015e9bfe441bd90ae431bac24c55cb74bdbce26
+  PYTHONPATH: src
+  MUJOCO_GL: osmesa
+  SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  publisher:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install headless dependencies and pinned upstream body
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libosmesa6 libgl1-mesa-dri
+          python -m pip install 'numpy==1.26.4' 'pytest==8.3.5' "flybody @ git+https://github.com/TuragaLab/flybody.git@$FLYBODY_COMMIT"
+      - name: Record actual environment and source provenance
+        run: |
+          mkdir -p runs/flybody-publisher-proof
+          python -m pip freeze > runs/flybody-publisher-proof/pip-freeze.txt
+          lscpu > runs/flybody-publisher-proof/cpu.txt
+          python - <<'PY'
+          import hashlib, json, os, pathlib, platform, sys
+          payload = {
+              'python': sys.version, 'platform': platform.platform(),
+              'source_commit': os.environ['SOURCE_COMMIT'],
+              'tested_checkout_sha': os.environ['GITHUB_SHA'],
+              'upstream_commit': os.environ['FLYBODY_COMMIT'],
+              'render_backend': os.environ['MUJOCO_GL'],
+              'publisher_sha256': hashlib.sha256(pathlib.Path('scripts/run_live_flybody_publisher.py').read_bytes()).hexdigest(),
+              'biological_inputs': False, 'production_live_test': False,
+          }
+          pathlib.Path('runs/flybody-publisher-proof/environment.json').write_text(json.dumps(payload, indent=2)+'\n')
+          PY
+      - name: Software regression including startup/session boundary and publisher main loop
+        run: python -m pytest -q tests/test_flybody_neural_adapter.py tests/test_flybody_publisher_contract.py tests/test_flybody_publisher_start_boundary.py --junitxml=runs/flybody-publisher-proof/software.xml
+      - name: Actual MuJoCo publisher integration (missing dependency is a failure)
+        env:
+          REQUIRE_FLYBODY_PHYSICS: '1'
+          FLYBODY_EVIDENCE_DIR: runs/flybody-publisher-proof
+        run: python -m pytest -q tests/test_flybody_publisher_physics.py --junitxml=runs/flybody-publisher-proof/physics.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: flybody-publisher-regression-evidence
+          path: runs/flybody-publisher-proof
