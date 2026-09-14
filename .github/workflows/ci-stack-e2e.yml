@@ -1,0 +1,113 @@
+name: ci-stack-e2e
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/ci-stack-e2e.yml'
+      - 'scripts/ci_stack_*'
+      - 'scripts/arena_decision_snapshot.py'
+      - 'app/live/**'
+      - 'deploy/arena-runtime/**'
+      - 'scripts/run_live_*.py'
+      - 'scripts/verify_live_flybody.py'
+      - 'src/connectome_fighter/flybody_neural_adapter.py'
+      - 'tests/test_arena_decision_snapshot.py'
+      - 'tests/test_arena_font_probe.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-stack-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  real-stack:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CI: 'true'
+      RUNTIME_ROOT: /home/vercel-sandbox/connectome-runtime/arena-runtime
+      CONNECTOME_CI_RUNTIME_ORIGIN: http://127.0.0.1:18000
+      CONNECTOME_CI_RUNTIME_DESCRIPTOR: runs/ci-stack-e2e/runtime-selection.json
+      NEXT_TELEMETRY_DISABLED: '1'
+      LP_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install headless graphics and browser dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fontconfig fonts-dejavu-core libosmesa6 libgl1-mesa-dri
+          npm install --no-audit --no-fund
+          npm install --no-save --no-audit --no-fund playwright@1.57.0
+          npx playwright install --with-deps chromium
+      - name: Freeze runtime asset ID and digest for this run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p runs/ci-stack-e2e
+          gh api repos/Unjuno/connectome-fighter/releases/tags/arena-runtime-latest > runs/ci-stack-e2e/release-resolution.json
+          python - <<'PY'
+          import datetime, json, os, pathlib, re
+          release = json.loads(pathlib.Path('runs/ci-stack-e2e/release-resolution.json').read_text())
+          assets = [a for a in release['assets'] if a['name'] == 'arena-runtime.tar.gz' and a['state'] == 'uploaded']
+          assert len(assets) == 1
+          asset = assets[0]
+          digest = asset.get('digest', '')
+          assert re.fullmatch(r'sha256:[a-f0-9]{64}', digest), 'release asset byte digest is required'
+          descriptor = {'release_tag': release['tag_name'], 'release_id': release['id'],
+                        'asset_id': asset['id'], 'archive_sha256': digest[7:], 'size_bytes': asset['size'],
+                        'resolved_at': datetime.datetime.now(datetime.timezone.utc).isoformat()}
+          pathlib.Path(os.environ['CONNECTOME_CI_RUNTIME_DESCRIPTOR']).write_text(json.dumps(descriptor, indent=2)+'\n')
+          with open(os.environ['GITHUB_ENV'], 'a') as handle:
+              handle.write(f"RUNTIME_ASSET_ID={asset['id']}\nRUNTIME_SHA256={digest[7:]}\n")
+          PY
+      - name: Download selected asset and verify bytes (no rolling release writes)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/Unjuno/connectome-fighter/releases/assets/$RUNTIME_ASSET_ID" -H 'Accept: application/octet-stream' > "$RUNNER_TEMP/ci-arena-runtime.tar.gz"
+          echo "$RUNTIME_SHA256  $RUNNER_TEMP/ci-arena-runtime.tar.gz" | sha256sum -c -
+          sudo mkdir -p "$(dirname "$RUNTIME_ROOT")"
+          sudo chown -R "$(id -u):$(id -g)" /home/vercel-sandbox
+          tar -xzf "$RUNNER_TEMP/ci-arena-runtime.tar.gz" -C "$(dirname "$RUNTIME_ROOT")"
+          cp "$RUNTIME_ROOT/manifest.json" runs/ci-stack-e2e/input-runtime-manifest.json
+          cp "$RUNTIME_ROOT/runtime/brian2-cython-cache-manifest.json" runs/ci-stack-e2e/input-cache-manifest.json
+          lscpu > runs/ci-stack-e2e/cpu.txt
+          node --version > runs/ci-stack-e2e/node-version.txt
+          npm ls --json > runs/ci-stack-e2e/npm-tree.json
+      - name: Build actual Next.js viewer
+        run: npm run typecheck && npm run build
+      - name: Actual FightingICE + two MaleCNS workers + FlyBody + browser
+        # scripts/ci_stack_e2e.py is the actual shared harness. The entrypoint
+        # only configures its selected dependency identity, never data or gates.
+        run: python scripts/ci_stack_run.py --runtime-root "$RUNTIME_ROOT" --timeout-seconds 1200 --out runs/ci-stack-e2e
+      - name: Preserve bounded evidence and tested source
+        if: always()
+        run: |
+          mkdir -p runs/ci-stack-e2e/tested-source
+          cp scripts/ci_stack_e2e.py scripts/ci_stack_run.py scripts/ci_stack_browser.mjs scripts/verify_live_flybody.py scripts/arena_decision_snapshot.py scripts/run_live_arena_server.py runs/ci-stack-e2e/tested-source/
+          cp deploy/arena-runtime/start-session.sh deploy/arena-runtime/bootstrap-proxy.mjs runs/ci-stack-e2e/tested-source/
+          cp -r app/live runs/ci-stack-e2e/tested-source/viewer
+          git rev-parse HEAD > runs/ci-stack-e2e/tested-checkout.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ci-real-stack-e2e-evidence
+          path: runs/ci-stack-e2e
+          retention-days: 14
+          if-no-files-found: error

@@ -164,7 +164,9 @@ command -v java >/dev/null
 command -v curl >/dev/null
 
 ensure_font_runtime() {
-  if command -v fc-list >/dev/null 2>&1 && fc-list 2>/dev/null | grep -q .; then
+  # Consume the full listing: grep -q can close the pipe early and give
+  # fc-list SIGPIPE (141) under pipefail despite fonts being available.
+  if command -v fc-list >/dev/null 2>&1 && fc-list 2>/dev/null | grep . >/dev/null; then
     return 0
   fi
   write_status "installing-font-runtime"
@@ -177,7 +179,7 @@ ensure_font_runtime() {
   fi
   command -v fc-list >/dev/null
   fc-cache -f >/dev/null 2>&1 || true
-  fc-list 2>/dev/null | grep -q .
+  fc-list 2>/dev/null | grep . >/dev/null
 }
 
 # FightingICE v7.1 initializes its AWT renderer in HEADLESS_MODE. FlyBody's
