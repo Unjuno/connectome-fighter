@@ -312,7 +312,7 @@ if [[ "${CONNECTOME_PUBLIC_BROADCAST:-false}" == "true" ]]; then
     > "$WORK/live-activity-publisher.log" 2>&1 &
   ACTIVITY_PID=$!
   if [[ "$FLYBODY_AVAILABLE" == "true" ]]; then
-    MUJOCO_GL="${CONNECTOME_MUJOCO_GL:-egl}" \
+    MUJOCO_GL="${CONNECTOME_MUJOCO_GL:-osmesa}" \
     PYTHONPATH="$ROOT/repo/src:$SITEFLYBODY" "$BRIDGE_PY" \
       "$ROOT/repo/scripts/run_live_flybody_publisher.py" \
       --jsonl "$WORK/live/live-decisions.jsonl" \
