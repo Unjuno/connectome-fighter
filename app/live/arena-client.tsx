@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from 'react';
+import { Observatory, type ObservationSnapshot, type DecisionMoment } from '../observatory';
 
 type Json = Record<string, any>;
-type Snapshot = { live: Json; current: Json; activity: Json; fly: Json; selected: Json; images: string[] };
 const ADAPTER = 'malecns-annotated-motor-to-flybody-tripod-v2';
 const UPSTREAM = 'd015e9bfe441bd90ae431bac24c55cb74bdbce26';
 
@@ -21,9 +21,15 @@ async function hash(bytes: ArrayBuffer) {
 }
 
 export function ArenaClient({ runtimeOrigin }: { runtimeOrigin: string }) {
-  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+  const [snapshot, setSnapshot] = useState<ObservationSnapshot | null>(null);
   const [status, setStatus] = useState('connecting');
+  const [paused, setPaused] = useState(false);
+  const [moments, setMoments] = useState<DecisionMoment[]>([]);
   useEffect(() => {
+    setSnapshot(null);
+    setMoments([]);
+    setStatus(paused ? 'paused' : 'connecting');
+    if (paused) return;
     let stopped = false;
     let timer: ReturnType<typeof setTimeout>;
     let activeUrls: string[] = [];
@@ -48,6 +54,7 @@ export function ArenaClient({ runtimeOrigin }: { runtimeOrigin: string }) {
           knownBase = endpoint.origin;
           nextControlAt = Date.now() + 15_000;
         }
+        if (stopped) return;
         const base = knownBase;
         const [current, latestActivity, fly] = await Promise.all([
           read(base + '/state').then(r => r.json()), read(base + '/activity.json').then(r => r.json()), read(base + '/flybody.json').then(r => r.json()),
@@ -75,6 +82,7 @@ export function ArenaClient({ runtimeOrigin }: { runtimeOrigin: string }) {
           const age = selected.source_age_seconds?.[side];
           if (!expected || identity(item?.decision) !== expected || identity(activity.sides?.[side]) !== expected
               || !Number.isFinite(age) || age < 0 || age >= 30 || item?.input_status !== 'fresh'
+              || !Number.isFinite(item.input_age_seconds) || item.input_age_seconds < 0
               || !(item.input_age_seconds < fly.stale_after_seconds) || item.physics?.action_dimension !== 59
               || !(item.physics.sim_steps > 0) || item.neural_command?.adapter !== ADAPTER) throw new Error('Awaiting aligned fresh input');
         }
@@ -84,46 +92,20 @@ export function ArenaClient({ runtimeOrigin }: { runtimeOrigin: string }) {
         const images = [screen, p1, p2].map(bytes => URL.createObjectURL(new Blob([bytes], { type: 'image/png' })));
         discard(); activeUrls = images;
         setSnapshot({ live, current, activity, fly, selected, images }); setStatus('verified-held-input');
+        const sessionPrefix = `${live.session_id}|`;
+        const key = `${sessionPrefix}${identity(d1)}|${identity(d2)}`;
+        setMoments(prior => {
+          const history = prior.filter(moment => moment.key.startsWith(sessionPrefix));
+          if (history.some(moment => moment.key === key)) return history;
+          return [...history, { key, frame: live.frame, round: live.round, p1: live.p1?.action || '—', p2: live.p2?.action || '—' }].slice(-8);
+        });
       } catch (error) {
         if (!stopped) { discard(); setSnapshot(null); setStatus(error instanceof Error ? error.message : 'runtime unavailable'); }
       } finally { if (!stopped) timer = setTimeout(poll, retry); }
     };
     void poll();
     return () => { stopped = true; clearTimeout(timer); discard(); };
-  }, [runtimeOrigin]);
+  }, [runtimeOrigin, paused]);
 
-  const imageStyle = { display: 'block', maxWidth: '100%', width: '100%', height: 'auto' } as const;
-  return <main className="shell" style={{ maxWidth: 1120, margin: 'auto', padding: 16, overflowWrap: 'anywhere' }}>
-    <header>
-      <p className="eyebrow">CONNECTOME FIGHTER · READ-ONLY LIVE</p><h1>戦闘・神経活動・FlyBody</h1>
-      <p><a href="/">Candidate evaluation videos</a> · policy_pixel_access=false · learning_enabled=false</p>
-      <p data-testid="arena-status">{status}</p>
-      {runtimeOrigin ? <p>CI functional E2E: real runtime on loopback. Vercel deployment is not under test.</p> : null}
-      <p>FlyBody uses a project-defined motor adapter, not an identified biological muscle innervation map. The matching decision identifies held input, not lossless frame-locked replay.</p>
-    </header>
-    {!snapshot ? <section className="panel"><p>Waiting for verified live data. No synthetic fight, recorded LIVE, SVG fly or cached pose is substituted.</p></section> : <div
-      data-testid="arena-snapshot" data-session={snapshot.live.session_id} data-frame={snapshot.live.frame}
-      data-p1-decision={snapshot.fly.sides.p1.decision.decision_index} data-p2-decision={snapshot.fly.sides.p2.decision.decision_index}
-      data-p1-hash={snapshot.fly.sides.p1.png_sha256} data-p2-hash={snapshot.fly.sides.p2.png_sha256}>
-      <section className="panel" style={{ marginBottom: 16 }}>
-        <h2>Official FightingICE ScreenData</h2>
-        <p>GARNET vs ZEN · latest telemetry round {snapshot.current.round}, frame {snapshot.current.frame}</p>
-        <img data-testid="game-image" src={snapshot.images[0]} alt="Official FightingICE screen" style={imageStyle} />
-        <p>ScreenData is independently sampled; exact image frame identity is not claimed. Neural and body panels select earlier actually observed decisions, without relabeling the latest state.</p>
-      </section>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: 16 }}>
-        {['p1', 'p2'].map((side, index) => <section key={side} className="panel" style={{ minWidth: 0 }}>
-          <h2>{side.toUpperCase()} MaleCNS activity / FlyBody</h2>
-          <p>Input {identity(snapshot.fly.sides[side].decision)} · {snapshot.live.brain[side].total_spikes} simulated spikes</p>
-          <p>Source age: {Number(snapshot.selected.source_age_seconds[side]).toFixed(2)} s · selected action: {snapshot.live[side].action}</p>
-          <p>Source body IDs: {snapshot.fly.sides[side].neural_command.source_body_ids.join(', ') || 'none'}</p>
-          <p>Motor drive: {Number(snapshot.fly.sides[side].neural_command.drive).toFixed(4)}</p>
-          <img data-testid={`${side}-image`} src={snapshot.images[index + 1]} alt={`${side.toUpperCase()} real MuJoCo fly`} style={imageStyle} />
-          <p>59 actuators · {snapshot.fly.sides[side].physics.sim_steps} physics steps</p>
-          <p>Executed simulation: {Number(snapshot.fly.sides[side].physics.sim_time_seconds).toFixed(3)} s · dropped wall time: {Number(snapshot.fly.sides[side].physics.dropped_time_seconds).toFixed(3)} s</p>
-          <p>Body-ID activity is simulated on real anatomy, not recorded biological activity.</p>
-        </section>)}
-      </div>
-    </div>}
-  </main>;
+  return <Observatory mode="live" snapshot={snapshot} status={status} moments={moments} ci={Boolean(runtimeOrigin)} controls={<button type="button" className="ob-button" aria-pressed={paused} onClick={() => setPaused(value => !value)}>{paused ? 'LIVE表示を再開' : '表示更新を停止'}</button>} />;
 }

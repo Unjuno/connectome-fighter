@@ -1,0 +1,77 @@
+name: observatory-design
+
+on:
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'scripts/test_observatory_design.mjs'
+      - '.github/workflows/observatory-design.yml'
+      - 'package.json'
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'scripts/test_observatory_design.mjs'
+      - '.github/workflows/observatory-design.yml'
+      - 'package.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: observatory-design-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CI: 'true'
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install browser and Japanese screenshot fonts
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-noto-cjk ffmpeg
+          npm install --no-audit --no-fund
+          npm install --no-save --no-audit --no-fund playwright@1.57.0
+          npx playwright install --with-deps chromium
+      - name: Typecheck and build actual Next.js app
+        run: npm run typecheck && npm run build
+      - name: Isolated browser tests (engineering fixtures, no production requests)
+        run: |
+          set -euo pipefail
+          mkdir -p runs/observatory-design
+          ffmpeg -hide_banner -loglevel error -y -f lavfi -i 'testsrc2=size=480x320:rate=10:duration=1' -c:v libx264 -pix_fmt yuv420p -movflags +faststart runs/observatory-design/engineering-fixture.mp4
+          npm start -- --hostname 127.0.0.1 > runs/observatory-design/next.log 2>&1 &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true' EXIT
+          ready=0
+          for n in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:3000/ > /dev/null; then ready=1; break; fi
+            sleep 1
+          done
+          test "$ready" = 1
+          node scripts/test_observatory_design.mjs
+      - name: Preserve tested source and provenance
+        if: always()
+        run: |
+          mkdir -p runs/observatory-design/source
+          cp --parents app/observatory.tsx app/globals.css app/live-client.tsx app/live/arena-client.tsx scripts/test_observatory_design.mjs .github/workflows/observatory-design.yml runs/observatory-design/source/
+          git rev-parse HEAD > runs/observatory-design/checkout.txt
+          node --version > runs/observatory-design/node.txt
+          printf '%s\n' 'All design-test media and neural values are engineering fixtures. Screenshots are not live or biological evidence. Real-stack E2E is a separate workflow.' > runs/observatory-design/EVIDENCE-BOUNDARY.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: observatory-design-evidence
+          path: runs/observatory-design
