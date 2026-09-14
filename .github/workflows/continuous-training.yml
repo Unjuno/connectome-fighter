@@ -1,27 +1,9 @@
 name: combat-candidate-training
 
-# Ten-minute best-effort wake-up, NOT a guaranteed ten-minute completed update.
-# One writer, bounded work, full-round traces, paired frozen before/after video.
+# Historical R2e lane. Recurring learning is owned by paired-neural-training.
+# Manual use requires explicit repository opt-in; old checkpoints are preserved.
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '3,13,23,33,43,53 * * * *'
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/continuous-training.yml'
-  pull_request:
-    paths:
-      - '.github/workflows/continuous-training.yml'
-      - 'scripts/combat_training_run.py'
-      - 'scripts/fetch_combat_dependencies.py'
-      - 'scripts/publish_combat_candidate.py'
-      - 'scripts/publish_combat_view.py'
-      - 'scripts/update_malecns_valence_plasticity.py'
-      - 'src/connectome_fighter/combat_*.py'
-      - 'configs/reward_r2e_combat_v1.json'
-      - 'configs/plasticity_combat_v1.json'
-      - 'tests/test_combat_*.py'
 
 permissions:
   contents: read
@@ -54,7 +36,7 @@ jobs:
 
   train-and-evaluate:
     needs: contract
-    if: vars.CONNECTOME_TRAINING_PAUSED != 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    if: github.event_name == 'workflow_dispatch' && vars.CONNECTOME_LEGACY_R2E_ENABLED == 'true' && vars.CONNECTOME_TRAINING_PAUSED != 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -118,7 +100,7 @@ jobs:
 
   publish:
     needs: train-and-evaluate
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.CONNECTOME_TRAINING_PAUSED != 'true'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.CONNECTOME_TRAINING_PAUSED != 'true' && vars.CONNECTOME_LEGACY_R2E_ENABLED == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 8
     permissions:
