@@ -1,1 +1,58 @@
-{"auto_promotion":false,"candidate_only":true,"character":"GARNET","comparison_phase":"after","evaluated_at":"2026-09-14T13:16:37.852151+00:00","evaluation":{"configured_round_limit_seconds":60,"decision_interval_frames":60,"fixed_opponent":true,"nominal_game_fps":60,"protocol":"fixed-full-round-v2","round_frame_limit":3600,"rounds":1,"seed_p1":800101,"seed_p2":20202},"generation":10,"interpretation_boundary":"Actual frozen before/after evaluation on the same fixed seed; not held-out generalization, proof of improvement, or production LIVE.","kind":"post-update-candidate-round-evaluation","matches":10,"model":"KC-MBON-valence-depression-v0","opponent":"ZEN","policy_pixel_access":false,"result":{"damage_dealt_hp":0,"damage_taken_hp":0,"decision_count":60,"elapsed_frame":3600,"elapsed_seconds":60.0,"ended_by":"TIME_LIMIT","no_damage_draw":true,"p1_hp":400,"p2_hp":400,"requested_action_counts":{"2":5,"4":1,"6":54},"winner":"DRAW"},"reward_id":"R2e-combat-v1","schema_version":2,"served_by_vercel":false,"source_training_run_url":"https://github.com/Unjuno/connectome-fighter/actions/runs/34847838516","state_sha256":"f9a21da269855fe6aa70eeec4c0c3ff7af8ceecc76da7e406c3c1aa7bf01b4fb","status":"COMPLETED","video":{"asset_url":"https://github.com/Unjuno/connectome-fighter/releases/download/combat-evaluation-34847838516/after.mp4","bytes":1673361,"codec":"h264","duration_seconds":49.5,"fps":10,"height":640,"sha256":"62ec4aa9ca115c149557dedd6c314955cdbfd6571b47a21d1784640c17a71f2a","width":960}}
+{
+  "auto_promotion": false,
+  "candidate_only": true,
+  "character": "GARNET",
+  "comparison_phase": "after",
+  "evaluated_at": "2026-09-14T13:42:55.434057+00:00",
+  "evaluation": {
+    "configured_round_limit_seconds": 60,
+    "decision_interval_frames": 60,
+    "fixed_opponent": true,
+    "nominal_game_fps": 60,
+    "protocol": "fixed-full-round-v2",
+    "round_frame_limit": 3600,
+    "rounds": 1,
+    "seed_p1": 800101,
+    "seed_p2": 20202
+  },
+  "generation": 11,
+  "interpretation_boundary": "Actual frozen before/after evaluation on the same fixed seed; not held-out generalization, proof of improvement, or production LIVE.",
+  "kind": "post-update-candidate-round-evaluation",
+  "matches": 11,
+  "model": "KC-MBON-valence-depression-v0",
+  "opponent": "ZEN",
+  "policy_pixel_access": false,
+  "result": {
+    "damage_dealt_hp": 0,
+    "damage_taken_hp": 0,
+    "decision_count": 60,
+    "elapsed_frame": 3600,
+    "elapsed_seconds": 60.0,
+    "ended_by": "TIME_LIMIT",
+    "no_damage_draw": true,
+    "p1_hp": 400,
+    "p2_hp": 400,
+    "requested_action_counts": {
+      "2": 3,
+      "4": 1,
+      "6": 56
+    },
+    "winner": "DRAW"
+  },
+  "reward_id": "R2e-combat-v1",
+  "schema_version": 2,
+  "served_by_vercel": false,
+  "source_training_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34850446832",
+  "state_sha256": "6fd9ff3258b9b14eef5b06b4a9ad55f9dc5de66734d6cdb41bac67169426a39e",
+  "status": "COMPLETED",
+  "video": {
+    "asset_url": "https://github.com/Unjuno/connectome-fighter/releases/download/combat-evaluation-34850446832/after.mp4",
+    "bytes": 1994721,
+    "codec": "h264",
+    "duration_seconds": 58.5,
+    "fps": 10,
+    "height": 640,
+    "sha256": "f29affe01ac314131a5d6e034f217cdb0a4995e7873b3ba47eb0e3ae700c2bf4",
+    "width": 960
+  }
+}
