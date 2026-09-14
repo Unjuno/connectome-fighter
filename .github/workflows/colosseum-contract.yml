@@ -1,0 +1,67 @@
+name: colosseum-contract
+
+on:
+  push:
+    branches: [feat/english-colosseum-training]
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'site/**'
+      - 'docs/**'
+      - 'configs/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - '.github/workflows/**'
+      - '*.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: colosseum-contract-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Record exact source and language inventory
+        run: |
+          mkdir -p runs/colosseum-contract
+          git rev-parse HEAD > runs/colosseum-contract/checkout.txt
+          git archive --format=tar.gz HEAD > runs/colosseum-contract/project-source.tar.gz
+          python - <<'PY'
+          import json, pathlib, re, subprocess
+          rows = []
+          for name in subprocess.check_output(['git', 'ls-files', '-z']).decode().split('\0'):
+              if not name:
+                  continue
+              p = pathlib.Path(name)
+              try:
+                  text = p.read_text(encoding='utf-8')
+              except (UnicodeError, OSError):
+                  continue
+              n = len(re.findall(r'[\u3040-\u30ff\u3400-\u9fff]', text))
+              if n:
+                  rows.append({'path': name, 'cjk_characters': n})
+          pathlib.Path('runs/colosseum-contract/language-inventory.json').write_text(json.dumps(rows, indent=2)+'\n')
+          print(json.dumps(rows, indent=2))
+          PY
+      - name: Validate colosseum reward contracts when present
+        run: |
+          if test -f tests/test_colosseum_reward.py; then
+            python -m unittest discover -s tests -p test_colosseum_reward.py -v
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: colosseum-contract-evidence
+          path: runs/colosseum-contract
+          retention-days: 7
