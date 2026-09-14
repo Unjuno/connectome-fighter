@@ -1,15 +1,18 @@
-# 公開LIVEリリースゲート
+# Public LIVE publication gate
 
-`/connectome` を公開可能とする条件は、実際に配信される同一runtime releaseについて以下をすべて満たすことです。
+The `/connectome` public surface is publishable only when all of these conditions hold on the exact runtime release being served:
 
-- Vercelは固定名の共有LIVEを1つだけ使用し、視聴者数でモデルprocessを増やさない。
-- 主表示はFightingICE v7.1公式`ScreenData`。疑似描画をLIVEゲーム画面として代用しない。
-- 画面pixelはspectator-onlyで、MaleCNSのaction選択・学習への入力は禁止する。
-- 同じdecision windowで、実sensory body drive、recurrent spike、実motor body contribution、7 action-group、selected action、実FightingICE x/y/HP/actionを対応付ける。
-- 神経解剖表示には公式公開MaleCNS v1.0 SWC contextと実body-ID annotationを使う。top-spiking sampleによるregion表示を全ニューロン活動図や機能同定と表現しない。
-- ハエ身体表示は補助表示とし、実action/facing/x/y/hitのみから姿勢・移動を表す。装飾移動を観測された生物運動として扱わない。
-- スマホでは公式戦闘画面を最上部に置く1カラム構成とし、320 CSS px幅で横スクロールを要求しない。
-- warming/error時に偽の戦闘・frame・神経活動・解剖位置を生成しない。
-- GitHub candidate学習はVercel served stateと分離し、別promotion gateなしに自動公開しない。
+1. One fixed shared Vercel broadcast is used; viewer count never creates one model process per viewer.
+2. GARNET approved inference vs ZEN baseline remains read-only unless a separately audited promotion changes that contract.
+3. FightingICE v7.1 official `ScreenData` is available as the primary game view. No synthetic game frame may replace it while being labelled LIVE.
+4. Screen pixels are spectator-only (`policy_pixel_access=false`) and cannot enter MaleCNS action selection or learning.
+5. The same decision window exposes real sensory-body drive, recurrent spike activity, real motor-body contributions, all seven action-group counts, selected action, and actual FightingICE x/y/HP/action.
+6. Spectator anatomy uses official released MaleCNS v1.0 SWC context plus real body-ID annotations. Regional highlighting is explicitly bounded observational context, not an all-neuron activity map or functional claim.
+7. The Drosophila embodiment uses the pinned TuragaLab/FlyBody MuJoCo body and physics. It is driven from annotated MaleCNS motor/descending activity through an explicit versioned project adapter. FightingICE x/y/action must not be used to puppet the FlyBody body, and no SVG fallback may be presented as the physical fly.
+8. FlyBody state/render is shown as synchronized only when round, FightingICE frame and MaleCNS decision index agree with the public neural telemetry. Stale physical-body frames are withheld.
+9. The neural-to-FlyBody actuator adapter is identified as a project-defined experimental interface, not a published native Drosophila motor-neuron-to-muscle innervation map.
+10. Mobile layout presents the official fight first in a single column and must not require horizontal scrolling at 320 CSS px viewport width.
+11. Warming/error states are explicit. The page must never fabricate a fight, screen frame, neural activity, anatomy location, or FlyBody physics frame.
+12. GitHub candidate learning/log history remains separate from the Vercel served state; candidate checkpoints are never auto-promoted.
 
-production smokeは公式ScreenDataまたは同期神経side-channelが欠落した場合に失敗しなければなりません。
+A production smoke must fail if the official ScreenData endpoint, causal neural side channels, same-decision FlyBody state, or nonblank FlyBody MuJoCo renders disappear from a runtime that declares FlyBody support.

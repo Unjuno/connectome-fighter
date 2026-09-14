@@ -107,5 +107,5 @@ export function ArenaClient({ runtimeOrigin }: { runtimeOrigin: string }) {
     return () => { stopped = true; clearTimeout(timer); discard(); };
   }, [runtimeOrigin, paused]);
 
-  return <Observatory mode="live" snapshot={snapshot} status={status} moments={moments} ci={Boolean(runtimeOrigin)} controls={<button type="button" className="ob-button" aria-pressed={paused} onClick={() => setPaused(value => !value)}>{paused ? 'LIVE表示を再開' : '表示更新を停止'}</button>} />;
+  return <Observatory mode="live" snapshot={snapshot} status={status} moments={moments} ci={Boolean(runtimeOrigin)} controls={<button type="button" className="ob-button" aria-pressed={paused} onClick={() => setPaused(value => !value)}>{paused ? 'Resume LIVE display' : 'Pause display updates'}</button>} />;
 }

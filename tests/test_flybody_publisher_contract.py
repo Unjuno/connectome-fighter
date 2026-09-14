@@ -197,9 +197,9 @@ def test_new_round_allows_reset_decision_counter(tmp_path):
 def test_partial_utf8_record_is_not_consumed_until_newline(tmp_path):
     path = tmp_path/'decisions.jsonl'
     event = decision()
-    event['character'] = 'テスト'
+    event['character'] = '\u30c6\u30b9\u30c8'
     payload = json.dumps(event, ensure_ascii=False).encode()
-    cut = payload.index('テ'.encode()) + 1
+    cut = payload.index('\u30c6'.encode()) + 1
     path.write_bytes(payload[:cut])
     feed = module.DecisionFeed(path)
     feed.poll(1.0)
@@ -207,7 +207,7 @@ def test_partial_utf8_record_is_not_consumed_until_newline(tmp_path):
     with path.open('ab') as handle:
         handle.write(payload[cut:] + b'\n')
     feed.poll(2.0)
-    assert feed.latest[1]['character'] == 'テスト'
+    assert feed.latest[1]['character'] == '\u30c6\u30b9\u30c8'
     assert feed.offset == len(payload) + 1
 
 
