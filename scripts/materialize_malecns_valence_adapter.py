@@ -100,7 +100,7 @@ def main()->int:
         'depression_only':True,'topology_changed':False,'sign_changed':False,
     }
     manifest['output_hashes']=dict(base_manifest['output_hashes']); manifest['output_hashes']['connectivity_sha256']=sha256_file(dst_path)
-    manifest['interpretation_boundary']='Character-specific R2d-v0 valence-gated project plasticity scales only audited real KC->MBON magnitudes; MaleCNS topology/sign and pinned Shiu dynamics remain unchanged.'
+    manifest['interpretation_boundary']=f'Character-specific {cfg.reward_id} valence-gated project plasticity scales only audited real KC->MBON magnitudes; MaleCNS topology/sign and pinned Shiu dynamics remain unchanged.'
     (args.out/'manifest.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n',encoding='utf-8')
     print(json.dumps({'status':'PASS','character':args.character,'generation':state.generation,'candidate_edges':len(c),'changed_edges':actually_changed,'connectivity_sha256':manifest['output_hashes']['connectivity_sha256']},indent=2,sort_keys=True))
     return 0
