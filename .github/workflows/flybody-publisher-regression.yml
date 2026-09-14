@@ -66,8 +66,8 @@ jobs:
           }
           pathlib.Path('runs/flybody-publisher-proof/environment.json').write_text(json.dumps(payload, indent=2)+'\n')
           PY
-      - name: Software regression including the publisher main loop
-        run: python -m pytest -q tests/test_flybody_neural_adapter.py tests/test_flybody_publisher_contract.py --junitxml=runs/flybody-publisher-proof/software.xml
+      - name: Software regression including startup/session boundary and publisher main loop
+        run: python -m pytest -q tests/test_flybody_neural_adapter.py tests/test_flybody_publisher_contract.py tests/test_flybody_publisher_start_boundary.py --junitxml=runs/flybody-publisher-proof/software.xml
       - name: Actual MuJoCo publisher integration (missing dependency is a failure)
         env:
           REQUIRE_FLYBODY_PHYSICS: '1'
