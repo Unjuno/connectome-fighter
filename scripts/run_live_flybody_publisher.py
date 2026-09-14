@@ -195,16 +195,22 @@ class DecisionFeed:
 
     Freshness is time since local receipt, not a claim about source event time.
     Only the newest accepted decision per side is retained (not lossless replay).
+    ``start_at_end`` is used by the live publisher so content left by an older
+    session cannot become a fresh motor command merely because the process was
+    restarted. After truncation/replacement, the same tail-from-now rule is
+    applied before accepting newly appended decisions.
     """
 
     MAX_READ_BYTES = 4 * 1024 * 1024
     MAX_LINE_BYTES = 1024 * 1024
 
-    def __init__(self, path: Path, *, stale_after_seconds: float = 30.0) -> None:
+    def __init__(self, path: Path, *, stale_after_seconds: float = 30.0, start_at_end: bool = False) -> None:
         if not math.isfinite(stale_after_seconds) or stale_after_seconds <= 0:
             raise ValueError("stale_after_seconds must be finite and positive")
         self.path = path
         self.stale_after_seconds = stale_after_seconds
+        self.start_at_end = bool(start_at_end)
+        self._needs_tail_init = self.start_at_end
         self.latest: dict[int, dict[str, Any]] = {}
         self.received_at: dict[int, float] = {}
         self.offset = 0
@@ -220,6 +226,8 @@ class DecisionFeed:
         self.offset = 0
         self.partial = b""
         self.discarding = False
+        if self.start_at_end:
+            self._needs_tail_init = True
         self.epoch += 1
 
     def poll(self, now: float) -> None:
@@ -232,6 +240,12 @@ class DecisionFeed:
                 if (self.file_id is not None and identity != self.file_id) or stat.st_size < self.offset:
                     self._reset()
                 self.file_id = identity
+                if self._needs_tail_init:
+                    self.offset = stat.st_size
+                    self.partial = b""
+                    self.discarding = False
+                    self._needs_tail_init = False
+                    return
                 handle.seek(self.offset)
                 chunk = handle.read(self.MAX_READ_BYTES)
                 self.offset = handle.tell()
@@ -328,7 +342,7 @@ def main() -> int:
         1: FlyBodySide(seed=7101, width=args.width, height=args.height),
         2: FlyBodySide(seed=7202, width=args.width, height=args.height),
     }
-    feed = DecisionFeed(args.jsonl, stale_after_seconds=args.stale_after_sec)
+    feed = DecisionFeed(args.jsonl, stale_after_seconds=args.stale_after_sec, start_at_end=True)
     last_tick = time.monotonic()
     last_publish = 0.0
     frame_count = 0
