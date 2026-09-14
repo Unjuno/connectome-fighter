@@ -5,12 +5,14 @@ on:
     paths:
       - '.github/workflows/ci-stack-e2e.yml'
       - 'scripts/ci_stack_*'
+      - 'scripts/arena_decision_snapshot.py'
       - 'app/live/**'
-      - 'deploy/arena-runtime/start-session.sh'
-      - 'deploy/arena-runtime/bootstrap-proxy.mjs'
+      - 'deploy/arena-runtime/**'
       - 'scripts/run_live_*.py'
       - 'scripts/verify_live_flybody.py'
       - 'src/connectome_fighter/flybody_neural_adapter.py'
+      - 'tests/test_arena_decision_snapshot.py'
+      - 'tests/test_arena_font_probe.py'
   workflow_dispatch:
 
 permissions:
@@ -26,13 +28,10 @@ jobs:
     timeout-minutes: 30
     env:
       CI: 'true'
-      RUNTIME_SHA256: 9f2df0b8f689b2eccee1d334b6e148854ac949344a9dc6baf57257056734b5e0
-      RUNTIME_ASSET_ID: '562833522'
       RUNTIME_ROOT: /home/vercel-sandbox/connectome-runtime/arena-runtime
       CONNECTOME_CI_RUNTIME_ORIGIN: http://127.0.0.1:18000
+      CONNECTOME_CI_RUNTIME_DESCRIPTOR: runs/ci-stack-e2e/runtime-selection.json
       NEXT_TELEMETRY_DISABLED: '1'
-      # Bound software rendering and numerical library threads on a shared
-      # four-vCPU runner. Record these conditions; no real-time speed claim.
       LP_NUM_THREADS: '1'
       OMP_NUM_THREADS: '1'
       OPENBLAS_NUM_THREADS: '1'
@@ -54,12 +53,33 @@ jobs:
           npm install --no-audit --no-fund
           npm install --no-save --no-audit --no-fund playwright@1.57.0
           npx playwright install --with-deps chromium
-      - name: Download exact runtime asset and verify bytes (no rolling release writes)
+      - name: Freeze runtime asset ID and digest for this run
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           mkdir -p runs/ci-stack-e2e
+          gh api repos/Unjuno/connectome-fighter/releases/tags/arena-runtime-latest > runs/ci-stack-e2e/release-resolution.json
+          python - <<'PY'
+          import datetime, json, os, pathlib, re
+          release = json.loads(pathlib.Path('runs/ci-stack-e2e/release-resolution.json').read_text())
+          assets = [a for a in release['assets'] if a['name'] == 'arena-runtime.tar.gz' and a['state'] == 'uploaded']
+          assert len(assets) == 1
+          asset = assets[0]
+          digest = asset.get('digest', '')
+          assert re.fullmatch(r'sha256:[a-f0-9]{64}', digest), 'release asset byte digest is required'
+          descriptor = {'release_tag': release['tag_name'], 'release_id': release['id'],
+                        'asset_id': asset['id'], 'archive_sha256': digest[7:], 'size_bytes': asset['size'],
+                        'resolved_at': datetime.datetime.now(datetime.timezone.utc).isoformat()}
+          pathlib.Path(os.environ['CONNECTOME_CI_RUNTIME_DESCRIPTOR']).write_text(json.dumps(descriptor, indent=2)+'\n')
+          with open(os.environ['GITHUB_ENV'], 'a') as handle:
+              handle.write(f"RUNTIME_ASSET_ID={asset['id']}\nRUNTIME_SHA256={digest[7:]}\n")
+          PY
+      - name: Download selected asset and verify bytes (no rolling release writes)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
           gh api "repos/Unjuno/connectome-fighter/releases/assets/$RUNTIME_ASSET_ID" -H 'Accept: application/octet-stream' > "$RUNNER_TEMP/ci-arena-runtime.tar.gz"
           echo "$RUNTIME_SHA256  $RUNNER_TEMP/ci-arena-runtime.tar.gz" | sha256sum -c -
           sudo mkdir -p "$(dirname "$RUNTIME_ROOT")"
@@ -73,12 +93,15 @@ jobs:
       - name: Build actual Next.js viewer
         run: npm run typecheck && npm run build
       - name: Actual FightingICE + two MaleCNS workers + FlyBody + browser
-        run: python scripts/ci_stack_e2e.py --runtime-root "$RUNTIME_ROOT" --timeout-seconds 1200 --out runs/ci-stack-e2e
+        # scripts/ci_stack_e2e.py is the actual shared harness. The entrypoint
+        # only configures its selected dependency identity, never data or gates.
+        run: python scripts/ci_stack_run.py --runtime-root "$RUNTIME_ROOT" --timeout-seconds 1200 --out runs/ci-stack-e2e
       - name: Preserve bounded evidence and tested source
         if: always()
         run: |
           mkdir -p runs/ci-stack-e2e/tested-source
-          cp scripts/ci_stack_e2e.py scripts/ci_stack_browser.mjs scripts/verify_live_flybody.py runs/ci-stack-e2e/tested-source/
+          cp scripts/ci_stack_e2e.py scripts/ci_stack_run.py scripts/ci_stack_browser.mjs scripts/verify_live_flybody.py scripts/arena_decision_snapshot.py scripts/run_live_arena_server.py runs/ci-stack-e2e/tested-source/
+          cp deploy/arena-runtime/start-session.sh deploy/arena-runtime/bootstrap-proxy.mjs runs/ci-stack-e2e/tested-source/
           cp -r app/live runs/ci-stack-e2e/tested-source/viewer
           git rev-parse HEAD > runs/ci-stack-e2e/tested-checkout.txt
       - uses: actions/upload-artifact@v4

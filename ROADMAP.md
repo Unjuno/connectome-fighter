@@ -1,89 +1,89 @@
 # Connectome Fighter Roadmap
 
-Primary goal:
+Primary goal: reproducible real-connectome game control, auditable neural and physical spectators, then controlled learning experiments. Functional CI acceptance and public deployment acceptance are separate gates.
 
-> Run a real MaleCNS-constrained FightingICE controller reproducibly, expose auditable neural and physical spectator outputs, and evaluate controlled plasticity with separate character lineages and explicit scientific boundaries.
-
-## Current gates — updated 2026-09-14
+## Current gates — 2026-09-14
 
 | Stage | Status | Evidence boundary |
 |---|---|---|
-| MaleCNS provenance + pinned Shiu adapter | Established project baseline | Real anatomy, simulated neural dynamics |
-| MaleCNS-controlled FightingICE + body-ID logs | Established project baseline | Numeric game input; spectator pixels excluded |
-| Compilerless Brian2 runtime | Verified in runtime CI | Version/path-specific compiled cache |
-| FlyBody publisher software + real physics/process lifecycle | CI PASS, PR #57 | 42 software + 2 physics/process tests; engineering neural fixtures |
-| Dedicated Vercel project and Next.js app | Deployed | `connectome-fighter`; separate from unrelated applications |
-| Candidate evaluation videos | Operational at last API check | Research candidate, not promoted public inference |
-| Real game → MaleCNS → FlyBody → browser functional E2E | CI IMPLEMENTED; result pending | `ci-stack-e2e`, PR #58; no synthetic neural fixture or cloud allocation |
-| Vercel shared-LIVE deployment acceptance | BLOCKED at last check | Sandbox capacity; must not be reported as CI PASS |
-| Learning-frequency/reward redesign | Not changed by infrastructure work | Existing GitHub research candidates are not production learning |
-| Production reward-driven learning | OFF | Explicit promotion and rollout approval required |
+| MaleCNS + pinned Shiu LIF game control | Established; exercised in full-stack CI | Real anatomy, simulated spikes, numeric game observations |
+| Compilerless Brian2 runtime | CI verified | Version/path-specific compiled cache |
+| FlyBody publisher software / physical process lifecycle | CI PASS, PR #57 | 42 software + 2 physics/process tests, engineering input fixtures |
+| Real game → MaleCNS → FlyBody → browser | **CI PASS**, run 34827207269, head 8a5e72d | Actual game-derived neural activity; 2 rounds; no mocked HTTP or neural fixture |
+| Dedicated Next.js and Vercel project | Deployed | Existing video home remains separate from new /live viewer |
+| Dedicated Vercel shared LIVE | **Deployment E2E pending** | Last observed Sandbox capacity block; not established by local CI |
+| Learning-frequency / reward redesign | **Next design stage** | Existing research candidate is a comparator, not a validated optimum |
+| Production reward-driven learning | **OFF** | No automatic promotion or rollout permission |
 
-No percentage is assigned: component coverage, full-stack functionality, deployment health and scientific validity are different gates.
+No completion percentage is assigned: component tests, functional integration, deployment health and scientific validity are different claims.
 
 ## P0–P4 — substrate, control, state and evidence
 
-Established: MaleCNS/Shiu control, independent character state, body-ID logs, checkpoint provenance, compilerless runtime and official FightingICE ScreenData. FlyBody uses pinned upstream MuJoCo physics with the project-defined adapter v2; this is not an identified biological motor-neuron-to-muscle map.
+Established: real MaleCNS anatomy, pinned Shiu LIF, independent character state, body-ID logs, compilerless runtime and official FightingICE ScreenData. FlyBody uses upstream MuJoCo with the project-defined adapter v2, not an identified biological motor-neuron-to-muscle map.
 
-## P5A — Functional full-stack E2E in CI ← CURRENT
+## P5A — Functional full-stack E2E in CI
 
-`ci-stack-e2e` starts the production session entrypoint on an ephemeral GitHub runner:
+`ci-stack-e2e` runs:
 
 ```text
-SHA-verified runtime assets + tested source checkout
-  → real FightingICE headless game
-  → two real-connectome Shiu/Brian2 LIF workers
-  → actual game-derived annotated neural decision log
-  → existing neural adapter v2 + FlyBody/MuJoCo/OSMesa
-  → production HTTP/state/PNG publishers
-  → actual Next.js /live viewer + Chromium
+verified runtime asset + exact source checkout
+  → real headless FightingICE
+  → two actual MaleCNS/Shiu LIF workers
+  → game-derived annotated decision log
+  → neural adapter v2 + FlyBody/MuJoCo/OSMesa
+  → production HTTP / state / PNG output
+  → actual Next.js /live + Chromium
 ```
 
-Acceptance requires all of the following in one run, with saved evidence:
+The passing run completed two 600-frame read-only rounds and recorded 20 decisions per side. Both workers reported 156,675 neurons and 6,025,920 synapses. Browser samples progressed from round 1/frame 241/decision 4 to frame 541/decision 9, with both FlyBody PNG hashes changing and real images decoded. HTTP-selected source events were also checked against the independently saved raw decision log.
 
-1. Asset hashes, model/anatomy identity, source checkout and dependency environment recorded.
-2. Both players produce nonzero simulated spikes and nonempty annotated motor-source IDs.
-3. Two progressing, fresh round/frame/decision-matching telemetry/activity/FlyBody samples; physical clocks valid; state/PNG SHA-256 bindings match.
-4. Official ScreenData progresses. Exact ScreenData frame identity is not asserted without dedicated metadata.
-5. Actual browser decodes the game and both physical fly images, observes both-side decision/image progression, and has no execution errors or mobile overflow.
-6. The read-only game session completes without error. No training, reward modification or checkpoint promotion occurs.
+Artifact 10340228330 has ZIP SHA-256 `63651a830afcc4ee8447bcb39161fdd9e3b3478a7bd1c6499d22e1e624bbae78`. This is functional evidence, not Vercel or biological experimental validation. Subsequent source changes must rerun CI; this record refers specifically to the named run.
 
-CI substitutes only cloud allocation/address discovery with a fixed loopback origin. It does not mock neural inputs, game results, physics, HTTP payloads or image bytes. The production viewer rejects this wiring inside Vercel or outside standalone CI.
+### Alignment contract
 
-After P5A passes, learning-frequency and reward **design** may proceed. A Vercel billing/availability issue is not a logical prerequisite for offline experimental design. Passing CI does not authorize production learning or promotion.
+A slow renderer cannot reliably join three independently sampled latest values. `/decision-snapshot` therefore selects previously observed events by session/round/frame/P1/P2 decision identity. It does not relabel the latest state. The history is bounded to 64 events per side, each at most 128 KiB, and selected source age must be under 30 seconds. Missing, cross-session, expired or inconsistent source identities fail closed. Only running sessions are accepted.
 
-## P5B — Dedicated shared-LIVE deployment acceptance (parallel infrastructure gate)
+FlyBody identities, selected telemetry/activity and PNG hashes must agree. Official ScreenData is independently sampled; exact ScreenData frame identity and lossless physical replay are **not** claimed. Both the executed physical time and dropped wall time remain visible.
 
-The dedicated project already exists. Verify project isolation, OIDC, runtime staging, quota/capacity, real networking, supervisor/session recovery, and repeated public arena/media/browser/FlyBody probes. `CONNECTOME_PUBLIC_BASE_URL` must explicitly select the dedicated target. Missing configuration or capacity yields SKIP/UNCERTAIN, never PASS or fallback to another application.
+### Dependency and execution boundary
 
-CI P5A cannot establish Vercel P5B. Public LIVE claims and rollout require P5B; no recorded or synthetic LIVE substitution is allowed.
+CI resolves a release asset ID and its byte SHA once at run start, downloads that ID and checks the bytes. The descriptor, biological/model hashes, dependency environment, exact tested source and raw results are saved. This avoids permanently pinning a deletable asset ID from a rolling release while preserving per-run identity. It is not a claim that a mutable release tag is immutable.
+
+CI substitutes only cloud allocation/address discovery with fixed loopback networking. It does not mock neural events, game results, physics, HTTP payloads or images. The /live server refuses CI loopback wiring inside Vercel or outside standalone CI. The existing root candidate-evaluation page is not replaced.
+
+After P5A passes, learning-frequency and reward **design** may proceed. Passing CI does not authorize production learning or promotion.
+
+## P5B — Dedicated shared-LIVE deployment acceptance
+
+In parallel, verify dedicated-project isolation, OIDC, runtime staging, capacity, real networking, supervisor recovery and repeated public probes against `CONNECTOME_PUBLIC_BASE_URL`. Public probes must follow the selected-decision contract rather than assuming the independent latest endpoints are frame-locked.
+
+Missing configuration or capacity means SKIP/UNCERTAIN: never PASS or fallback to another application. CI P5A cannot establish P5B. Public LIVE availability claims and rollout require P5B; no recorded or synthetic LIVE substitution is allowed.
 
 ## P6 — Versioned public and experimental contracts
 
-Freeze the functional data/schema/provenance contract after P5A, with deployed-state wording kept accurate. Freeze public operational behavior after P5B. Input freshness, dropped physical time, held-input rather than lossless-replay semantics, and state/PNG hash verification must remain explicit.
+Freeze the functional contract with P5A evidence. Keep production acceptance separate until P5B passes. Preserve source-age limits, held-input semantics, state/PNG hashes, execution-time reporting and approved/candidate wording. The font probe now consumes the entire listing to avoid a false SIGPIPE failure under Bash pipefail.
 
-## P7 — Learning frequency and reward design selection
+## P7 — Learning frequency and reward design selection ← NEXT
 
-Separate observation/decision cadence, experience collection, between-batch plasticity updates, evaluation cadence, and publication/promotion. Compare any new reward against the existing research configuration rather than treating it as a validated optimum. Predeclare victory/defeat, HP difference, timeout/draw, inactivity/stalemate and invalid/truncated-round semantics; fix evaluation seeds, opponent schedule and compute budget. Do not mix infrastructure and reward changes in one experiment.
+Separate observation/decision cadence, collection batches, between-batch plasticity, evaluation cadence, and publication/promotion. Specify win/loss, HP difference, timeout/draw, inactivity and truncated-round semantics. Freeze seeds, opponent schedule and compute budget. Compare against existing research settings and a no-update baseline; do not change infrastructure and reward rules in one experiment.
 
 ## P8 — Character-specific persistent plasticity
 
-Version independent character lineages with parent checkpoint, graph/interface hashes, RNG state, reward/plasticity IDs and update count. Freeze both policies within each round. Existing rolling candidates remain research artifacts; no automatic promotion to approved inference.
+Version independent lineages with parent checkpoint, graph/interface hashes, RNG state, reward/plasticity IDs and update count. Freeze both policies within each round. Existing rolling candidates remain research artifacts, not automatically approved inference.
 
 ## P9 — Controlled learning and frozen evaluation
 
-Restore verified state → bounded collection → between-batch update → atomic candidate publication → frozen evaluation → explicit promotion decision. Require behavioral evaluation, not merely changed weights or passing software tests. Production rollout remains gated on P5B and explicit approval.
+Restore verified state → bounded collection → between-batch update → atomic candidate → frozen evaluation → explicit promotion decision. Changed weights or passing software tests alone do not show behavioral improvement. Production rollout still requires P5B and explicit approval.
 
 ## P10–P12 — League, interventions and matched controls
 
-Add fixed baselines, champions and archived opponents; then circuit interventions/ablations and matched topology/weight controls. Activity correlation is not a causal biological mechanism. Biological-structure advantage requires a controlled comparison.
+Evaluate fixed baselines, champions and archived opponents; then interventions/ablations and matched topology/weight controls. Activity correlation is not causality. Biological-structure advantage requires controlled comparisons.
 
 ## Immediate queue
 
-- [x] Separate the dedicated app from unrelated projects.
-- [x] Verify publisher input expiry, rotation, restart and actual MuJoCo subprocess lifecycle.
-- [x] Implement quota-independent full-stack CI and actual /live viewer.
-- [ ] Inspect one complete passing P5A run and its saved artifacts; address failures rather than weakening gates.
-- [ ] After P5A, freeze the experimental contract and design learning frequency/reward comparisons.
-- [ ] Independently resolve dedicated deployment capacity and complete P5B public probes.
-- [ ] Evaluate plasticity against frozen baselines before any promotion or production-learning decision.
+- [x] Separate the dedicated application from unrelated projects.
+- [x] Verify real FlyBody publisher lifecycle.
+- [x] Pass full functional game/neural/physics/browser CI and inspect evidence.
+- [ ] Revalidate the final PR head and merge the CI/snapshot contract.
+- [ ] Design learning-frequency/reward comparisons without starting or promoting training automatically.
+- [ ] Independently complete dedicated production acceptance after compute capacity is available.
