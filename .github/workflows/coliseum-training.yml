@@ -1,0 +1,127 @@
+name: coliseum-training
+
+# User-requested cadence, not a promise of exact delivery. Active cycles finish;
+# overlapping schedule events never interrupt checkpoint publication.
+on:
+  schedule:
+    - cron: '7-57/10 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/coliseum-training.yml'
+  pull_request:
+    paths:
+      - '.github/workflows/coliseum-training.yml'
+      - 'scripts/coliseum_*.py'
+      - 'src/connectome_fighter/coliseum_reward.py'
+      - 'configs/*coliseum*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: coliseum-cycle-${{ github.event_name == 'pull_request' && github.ref || 'single-writer' }}
+  cancel-in-progress: false
+
+env:
+  RUNTIME_ROOT: /home/vercel-sandbox/connectome-runtime/arena-runtime
+  PYTHONUNBUFFERED: '1'
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  LP_NUM_THREADS: '1'
+
+jobs:
+  cycle:
+    if: ${{ vars.COLISEUM_TRAINING_ENABLED != 'false' || github.event_name == 'pull_request' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install the real game renderer and recorder
+        run: |
+          sudo apt-get update -qq
+          sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fontconfig fonts-dejavu-core ffmpeg
+      - name: Select and verify runtime and parent checkpoint (read-only)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/coliseum_assets.py --out runs/coliseum-input
+      - name: Materialize the exact runtime path
+        run: |
+          set -euo pipefail
+          sudo mkdir -p /home/vercel-sandbox/connectome-runtime
+          sudo chown -R "$(id -u):$(id -g)" /home/vercel-sandbox
+          python - <<'PY'
+          import tarfile
+          # uv convenience aliases point to the build host. The pinned interpreter
+          # paths use actual versioned directories; never materialize external links.
+          aliases = {f'arena-runtime/runtime/pythons/cpython-{v}-linux-x86_64-gnu' for v in ('3.10','3.11')}
+          def runtime_filter(member, destination):
+              if member.issym() and member.linkname.startswith('/') and member.name in aliases:
+                  print('Skipping unused build-host alias:', member.name)
+                  return None
+              return tarfile.data_filter(member, destination)
+          with tarfile.open('runs/coliseum-input/runtime.tar.gz','r:gz') as archive:
+              archive.extractall('/home/vercel-sandbox/connectome-runtime',filter=runtime_filter)
+          PY
+          lscpu > runs/coliseum-input/cpu.txt
+          git rev-parse HEAD > runs/coliseum-input/tested-checkout.txt
+          fc-list > runs/coliseum-input/fonts.txt
+          test -s runs/coliseum-input/fonts.txt
+      - name: Real parent evaluation, one audited update, and matched child evaluation
+        env:
+          SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          BRIDGE="$RUNTIME_ROOT/$(cat "$RUNTIME_ROOT/runtime/python311.path")"
+          PYTHONPATH="$GITHUB_WORKSPACE/src:$RUNTIME_ROOT/runtime/site311" "$BRIDGE" scripts/coliseum_cycle.py \
+            --runtime-root "$RUNTIME_ROOT" --source-archive runs/coliseum-input/checkpoint.tar.gz \
+            --out runs/coliseum-cycle --run-id "c${GITHUB_RUN_ID}"
+      - name: Capture bounded diagnostic evidence
+        if: always()
+        run: |
+          mkdir -p runs/coliseum-evidence
+          cp runs/coliseum-input/selection.json runs/coliseum-input/cpu.txt runs/coliseum-input/tested-checkout.txt runs/coliseum-evidence/ 2>/dev/null || true
+          if [ -d runs/coliseum-cycle ]; then
+            find runs/coliseum-cycle -type f \( -name '*.log' -o -name '*.json' -o -name '*.jsonl' \) -size -5M -exec cp --parents {} runs/coliseum-evidence/ \;
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coliseum-cycle-evidence
+          path: runs/coliseum-evidence
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coliseum-publication
+          path: runs/coliseum-cycle/publication
+          retention-days: 1
+
+  publish:
+    needs: cycle
+    if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/download-artifact@v4
+        with:
+          name: coliseum-publication
+          path: publication
+      - name: Publish this tested candidate, never approved inference
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/coliseum_publish.py --publication publication

@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "id": "COLISEUM-v1",
+  "status": "exploratory-candidate-training-not-strength-proof",
+  "terminal": {
+    "win": 2.0,
+    "loss": -2.0,
+    "ordinary_draw": 0.0,
+    "no_damage_draw_penalty": -0.05
+  },
+  "damage": {
+    "unit_hp": 400.0,
+    "weight_per_unit": 1.0
+  },
+  "engagement_potential": {
+    "enabled": true,
+    "contact_band_px": 180.0,
+    "stage_width_px": 960.0,
+    "weight": 0.05,
+    "terminal_potential": 0.0
+  },
+  "control": {
+    "decision_interval_frames": 30,
+    "biological_window_ms": 20,
+    "round_frame_limit": 3600,
+    "nominal_game_fps": 60
+  },
+  "learning": {
+    "scheduler_interval_minutes": 10,
+    "updates_per_completed_training_round": 1,
+    "weights_frozen_during_round": true,
+    "auto_promotion": false
+  },
+  "interpretation_boundary": "Engineering combat reward on real MaleCNS connectivity and simulated spikes. Not an endogenous fly reinforcement signal. No strength or biological-causality claim. New reward/control protocol; old 60-frame evaluations are not matched controls."
+}
