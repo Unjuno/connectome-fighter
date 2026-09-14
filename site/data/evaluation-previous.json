@@ -3,7 +3,7 @@
   "candidate_only": true,
   "character": "GARNET",
   "comparison_phase": "before",
-  "evaluated_at": "2026-09-14T13:42:55.377354+00:00",
+  "evaluated_at": "2026-09-14T18:47:47.809742+00:00",
   "evaluation": {
     "configured_round_limit_seconds": 60,
     "decision_interval_frames": 60,
@@ -15,10 +15,10 @@
     "seed_p1": 800101,
     "seed_p2": 20202
   },
-  "generation": 10,
+  "generation": 11,
   "interpretation_boundary": "Actual frozen before/after evaluation on the same fixed seed; not held-out generalization, proof of improvement, or production LIVE.",
   "kind": "post-update-candidate-round-evaluation",
-  "matches": 10,
+  "matches": 11,
   "model": "KC-MBON-valence-depression-v0",
   "opponent": "ZEN",
   "policy_pixel_access": false,
@@ -33,26 +33,26 @@
     "p1_hp": 400,
     "p2_hp": 400,
     "requested_action_counts": {
-      "2": 5,
+      "2": 3,
       "4": 1,
-      "6": 54
+      "6": 56
     },
     "winner": "DRAW"
   },
   "reward_id": "R2e-combat-v1",
   "schema_version": 2,
   "served_by_vercel": false,
-  "source_training_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34850446832",
-  "state_sha256": "f9a21da269855fe6aa70eeec4c0c3ff7af8ceecc76da7e406c3c1aa7bf01b4fb",
+  "source_training_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34882491665",
+  "state_sha256": "6fd9ff3258b9b14eef5b06b4a9ad55f9dc5de66734d6cdb41bac67169426a39e",
   "status": "COMPLETED",
   "video": {
-    "asset_url": "https://github.com/Unjuno/connectome-fighter/releases/download/combat-evaluation-34850446832/before.mp4",
-    "bytes": 1971829,
+    "asset_url": "https://github.com/Unjuno/connectome-fighter/releases/download/combat-evaluation-34882491665/before.mp4",
+    "bytes": 1939233,
     "codec": "h264",
-    "duration_seconds": 58.7,
+    "duration_seconds": 56.2,
     "fps": 10,
     "height": 640,
-    "sha256": "46b1666a6462ed3e2baaa1e5d804b4a5077df7a243dac0e78e5a2139777d80e4",
+    "sha256": "f060ec4215e66af1ac0c673114380a1f2bc037d453f83028b3c18ffb8f1bd3a0",
     "width": 960
   }
 }
