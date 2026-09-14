@@ -55,7 +55,7 @@ def stop(proc):
 
 
 def materialize(base, candidates, values, dest, identity):
-    """Scale only verified existing positive candidate rows, preserving schema."""
+    """Scale only verified existing positive candidate rows; use float64 runtime weights."""
     dest.mkdir(parents=True,exist_ok=False)
     for name in ['completeness.csv','neuron_metadata.parquet']:
         shutil.copy2(base/name,dest/name)
@@ -65,8 +65,12 @@ def materialize(base, candidates, values, dest, identity):
     source=pq.ParquetFile(base/'connectivity.parquet')
     column=source.schema_arrow.get_field_index('Excitatory x Connectivity')
     if column<0:raise ValueError('weight column missing')
+    values=np.asarray(values,dtype=np.float64)
+    if values.shape!=(len(indices),) or not np.isfinite(values).all() or np.any(values<.8-1e-7) or np.any(values>1):raise ValueError('invalid effective multipliers')
+    # The structural source column is int64. Never truncate learned weights.
+    schema=source.schema_arrow.set(column,pa.field('Excitatory x Connectivity',pa.float64()))
     offset=0;visited=0
-    with pq.ParquetWriter(dest/'connectivity.parquet',source.schema_arrow,compression='zstd') as writer:
+    with pq.ParquetWriter(dest/'connectivity.parquet',schema,compression='zstd') as writer:
         for batch in source.iter_batches(batch_size=250000):
             table=pa.Table.from_batches([batch]);end=offset+len(table)
             lo,hi=np.searchsorted(indices,[offset,end])
@@ -77,9 +81,13 @@ def materialize(base, candidates, values, dest, identity):
                 if np.any(weights[local]<=0):raise ValueError('candidate sign mismatch')
                 weights[local]*=values[lo:hi]
                 visited+=hi-lo
-            table=table.set_column(column,source.schema_arrow.field(column),pa.array(weights,type=source.schema_arrow.field(column).type))
+            table=table.set_column(column,schema.field(column),pa.array(weights,type=pa.float64()))
             writer.write_table(table);offset=end
     if visited!=len(indices):raise ValueError('not all candidate rows visited')
+    actual=pq.read_table(dest/'connectivity.parquet',columns=['Excitatory x Connectivity']).column(0).to_numpy()
+    original=pq.read_table(base/'connectivity.parquet',columns=['Excitatory x Connectivity']).column(0).to_numpy().astype(np.float64)
+    expected=original.copy();expected[indices]*=values
+    if not np.array_equal(actual,expected) or not np.array_equal(np.sign(actual),np.sign(original)):raise ValueError('materialized float weights or signs changed unexpectedly')
     manifest=json.loads((base/'manifest.json').read_text())
     manifest['adapter']+='+'+EXPERIMENT
     manifest['output_hashes']['connectivity_sha256']=sha(dest/'connectivity.parquet')
@@ -141,7 +149,7 @@ def main():
     wrapper.write_text('#!/bin/sh\nexport PYTHONPATH='+shlex.quote(str(runtime/'runtime/site310'))+'\nexec '+shlex.quote(str(ref))+' "$@"\n');wrapper.chmod(0o755)
     env=dict(os.environ,PATH=f"{runtime/'runtime/jre21/bin'}:{os.environ['PATH']}",
              PYTHONPATH=f"{ROOT/'src'}:{runtime/'runtime/site311'}",OMP_NUM_THREADS='1',OPENBLAS_NUM_THREADS='1')
-    matches=[];evaluated={}
+    matches=[]
     def game(name,params,opponent,seed,video=False):
         values=multipliers(state.multipliers,params,membership)
         weight_hash=hashlib.sha256(values.tobytes()).hexdigest()
