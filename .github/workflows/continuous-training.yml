@@ -1,17 +1,12 @@
 name: canonical-continuous-training
 
+# Historical R2d lane: manual only. Scheduled learning now uses colosseum-training.
 # Single-writer candidate-learning lane.
 # This workflow advances a rolling GARNET research checkpoint on GitHub only.
 # It never writes weights on Vercel and never auto-promotes candidate state to
 # arena-inference-latest. Promotion remains a separate evidence gate.
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '53 */6 * * *'
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/continuous-training.yml'
 
 permissions:
   contents: write

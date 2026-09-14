@@ -1,78 +1,112 @@
 # Connectome Fighter
 
-FightingICE を対戦環境として、**MaleCNS v1.0 の実 Drosophila connectome** を pinned Shiu LIF dynamics で動かし、実 body ID の神経活動、checkpoint lineage、runtime provenance を公開する研究・実装基盤です。
+Connectome Fighter is a cloud research testbed that connects the **MaleCNS v1.0 Drosophila connectome** to FightingICE through a pinned implementation of the Shiu et al. leaky integrate-and-fire dynamics. The project records real MaleCNS body-ID activity, keeps game I/O mappings explicit, and separates biological structure from project-defined reinforcement, plasticity, and embodiment assumptions.
 
-**Dedicated LIVE:** 公開先は repository variable `CONNECTOME_PUBLIC_BASE_URL` で指定します。無関係な Vercel project は Connectome の公開先として扱いません。 · [Research ledger](https://unjuno.github.io/connectome-fighter/) · [Status](docs/STATUS.md) · [Roadmap](ROADMAP.md) · [English](README.md)
+**Dedicated LIVE:** deployment target is configured through the repository variable `CONNECTOME_PUBLIC_BASE_URL`; no unrelated Vercel project is a valid Connectome target. · [Research ledger](https://unjuno.github.io/connectome-fighter/) · [Status](docs/STATUS.md) · [Roadmap](ROADMAP.md) · [Public surface contract](docs/PUBLIC_SURFACE_SPLIT.md)
 
 ## Canonical control path
 
 ```text
-FightingICE 数値観測
-  → project-defined Poisson sensory interface
-  → MaleCNS v1.0 connectivity
-  → pinned Shiu LIF dynamics
-  → real output-body spike counts
-  → versioned action groups
-  → FightingICE action
+FightingICE numeric observation
+        ↓
+versioned project-defined Poisson sensory interface
+        ↓
+MaleCNS v1.0 real connectivity
+        ↓
+pinned Shiu et al. LIF dynamics
+        ↓
+real output-body spike counts
+        ↓
+versioned action groups
+        ↓
+FightingICE action
 ```
 
-MLP / RNN / PPO 等を MaleCNS の代用品として canonical policy path に置きません。game I/O mapping は人工的な実験 interface です。
+The canonical path does **not** replace the fly substrate with an MLP, RNN, PPO policy network, or the repository's older custom sigmoid scaffold.
 
-## FlyBody 物理 embodiment
+## Physical FlyBody spectator
 
-物理ハエは upstream `TuragaLab/flybody` の MuJoCo body を commit `d015e9bfe441bd90ae431bac24c55cb74bdbce26` に固定して使用します。
+The physical fly is the upstream `TuragaLab/flybody` MuJoCo body pinned at commit `d015e9bfe441bd90ae431bac24c55cb74bdbce26`.
 
 ```text
 annotated MaleCNS motor / descending activity
-  → project-defined bounded adapter
-  → 59 FlyBody actuators
-  → MuJoCo physics
-  → FlyBody render
+        ↓
+project-defined bounded adapter
+        ↓
+59 FlyBody actuators
+        ↓
+MuJoCo physics
+        ↓
+FlyBody render
 ```
 
-adapter は `malecns-annotated-motor-to-flybody-tripod-v2`。これは project-defined interface であり、生物学的な motor-neuron→muscle 対応を同定したものとは主張しません。FightingICE の x/y/action を FlyBody の位置やposeにコピーしません。神経 motor drive がゼロなら active gait もゼロです。
+The adapter is `malecns-annotated-motor-to-flybody-tripod-v2`. It is a project interface, **not** a claimed biological motor-neuron→muscle map. FightingICE x/y/action values do not position the FlyBody body. Zero neural motor drive produces no active gait. FlyBody, FightingICE ScreenData, and neural anatomy are spectator outputs and never policy inputs.
 
-## 現在の状態
+## Scientific boundaries
+
+- MaleCNS anatomy is biological data.
+- Shiu LIF dynamics are a published neural-dynamics model applied to that anatomy.
+- FightingICE feature-to-sensory and output-to-action mappings are project-defined interfaces.
+- MaleCNS→FlyBody actuator mapping is project-defined.
+- Reward and plasticity rules are research-added assumptions and remain versioned.
+- Neural activity is not treated as proof of causal biological function; causal claims require interventions or ablations.
+
+## Current demonstrated state
 
 - MaleCNS v1.0 provenance/import: **PASS**
-- pinned Shiu LIF runtime: **PASS**
-- 約 **156,675 neurons / 6,025,920 recurrent synapses**
-- real MaleCNS-controlled FightingICE: **PASS**
-- compilerless Brian2 Cython bundle: **PASS**
-- actual FlyBody MuJoCo physics contract: **independent CI PASS**
-- FlyBody actuator dimension: **59**
-- zero-drive phase invariance: **PASS**
-- neural-drive trajectory divergence: **PASS**
-- dedicated Next.js public app: **IMPLEMENTED / production deployment verification pending**
+- pinned Shiu LIF reference/runtime: **PASS**
+- strict runtime: approximately **156,675 neurons / 6,025,920 recurrent synapses** under the project filter
+- real MaleCNS-controlled FightingICE rounds: **PASS**
+- body-ID spike/event logs: **PASS**
+- compilerless Brian2 Cython runtime bundle: **PASS**
+- FlyBody real MuJoCo physics contract: **PASS in independent CI**
+- FlyBody action dimension: **59**
+- neural-drive-vs-zero trajectory divergence: **PASS**
+- dedicated Next.js public control/viewer implementation: **DEPLOYED; production compute E2E remains separate**
 - dedicated Vercel shared-LIVE E2E: **NOT YET VERIFIED**
+- GARNET generation 2: approved read-only inference state
+- ZEN canonical baseline: current P2 serving contract
 - continuous production reward-driven learning: **OFF**
 
-既存の `Unjuno/live` は Connectome のdeployment targetではなく、dedicated workflowから変更しません。
+The prior unrelated `Unjuno/live` application is not a Connectome deployment target and is not modified by the dedicated workflows.
 
 ## Dedicated public architecture
 
 ```text
 GitHub rolling runtime release
-  → SHA-addressed persistent runtime base
-     (runtime + FightingICE fonts + OSMesa)
-  → connectome-fighter-live-broadcast
-  → FightingICE + 2 MaleCNS/Shiu workers
-  → Official ScreenData + neural activity + FlyBody physics
-  → 全 viewer が同じ broadcast を見る
+        ↓
+SHA-addressed persistent runtime base
+  (runtime + FightingICE fonts + OSMesa)
+        ↓
+fixed-name connectome-fighter-live-broadcast Sandbox
+        ↓
+FightingICE + two MaleCNS/Shiu workers
+        ↓
+Official ScreenData + neural activity + FlyBody physics
+        ↓
+one shared public viewer surface
 ```
 
-public app はこのrepoの `app/` / `lib/` にあります。control API は `/api/live`、runtime materialization は `/api/runtime-base`。Vercel deployment 自身の `VERCEL_PROJECT_ID` のみを使用し、他projectのIDをhard-codeしません。
+The dedicated app lives in this repository under `app/` and `lib/`. Its control API is `/api/live`; runtime materialization is `/api/runtime-base`. It reads the Vercel deployment's own `VERCEL_PROJECT_ID` and contains no hard-coded identifier for another Vercel project.
 
-Production smoke は `CONNECTOME_PUBLIC_BASE_URL` が設定されている場合だけ実行します。未設定時に別サイトへfallbackしません。
+Production smoke workflows use `CONNECTOME_PUBLIC_BASE_URL`. If that variable is unset, they skip rather than falling back to another site.
 
 ## Runtime publication boundary
 
-`publish-arena-runtime-bundle → precompile-arena-brian2-cython-cache → publish-flybody-runtime-addon` はGitHub releaseだけを更新します。Vercelへのstageは専用Connectome control plane側が行います。
+Runtime publication is GitHub-only:
 
-## 学習境界
+`publish-arena-runtime-bundle → precompile-arena-brian2-cython-cache → publish-flybody-runtime-addon`.
 
-continuous production learning は **OFF**。candidate training / history は GitHub 側で保持し、Vercel inference state への自動promotionはしません。
+These workflows publish immutable release assets but do not stage them into a Vercel project. The dedicated Vercel control plane owns runtime-base staging. This prevents release jobs from mutating an unrelated deployment.
 
-## ライセンス
+## Colosseum candidate season
 
-本リポジトリのproject-authored codeはMIT License。MaleCNS、FightingICE、FlyBody等には各ライセンス/利用条件が適用されます。
+The English-only candidate experiment is described in [COLOSSEUM.md](docs/COLOSSEUM.md). Its workflow requests one bounded cycle every ten minutes. Each cycle records parent evaluation, full-round collection, a post-round update, and paired child evaluation. Results remain experimental; a completed cycle is not proof of stronger play. The historical R2d learner is manual-only.
+
+## Learning status
+
+Continuous canonical learning is **not production-active**. Candidate training and append-only lineage history remain on GitHub and cannot auto-promote into the Vercel inference state.
+
+## License
+
+Project-authored source code is MIT licensed. FightingICE, MaleCNS/connectome data, FlyBody, papers, and other third-party resources retain their own licenses and terms; see [`THIRD_PARTY.md`](THIRD_PARTY.md).

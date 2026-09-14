@@ -53,7 +53,7 @@ jobs:
           assert isinstance(data,dict) and data.get('name')=='canonical-continuous-training'
 
           required=[
-              "cron: '53 */6 * * *'",
+              "workflow_dispatch:",
               'group: canonical-continuous-training-single-writer',
               'cancel-in-progress: false',
               'TRAINING_TAG: canonical-training-latest',

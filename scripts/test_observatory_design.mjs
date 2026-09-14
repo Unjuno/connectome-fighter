@@ -89,12 +89,12 @@ await test('replay desktop: honest mode, playable fixture, generation switch, no
   assert.equal(state.controlCalls, 0);
   assert(await page.getByText('RECORDED EVALUATION', { exact: true }).isVisible());
   await screenshot(page, 'replay-desktop');
-  await page.getByRole('button', { name: '前回 Gen 8', exact: true }).click();
+  await page.getByRole('button', { name: 'Previous Gen 8', exact: true }).click();
   assert((await page.getByTestId('evaluation-video').getAttribute('src')).includes('round-8'));
-  await page.getByRole('button', { name: '最新完了 Gen 9', exact: true }).click();
+  await page.getByRole('button', { name: 'Latest completed Gen 9', exact: true }).click();
   assert((await page.getByTestId('evaluation-video').getAttribute('src')).includes('round-9'));
-  await page.getByRole('button', { name: '履歴更新を停止', exact: true }).click();
-  assert(await page.getByRole('button', { name: '履歴更新を再開', exact: true }).isVisible());
+  await page.getByRole('button', { name: 'Pause history updates', exact: true }).click();
+  assert(await page.getByRole('button', { name: 'Resume history updates', exact: true }).isVisible());
   await noOverflow(page);
 });
 await test('replay mobile: 375px layout and video before neural panels', async ({ page }) => {
@@ -106,26 +106,26 @@ await test('replay mobile: 375px layout and video before neural panels', async (
 }, { width: 375, height: 812 });
 await test('no evaluations: no fabricated video, spikes, or zero-valued metrics', async ({ page, state }) => {
   state.evaluation = { ready: false, latest: null, previous: null, training: null };
-  await page.goto(base); await page.getByText('評価動画を待機中', { exact: true }).waitFor();
+  await page.goto(base); await page.getByText('Awaiting an evaluation video', { exact: true }).waitFor();
   assert.equal(await page.locator('video').count(), 0);
-  assert.equal(await page.getByRole('button', { name: '前回 Gen —', exact: true }).isDisabled(), true);
+  assert.equal(await page.getByRole('button', { name: 'Previous Gen —', exact: true }).isDisabled(), true);
   assert((await page.locator('.ob-result').innerText()).includes('HP —'));
 });
 await test('evaluation failure: explicit error state', async ({ page, state }) => {
   state.evalStatus = 503;
-  await page.goto(base); await page.getByText(/評価APIを取得できません/).waitFor();
+  await page.goto(base); await page.getByText(/Evaluation API unavailable/).waitFor();
   assert.equal(await page.locator('video').count(), 0);
 });
 await test('newer candidate does not relabel completed evaluation', async ({ page, state }) => {
   state.evaluation.training.generation = 10;
   await page.goto(base); await page.getByTestId('evaluation-video').waitFor();
   assert((await page.getByTestId('evaluation-video').getAttribute('src')).includes('round-9'));
-  assert(await page.getByText(/CandidateはGen 10に更新済み/).isVisible());
+  assert(await page.getByText(/Candidate is now Gen 10/).isVisible());
 });
 await test('non-candidate or unsafe evaluation is not presented', async ({ page, state }) => {
   state.evaluation.latest.candidate_only = false;
   state.evaluation.previous = null;
-  await page.goto(base); await page.getByText('評価動画を待機中', { exact: true }).waitFor();
+  await page.goto(base); await page.getByText('Awaiting an evaluation video', { exact: true }).waitFor();
   assert.equal(await page.locator('video').count(), 0);
 });
 await test('capacity state: no automatic replay or fake physical pose', async ({ page, state }) => {
@@ -146,11 +146,11 @@ await test('verified live layout, progression, pause, and resume', async ({ page
   state.phase = 2;
   await page.waitForFunction(() => document.querySelector('[data-testid="arena-snapshot"]')?.getAttribute('data-p1-decision') === '2');
   assert.equal(await page.locator('.ob-timeline li').count(), 2);
-  await page.getByRole('button', { name: '表示更新を停止', exact: true }).click();
+  await page.getByRole('button', { name: 'Pause display updates', exact: true }).click();
   await page.getByTestId('arena-status').filter({ hasText: 'paused' }).waitFor();
   assert.equal(await page.getByTestId('arena-snapshot').count(), 0);
   const calls = state.runtimeCalls; await page.waitForTimeout(650); assert.equal(state.runtimeCalls, calls);
-  await page.getByRole('button', { name: 'LIVE表示を再開', exact: true }).click();
+  await page.getByRole('button', { name: 'Resume LIVE display', exact: true }).click();
   await page.getByTestId('arena-snapshot').waitFor();
   await noOverflow(page);
 });

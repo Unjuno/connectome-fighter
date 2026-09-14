@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "id": "R3-colosseum-v1",
+  "status": "exploratory-candidate-only",
+  "discount": 1.0,
+  "max_hp": 400.0,
+  "damage_weight": 0.5,
+  "engagement_weight": 0.05,
+  "contact_band_px": 180.0,
+  "stage_width_px": 960.0,
+  "terminal_potential": 0.0,
+  "terminal": {"win": 1.0, "loss": -1.0, "draw": -0.1, "no_damage_draw": -0.25},
+  "specific_action_reward": false,
+  "interpretation_boundary": "Project-defined game reward. Completed rounds only. No bonus for pressing attacks, firing neurons, or changing weights. Terminal-zero bounded distance shaping provides local feedback, not a guarantee for the nonlinear depression-only update. Strength requires held-out opponent and seed evaluation."
+}

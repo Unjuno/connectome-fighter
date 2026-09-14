@@ -1,0 +1,152 @@
+name: colosseum-training
+
+on:
+  schedule:
+    - cron: '3,13,23,33,43,53 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/colosseum-training.yml']
+  pull_request:
+    paths:
+      - '.github/workflows/colosseum-training.yml'
+      - 'scripts/colosseum_cycle.py'
+      - 'src/connectome_fighter/colosseum_reward.py'
+      - 'configs/reward_colosseum_v1.json'
+      - 'configs/plasticity_colosseum_v1.json'
+
+permissions:
+  contents: read
+
+# Covers collection AND publication: no overlapping writers or canceled updates.
+concurrency:
+  group: colosseum-r3-v1-single-writer
+  cancel-in-progress: false
+
+env:
+  RUNTIME_ROOT: /home/vercel-sandbox/connectome-runtime/arena-runtime
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  LP_NUM_THREADS: '1'
+
+jobs:
+  cycle:
+    if: ${{ vars.COLOSSEUM_PAUSED != 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install official-renderer font and video dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fontconfig fonts-dejavu-core ffmpeg
+      - name: Select exact prebuilt runtime asset
+        id: runtime
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p runs/colosseum-environment
+          gh api repos/Unjuno/connectome-fighter/releases/tags/arena-runtime-latest > runs/colosseum-environment/release.json
+          python - <<'PY'
+          import json, os, pathlib, re
+          release = json.loads(pathlib.Path('runs/colosseum-environment/release.json').read_text())
+          assets = [a for a in release['assets'] if a['name']=='arena-runtime.tar.gz' and a['state']=='uploaded']
+          assert len(assets)==1
+          a=assets[0]; assert re.fullmatch(r'sha256:[a-f0-9]{64}',a.get('digest',''))
+          with open(os.environ['GITHUB_OUTPUT'],'a') as f:
+              f.write(f"asset={a['id']}\nsha={a['digest'][7:]}\n")
+          PY
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: ${{ runner.temp }}/colosseum-runtime.tar.gz
+          key: colosseum-runtime-${{ steps.runtime.outputs.sha }}
+      - name: Download cache miss and verify all archive bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASSET_ID: ${{ steps.runtime.outputs.asset }}
+          EXPECTED_SHA: ${{ steps.runtime.outputs.sha }}
+          CACHE_HIT: ${{ steps.cache.outputs.cache-hit }}
+        run: |
+          set -euo pipefail
+          if [[ "$CACHE_HIT" != 'true' ]]; then
+            gh api "repos/Unjuno/connectome-fighter/releases/assets/$ASSET_ID" -H 'Accept: application/octet-stream' > "$RUNNER_TEMP/colosseum-runtime.tar.gz"
+          fi
+          echo "$EXPECTED_SHA  $RUNNER_TEMP/colosseum-runtime.tar.gz" | sha256sum -c -
+          sudo mkdir -p /home/vercel-sandbox/connectome-runtime
+          sudo chown -R "$(id -u):$(id -g)" /home/vercel-sandbox
+          tar -xzf "$RUNNER_TEMP/colosseum-runtime.tar.gz" -C /home/vercel-sandbox/connectome-runtime
+          cp "$RUNTIME_ROOT/manifest.json" runs/colosseum-environment/input-runtime-manifest.json
+          # Test this checkout with the pinned dependencies; do not republish the runtime.
+          cp -r src/. "$RUNTIME_ROOT/repo/src/"
+          cp -r scripts/. "$RUNTIME_ROOT/repo/scripts/"
+          cp -r configs/. "$RUNTIME_ROOT/repo/configs/"
+          lscpu > runs/colosseum-environment/cpu.txt
+          git rev-parse HEAD > runs/colosseum-environment/source-commit.txt
+          git archive --format=tar.gz HEAD > runs/colosseum-environment/tested-source.tar.gz
+      - name: Reward regression before any learning
+        run: python -m unittest discover -s tests -p test_colosseum_reward.py -v
+      - name: Parent evaluation, full-round collection, update, child evaluation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          BRIDGE="$RUNTIME_ROOT/$(cat "$RUNTIME_ROOT/runtime/python311.path")"
+          export PYTHONPATH="$GITHUB_WORKSPACE/src:$RUNTIME_ROOT/runtime/site311"
+          timeout --signal=TERM --kill-after=30s 1200s "$BRIDGE" scripts/colosseum_cycle.py \
+            --runtime-root "$RUNTIME_ROOT" --out runs/colosseum-cycle
+      - uses: actions/upload-artifact@v4
+        with:
+          name: colosseum-cycle-publication
+          path: runs/colosseum-cycle/publish
+          if-no-files-found: error
+          retention-days: 3
+      - name: Preserve diagnostics even on failed cycles
+        if: always()
+        run: |
+          mkdir -p runs/colosseum-diagnostics
+          python - <<'PY'
+          import pathlib, shutil
+          root=pathlib.Path('runs/colosseum-cycle')
+          out=pathlib.Path('runs/colosseum-diagnostics')
+          for p in root.rglob('*'):
+              if p.is_file() and (p.suffix=='.log' or p.name in {'status.json','result.json','update.json','exception_traceback.txt'}):
+                  dest=out/p.relative_to(root); dest.parent.mkdir(parents=True,exist_ok=True)
+                  dest.write_bytes(p.read_bytes()[-500000:])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: colosseum-cycle-diagnostics
+          path: |
+            runs/colosseum-environment
+            runs/colosseum-diagnostics
+          retention-days: 7
+
+  publish:
+    needs: cycle
+    if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: colosseum-cycle-publication
+          path: runs/publication
+      - name: Publish immutable candidate and advance completed-evaluation pointer last
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/colosseum_cycle.py --publish runs/publication

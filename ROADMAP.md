@@ -87,3 +87,7 @@ Evaluate fixed baselines, champions and archived opponents; then interventions/a
 - [ ] Revalidate the final PR head and merge the CI/snapshot contract.
 - [ ] Design learning-frequency/reward comparisons without starting or promoting training automatically.
 - [ ] Independently complete dedicated production acceptance after compute capacity is available.
+
+## Exploratory colosseum season
+
+See [COLOSSEUM.md](docs/COLOSSEUM.md) for the ten-minute requested candidate cycle, R3 reward, 15-frame game decisions, paired diagnostics, English-only surfaces, and immutable result publication. This is separate from approved inference and Vercel acceptance; no stronger-play claim or automatic promotion is implied.

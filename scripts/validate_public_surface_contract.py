@@ -108,7 +108,7 @@ def main() -> int:
             "dedicated Vercel shared-LIVE E2E: **NOT YET VERIFIED**",
             "continuous production reward-driven learning: **OFF**")
     require("README.ja.md", BROADCAST_TARGET, FLYBODY_COMMIT, FLYBODY_ADAPTER,
-            "FightingICE の x/y/action を FlyBody の位置やposeにコピーしません",
+            "FightingICE x/y/action values do not position the FlyBody body",
             "dedicated Vercel shared-LIVE E2E: **NOT YET VERIFIED**",
             "continuous production reward-driven learning: **OFF**")
     require("ROADMAP.md", "P5A — Functional full-stack E2E in CI",
@@ -124,17 +124,18 @@ def main() -> int:
             "production E2E status is **NOT YET VERIFIED**")
     require("docs/PUBLIC_SURFACE_SPLIT.ja.md", "Dedicated Vercel LIVE", "CONNECTOME_PUBLIC_BASE_URL",
             BROADCAST_TARGET, FLYBODY_COMMIT, FLYBODY_ADAPTER,
-            "FightingICE x/y/actionをFlyBodyのposition/poseへコピーしません")
+            "FightingICE x/y/action does not position or pose the physical FlyBody")
     require("site/index.html", "Dedicated deployment workflow", "deployment E2E pending",
             "FightingICE x/y/action does not position the FlyBody body", "./data/training-history.json",
             "Append-only public candidate generation ledger")
     # The home page is deliberately an evaluation-video surface. The live view
     # is separately tested at /live, not by requiring obsolete home-page text.
-    require("app/live-client.tsx", "MODEL ROUND EVALUATION", "candidate only", "policy_pixel_access=false")
-    require("app/live/arena-client.tsx", "Official FightingICE ScreenData", FLYBODY_COMMIT,
-            FLYBODY_ADAPTER, "SHA-256", "Awaiting aligned fresh input", "verified-held-input",
-            "No synthetic fight, recorded LIVE, SVG fly or cached pose is substituted",
-            "not an identified biological muscle innervation map")
+    require("app/live-client.tsx", 'mode="replay"', "candidate only", "policy_pixel_access=false")
+    require("app/live/arena-client.tsx", FLYBODY_COMMIT, FLYBODY_ADAPTER,
+            "SHA-256", "Awaiting aligned fresh input", "verified-held-input",
+            "png_sha256", "observed-decision-snapshot", "source_age_seconds", "input_status")
+    require("app/observatory.tsx", "Official FightingICE screen", "RECORDED EVALUATION",
+            "biological muscle-innervation map", "Missing recorded activity is never invented")
     require("app/live/page.tsx", "process.env.CI", "process.env.VERCEL",
             "http://127.0.0.1:18000", "CI runtime origin is forbidden outside standalone CI")
     require("app/api/live/route.ts", FLYBODY_COMMIT, FLYBODY_ADAPTER,

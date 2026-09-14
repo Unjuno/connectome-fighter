@@ -11,10 +11,10 @@ export function metric(value: unknown, digits = 0): string {
   return new Intl.NumberFormat('en-US', { maximumFractionDigits: digits }).format(value);
 }
 export function stamp(value: unknown): string {
-  if (typeof value !== 'string') return '未記録';
+  if (typeof value !== 'string') return 'Not recorded';
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '未記録';
-  return new Intl.DateTimeFormat('ja-JP', { timeZone: 'Asia/Tokyo', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(date) + ' JST';
+  if (Number.isNaN(date.getTime())) return 'Not recorded';
+  return new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(date) + ' UTC';
 }
 
 function Empty({ title, children }: { title: string; children: ReactNode }) {
@@ -36,19 +36,19 @@ function BrainPanel({ side, snapshot, replay }: { side: 'p1' | 'p2'; snapshot: O
   const character = snapshot?.live[side]?.character || (side === 'p1' ? 'GARNET' : 'ZEN');
   const top = Array.isArray(data?.top_bodies) ? data.top_bodies : [];
   const motor = Array.isArray(data?.motor_contributors) ? data.motor_contributors : [];
-  return <aside className={`ob-brain ob-panel ${side}`} data-testid={`${side}-brain`} aria-label={`${side.toUpperCase()} 神経活動`}>
+  return <aside className={`ob-brain ob-panel ${side}`} data-testid={`${side}-brain`} aria-label={`${side.toUpperCase()} Neural activity`}>
     <div className="ob-panel-heading"><span className="ob-kicker">{side.toUpperCase()} / NEURAL ACTIVITY</span><span className="ob-signal-dot" data-active={Boolean(snapshot)} /></div>
     <h2>{character}</h2><p className="ob-caption">MaleCNS · Shiu LIF</p>
     <div className="ob-neural-count"><strong>{metric(brain?.total_spikes)}</strong><span>spikes / decision window</span></div>
     {snapshot ? <>
-      <div className="ob-subheading">発火上位のbody ID <span>spikes</span></div>
-      {top.length ? <Bars rows={top} valueKey="spikes" label={`${side} top spiking bodies`} /> : <p className="ob-caption">上位bodyの記録なし</p>}
-      <div className="ob-subheading">運動出力 <span>spikes</span></div>
-      {motor.length ? <Bars rows={motor.slice(0, 3)} valueKey="spikes" label={`${side} motor contributors`} /> : <p className="ob-caption">運動出力の記録なし</p>}
+      <div className="ob-subheading">Top spiking body IDs <span>spikes</span></div>
+      {top.length ? <Bars rows={top} valueKey="spikes" label={`${side} top spiking bodies`} /> : <p className="ob-caption">No top-body record</p>}
+      <div className="ob-subheading">Motor output <span>spikes</span></div>
+      {motor.length ? <Bars rows={motor.slice(0, 3)} valueKey="spikes" label={`${side} motor contributors`} /> : <p className="ob-caption">No motor-output record</p>}
       <div className="ob-action" key={`${data?.round}/${data?.frame}/${data?.decision_index}`}><span>SELECTED ACTION</span><strong>{snapshot.live[side]?.action || '—'}</strong></div>
-      <p className="ob-caption">受信元の経過 {metric(snapshot.selected.source_age_seconds?.[side], 2)} s · 上位標本のみ。全神経の活動分布ではありません。</p>
-    </> : <Empty title={replay ? '神経活動は未収録' : '神経入力を待機中'}>{replay ? 'この評価動画に同期した神経記録はありません。LIVE観測で表示します。' : '検証済みの入力を受信したときだけ表示します。'}</Empty>}
-    <div className="ob-panel-foot">実接続データ上のシミュレーション</div>
+      <p className="ob-caption">Source age {metric(snapshot.selected.source_age_seconds?.[side], 2)} s · Top-body sample only, not an all-neuron activity distribution.</p>
+    </> : <Empty title={replay ? 'Neural activity not recorded' : 'Awaiting neural input'}>{replay ? 'This video has no synchronized neural recording. Neural activity is available in verified LIVE observations.' : 'Shown only after verified input is received.'}</Empty>}
+    <div className="ob-panel-foot">Simulation on biological connectivity</div>
   </aside>;
 }
 
@@ -58,24 +58,24 @@ function BodyPanel({ side, snapshot, replay }: { side: 'p1' | 'p2'; snapshot: Ob
   const physics = item?.physics;
   const fields = [['drive', 'TOTAL'], ['t1_drive', 'T1'], ['t2_drive', 'T2'], ['t3_drive', 'T3']] as const;
   return <section className={`ob-body ob-panel ${side}`} aria-label={`${side.toUpperCase()} FlyBody`}>
-    <div className="ob-panel-heading"><div><span className="ob-kicker">{side.toUpperCase()} / EMBODIMENT</span><h2>身体で、読む。</h2></div><span className="ob-tag">FlyBody / MuJoCo</span></div>
+    <div className="ob-panel-heading"><div><span className="ob-kicker">{side.toUpperCase()} / EMBODIMENT</span><h2>Read the body.</h2></div><span className="ob-tag">FlyBody / MuJoCo</span></div>
     <div className="ob-body-content">
-      <div className="ob-body-image">{snapshot ? <img data-testid={`${side}-image`} src={snapshot.images[side === 'p1' ? 1 : 2]} alt={`${side.toUpperCase()} real MuJoCo fly`} /> : <Empty title={replay ? '身体記録は未収録' : '物理レンダー待機中'}>{replay ? '録画に別時刻の身体を重ねません。' : '神経入力とPNGの整合確認後に表示。'}</Empty>}</div>
-      <div className="ob-drive"><p className="ob-kicker">NEURAL MOTOR DRIVE</p>{fields.map(([field, name]) => <div className="ob-drive-row" key={field}><span>{name}</span><div><i style={{ width: `${typeof command?.[field] === 'number' && Number.isFinite(command[field]) ? Math.min(1, Math.max(0, command[field])) * 100 : 0}%` }} /></div><b>{metric(command?.[field], 2)}</b></div>)}<p className="ob-caption">正規化指令 0–1 · 生理学的な筋活動量ではありません。</p></div>
+      <div className="ob-body-image">{snapshot ? <img data-testid={`${side}-image`} src={snapshot.images[side === 'p1' ? 1 : 2]} alt={`${side.toUpperCase()} real MuJoCo fly`} /> : <Empty title={replay ? 'Body state not recorded' : 'Awaiting a physical render'}>{replay ? 'Body frames from another time are never overlaid on a recording.' : 'Shown after neural-input and PNG consistency checks.'}</Empty>}</div>
+      <div className="ob-drive"><p className="ob-kicker">NEURAL MOTOR DRIVE</p>{fields.map(([field, name]) => <div className="ob-drive-row" key={field}><span>{name}</span><div><i style={{ width: `${typeof command?.[field] === 'number' && Number.isFinite(command[field]) ? Math.min(1, Math.max(0, command[field])) * 100 : 0}%` }} /></div><b>{metric(command?.[field], 2)}</b></div>)}<p className="ob-caption">Normalized command, 0–1; not a physiological muscle-activity measurement.</p></div>
     </div>
     <div className="ob-body-footer"><span>59 actuators · OSMesa</span><span>{snapshot ? `${metric(physics?.sim_steps)} steps · ${metric(physics?.sim_time_seconds, 3)} s simulated` : 'NO VERIFIED FRAME'}</span></div>
-    {snapshot ? <p className="ob-caption">保持入力 R{item.decision.round} / F{item.decision.frame} / D{item.decision.decision_index} · 破棄した実時間 {metric(physics?.dropped_time_seconds, 3)} s</p> : null}
+    {snapshot ? <p className="ob-caption">Held input R{item.decision.round} / F{item.decision.frame} / D{item.decision.decision_index} · Dropped wall time {metric(physics?.dropped_time_seconds, 3)} s</p> : null}
   </section>;
 }
 
 function Protocol({ snapshot }: { snapshot: ObservationSnapshot | null }) {
   return <section id="protocol" className="ob-protocol">
-    <div><span className="ob-kicker">THE EXPERIMENT / 観測の境界</span><h2>本物の構造。<br />明示された仮定。</h2><p>見るためのデータと、行動を決める入力を分ける。</p></div>
+    <div><span className="ob-kicker">THE EXPERIMENT / Observation boundaries</span><h2>Real structure.<br />Explicit assumptions.</h2><p>Spectator data stays separate from the inputs that determine actions.</p></div>
     <div className="ob-protocol-list">
-      <details><summary><span>01</span> 解剖学と神経活動 <b>DATA / MODEL</b></summary><p>MaleCNSの接続データにShiu LIFモデルを適用した神経活動です。生きたハエからの活動実測でも、全脳活動の可視化でもありません。上位body IDの標本を表示します。</p></details>
-      <details><summary><span>02</span> 神経からゲーム・身体へ <b>PROJECT INTERFACE</b></summary><p>ゲーム入出力とMaleCNS→FlyBody actuatorの変換はプロジェクト定義です。生物学的に同定された筋支配地図ではありません。FightingICEの位置をコピーしてハエを動かすことはしません。</p></details>
-      <details><summary><span>03</span> 時刻と画像の対応 <b>VERIFIED / LIMITED</b></summary><p>LIVEでは神経活動・身体の保持入力を、実際に観測したdecision履歴に照合し、身体PNGをSHA-256で検証します。戦闘ScreenDataは独立に取得され、画像の厳密なframe同期は主張しません。負荷時に物理時間が遅れることがあります。</p></details>
-      <details><summary><span>04</span> 出典・実行状態を開く <b>PROVENANCE</b></summary><p>FlyBody upstream: d015e9bfe441bd90ae431bac24c55cb74bdbce26<br />Adapter: malecns-annotated-motor-to-flybody-tripod-v2<br />観測はread-only。画素はpolicy入力に使いません。</p>{snapshot ? <pre>{JSON.stringify({ session: snapshot.live.session_id, selected: snapshot.selected, body: snapshot.fly }, null, 2)}</pre> : <p>この画面には検証済みLIVE snapshotはありません。</p>}<a href="https://github.com/Unjuno/connectome-fighter">Source repository ↗</a></details>
+      <details><summary><span>01</span> Anatomy and neural activity <b>DATA / MODEL</b></summary><p>Activity is simulated with the Shiu LIF model on MaleCNS connectivity. This is neither a recording from a living fly nor an entire-brain activity map. Panels show a sample of top body IDs.</p></details>
+      <details><summary><span>02</span> From neurons to game and body <b>PROJECT INTERFACE</b></summary><p>Game I/O and the MaleCNS-to-FlyBody actuator mapping are project-defined. They are not an identified biological muscle-innervation map. FightingICE positions are not copied to move the fly.</p></details>
+      <details><summary><span>03</span> Time and image correspondence <b>VERIFIED / LIMITED</b></summary><p>LIVE matches neural activity and held body input to actually observed decision history, and verifies body PNGs with SHA-256. FightingICE ScreenData is sampled independently: exact image-frame synchronization is not claimed. Physics may lag under load.</p></details>
+      <details><summary><span>04</span> Open provenance and runtime state <b>PROVENANCE</b></summary><p>FlyBody upstream: d015e9bfe441bd90ae431bac24c55cb74bdbce26<br />Adapter: malecns-annotated-motor-to-flybody-tripod-v2<br />Observation is read-only. Pixels never enter the policy.</p>{snapshot ? <pre>{JSON.stringify({ session: snapshot.live.session_id, selected: snapshot.selected, body: snapshot.fly }, null, 2)}</pre> : <p>No verified LIVE snapshot is available in this view.</p>}<a href="https://github.com/Unjuno/connectome-fighter">Source repository ↗</a></details>
     </div>
   </section>;
 }
@@ -93,29 +93,29 @@ export function Observatory({ mode, snapshot = null, status, media, children, co
     'data-p1-hash': snapshot.fly.sides.p1.png_sha256, 'data-p2-hash': snapshot.fly.sides.p2.png_sha256,
   } : {};
   return <main className="observatory">
-    <a className="ob-skip" href="#ob-stage">観測画面へスキップ</a>
+    <a className="ob-skip" href="#ob-stage">Skip to the arena</a>
     <div className="ob-wrap">
-      <header className="ob-nav"><a href="/" className="ob-brand" aria-label="Connectome Fighter ホーム"><span className="ob-brand-mark" aria-hidden="true">CF</span><span>CONNECTOME<br /><b>FIGHTER</b></span></a><nav aria-label="メインナビゲーション"><a href="/" aria-current={replay ? 'page' : undefined}>REPLAY</a><a href="/live" aria-current={!replay ? 'page' : undefined}>LIVE観測</a><a href="#protocol">実験について</a></nav><span className="ob-nav-note">NEURAL OBSERVATORY <span>01</span></span></header>
-      <section className="ob-intro"><div><p className="ob-kicker">CONNECTIVITY → ACTIVITY → BEHAVIOR</p><h1>戦う。その内側を、観る。</h1><p>ゲームの行動と、神経活動から動くショウジョウバエの身体を観測する。</p></div><div className="ob-intro-mode"><span className={`ob-tag ${active ? 'ob-verified' : ''}`}>{replay ? 'RECORDED EVALUATION' : active ? 'LIVE / VERIFIED INPUT' : paused ? 'VIEW PAUSED' : 'LIVE / NOT CONNECTED'}</span><small>{replay ? '録画評価 · LIVEではありません' : '観測専用 · 学習更新なし'}</small></div></section>
+      <header className="ob-nav"><a href="/" className="ob-brand" aria-label="Connectome Fighter home"><span className="ob-brand-mark" aria-hidden="true">CF</span><span>CONNECTOME<br /><b>FIGHTER</b></span></a><nav aria-label="Main navigation"><a href="/" aria-current={replay ? 'page' : undefined}>REPLAY</a><a href="/live" aria-current={!replay ? 'page' : undefined}>LIVE observation</a><a href="#protocol">The experiment</a></nav><span className="ob-nav-note">NEURAL OBSERVATORY <span>01</span></span></header>
+      <section className="ob-intro"><div><p className="ob-kicker">CONNECTIVITY → ACTIVITY → BEHAVIOR</p><h1>Fight. Watch the circuitry.</h1><p>Watch game behavior and a physical fly driven by simulated neural activity.</p></div><div className="ob-intro-mode"><span className={`ob-tag ${active ? 'ob-verified' : ''}`}>{replay ? 'RECORDED EVALUATION' : active ? 'LIVE / VERIFIED INPUT' : paused ? 'VIEW PAUSED' : 'LIVE / NOT CONNECTED'}</span><small>{replay ? 'Recorded evaluation · not LIVE' : 'Read-only observation · no learning updates'}</small></div></section>
       <div className="ob-modebar"><div><span className={`ob-status-dot ${active ? 'is-active' : ''}`} />{replay ? 'CANDIDATE REPLAY' : <span data-testid="arena-status">{status}</span>}</div><div className="ob-controls">{controls}<span className="ob-tag">PIXELS → POLICY: OFF</span></div></div>
-      {ci ? <p className="ob-notice">CI functional E2E · loopback上の実runtimeです。本番Vercelの稼働証明ではありません。</p> : null}
-      {blocked ? <p className="ob-notice" role="status"><strong>LIVE計算は利用枠の上限で停止しています。</strong> 接続がない状態を録画や擬似活動で置き換えません。<a href="/">評価録画を見る ↗</a></p> : null}
-      {paused ? <p className="ob-notice" role="status">表示更新を停止しました。再開時には最新の検証済み入力を取得します。サーバーの計算は操作しません。</p> : null}
+      {ci ? <p className="ob-notice">CI functional E2E · Real runtime on loopback. This is not evidence of Vercel production availability.</p> : null}
+      {blocked ? <p className="ob-notice" role="status"><strong>LIVE compute is paused by the provider usage limit.</strong> A missing connection is not replaced by a recording or simulated display data.<a href="/">Watch recorded evaluations ↗</a></p> : null}
+      {paused ? <p className="ob-notice" role="status">Display updates are paused. Resuming fetches the latest verified input; this does not control server computation.</p> : null}
       <div {...attributes}>
-        <section id="ob-stage" className="ob-stage" aria-label="戦闘と両側の神経活動">
+        <section id="ob-stage" className="ob-stage" aria-label="Battle and both neural panels">
           <BrainPanel side="p1" snapshot={snapshot} replay={replay} />
           <section className="ob-arena ob-panel">
             <div className="ob-panel-heading"><span className="ob-kicker">01 / FIGHTINGICE</span><span className="ob-tag">{replay ? 'REPLAY' : active ? 'OFFICIAL SCREENDATA' : 'AWAITING RUNTIME'}</span></div>
-            {replay ? media : <><div className="ob-match"><strong className="p1">{snapshot?.live.p1?.character || 'GARNET'}</strong><span>VS</span><strong className="p2">{snapshot?.live.p2?.character || 'ZEN'}</strong></div><div className="ob-score"><span className="p1">HP {metric(snapshot?.current.p1?.hp)}</span><span>{active ? `ROUND ${snapshot?.current.round} · FRAME ${snapshot?.current.frame}` : 'NO VERIFIED TELEMETRY'}</span><span className="p2">HP {metric(snapshot?.current.p2?.hp)}</span></div><div className="ob-screen">{snapshot ? <img data-testid="game-image" src={snapshot.images[0]} alt="Official FightingICE screen" /> : <Empty title={blocked ? '計算リソース待ち' : paused ? '表示を一時停止' : '検証済みの戦闘を待機中'}>この領域には実FightingICEのScreenDataだけを表示します。</Empty>}</div></>}
-            <p className="ob-arena-note">{replay ? '評価動画とLIVE神経観測は別の記録です。録画に未収録の活動は生成しません。' : '戦闘画像は独立サンプリング。神経・身体は実観測履歴の保持入力に照合しています。'}</p>
+            {replay ? media : <><div className="ob-match"><strong className="p1">{snapshot?.live.p1?.character || 'GARNET'}</strong><span>VS</span><strong className="p2">{snapshot?.live.p2?.character || 'ZEN'}</strong></div><div className="ob-score"><span className="p1">HP {metric(snapshot?.current.p1?.hp)}</span><span>{active ? `ROUND ${snapshot?.current.round} · FRAME ${snapshot?.current.frame}` : 'NO VERIFIED TELEMETRY'}</span><span className="p2">HP {metric(snapshot?.current.p2?.hp)}</span></div><div className="ob-screen">{snapshot ? <img data-testid="game-image" src={snapshot.images[0]} alt="Official FightingICE screen" /> : <Empty title={blocked ? 'Waiting for compute capacity' : paused ? 'Display paused' : 'Awaiting a verified battle'}>Only actual FightingICE ScreenData is shown here.</Empty>}</div></>}
+            <p className="ob-arena-note">{replay ? 'Evaluation videos and LIVE neural observations are separate records. Missing recorded activity is never invented.' : 'Battle images are independently sampled. Neural and body panels match held input to observed history.'}</p>
           </section>
           <BrainPanel side="p2" snapshot={snapshot} replay={replay} />
         </section>
-        <section className={`ob-flow ${active ? 'is-active' : ''}`} aria-label="プロジェクト定義の情報経路"><div className="ob-flow-title"><span className="ob-kicker">SIGNAL PATH</span><small>設計上の接続 · 生物学的因果の証明ではない</small></div><div className="ob-flow-steps"><span>ゲーム観測</span><i>→</i><span>感覚入力</span><i>→</i><strong>MaleCNS / LIF</strong><i>→</i><span>運動出力</span><i>→</i><div><span>ゲームaction</span><small>＋ adapter → FlyBody</small></div></div></section>
-        <div className="ob-section-title"><div><span className="ob-kicker">02 / PHYSICAL EMBODIMENT</span><h2>同じ神経活動、もうひとつの身体。</h2></div><p>FightingICEとは独立した、実MuJoCo物理。</p></div>
+        <section className={`ob-flow ${active ? 'is-active' : ''}`} aria-label="Project-defined signal path"><div className="ob-flow-title"><span className="ob-kicker">SIGNAL PATH</span><small>Designed signal path; not proof of biological causality</small></div><div className="ob-flow-steps"><span>Game observation</span><i>→</i><span>Sensory input</span><i>→</i><strong>MaleCNS / LIF</strong><i>→</i><span>Motor output</span><i>→</i><div><span>Game action</span><small>＋ adapter → FlyBody</small></div></div></section>
+        <div className="ob-section-title"><div><span className="ob-kicker">02 / PHYSICAL EMBODIMENT</span><h2>The same neural activity. Another body.</h2></div><p>Actual MuJoCo physics, independent of FightingICE positions.</p></div>
         <div className="ob-bodies"><BodyPanel side="p1" snapshot={snapshot} replay={replay} /><BodyPanel side="p2" snapshot={snapshot} replay={replay} /></div>
       </div>
-      {!replay ? <section className="ob-timeline ob-panel"><div className="ob-panel-heading"><div><span className="ob-kicker">03 / OBSERVED DECISIONS</span><h2>行動の記録</h2></div><span className="ob-caption">この閲覧中の直近8記録 · 欠落なしのreplayではない</span></div>{active && moments.length ? <ol>{moments.map(moment => <li key={moment.key}><span>R{moment.round} / F{moment.frame}</span><strong className="p1">{moment.p1}</strong><strong className="p2">{moment.p2}</strong></li>)}</ol> : <p className="ob-caption">検証済みの観測記録が得られるまで、タイムラインを描画しません。</p>}<a href="/">Candidateの更新・評価履歴へ ↗</a></section> : null}
+      {!replay ? <section className="ob-timeline ob-panel"><div className="ob-panel-heading"><div><span className="ob-kicker">03 / OBSERVED DECISIONS</span><h2>Observed actions</h2></div><span className="ob-caption">Last 8 observations in this visit; not lossless replay</span></div>{active && moments.length ? <ol>{moments.map(moment => <li key={moment.key}><span>R{moment.round} / F{moment.frame}</span><strong className="p1">{moment.p1}</strong><strong className="p2">{moment.p2}</strong></li>)}</ol> : <p className="ob-caption">The timeline appears only after verified observations arrive.</p>}<a href="/">Candidate update and evaluation history ↗</a></section> : null}
       {children}
       <Protocol snapshot={snapshot} />
       <footer className="ob-footer"><span>CONNECTOME FIGHTER / AN AUDITABLE EXPERIMENT</span><span>MaleCNS anatomy · Shiu LIF · project-defined interfaces</span><a href="https://unjuno.github.io/connectome-fighter/">Research ledger ↗</a></footer>

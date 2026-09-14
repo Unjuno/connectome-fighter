@@ -54,6 +54,8 @@ jobs:
           pathlib.Path('runs/colosseum-contract/language-inventory.json').write_text(json.dumps(rows, indent=2)+'\n')
           print(json.dumps(rows, indent=2))
           PY
+      - name: Enforce English project text
+        run: python scripts/check_english.py
       - name: Validate colosseum reward contracts when present
         run: |
           if test -f tests/test_colosseum_reward.py; then

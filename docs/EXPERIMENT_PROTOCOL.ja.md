@@ -1,92 +1,54 @@
-# Experiment protocol v0
+# Experiment Protocol v0 (historical reference)
 
-## 目的
+English-only compatibility document. This is the original confirmatory comparison protocol, not the active exploratory colosseum configuration.
 
-FightingICEを固定した対戦環境として用い、Drosophila由来connectome topologyが、構造的に対応させた対照networkよりも競争課題の学習・転移に有用なinductive biasを与えるか検証する。
+## Goal
+
+Use FightingICE as a fixed competitive environment to test whether Drosophila-derived topology provides a useful inductive bias for learning and transfer relative to structurally matched control networks.
 
 ## Evidence classes
 
-結果には必ず次の区分を付ける。
+1. `synthetic_fixture`: synthetic graphs or mock APIs only.
+2. `live_game_control`: actual FightingICE without a biological graph.
+3. `live_game_biological`: actual FightingICE with a provenance-verified biological graph.
+4. `confirmatory`: preregistered conditions, seed sets, and opponents.
 
-1. `synthetic_fixture`: 合成graph・mock APIのみ。
-2. `live_game_control`: FightingICEを実行したがbiological graphを使っていない。
-3. `live_game_biological`: 来歴検証済みbiological graphを使用。
-4. `confirmatory`: 事前固定した条件・seed集合・評価相手で行った確証試験。
+Never report a lower evidence class as a higher one.
 
-低いclassの結果を高いclassとして報告しない。
+## A/B design
 
-## A/B設計
+**A: biological topology.** Freeze source, version, checksum, license, and preprocessing in a manifest. Match observations, actions, reward, optimizer, training budget, seeds, and opponents with B.
 
-### A: biological topology
+**B: rewired control.** Preserve node/edge counts, per-node in/out degree, and sign-specific degree. Swap edge targets and record the rewiring seed, accepted swaps, and original-edge overlap. Explicitly report when mixing has not been established.
 
-- source/version/checksum/license/preprocessingをmanifestに固定する。
-- 観測、行動集合、報酬、optimizer、学習量、seed、評価相手をBと一致させる。
+An MLP/RNN may be an engineering reference outside the canonical path, but must not be confused with the primary biological A/B comparison.
 
-### B: rewired control
+## Initial reward
 
-- node数、edge数、各nodeのin/out-degree、符号別in/out-degreeを保存する。
-- edge targetを交換する。
-- rewiring seed、accepted swaps、edge overlapを保存する。
-- rewiringのmixingが証明されていない場合はその旨を記録する。
+The original primary condition is terminal-only: win +1, loss -1, draw 0. Incomplete/disconnected episodes are excluded. Intermediate damage rewards belong to separate conditions.
 
-### 工学参照
+## Evaluation quantities
 
-MLP/RNN等を別枠で置けるが、A対Bの生物学的主比較と混同しない。
-
-## 報酬
-
-初期主条件はterminal-only。
-
-- win: +1
-- loss: -1
-- draw: 0
-- incomplete/disconnected episode: 学習対象外
-
-途中のdamage reward等は別A/B条件として扱う。
-
-## 評価量
-
-主評価候補:
-
-- held-out opponent win rate
-- learning-curve area under curve
-- matches-to-threshold
-- cross-opponent generalization
-- policy robustness after action removal
-
-自己対戦中の当事者間勝率だけを進歩指標にしない。
+Candidate primary outcomes are held-out opponent win rate, learning-curve area, matches to threshold, cross-opponent generalization, and robustness after action removal. Self-play win rate between the two changing participants is not sufficient evidence of progress.
 
 ## H / T / D / C / U
 
-**H — 反証可能仮説**  
-実connectome topologyは、matched rewired controlより、未使用対戦相手に対するsample efficiencyまたは最終性能を改善する。
+**H — Falsifiable hypothesis:** biological topology improves sample efficiency or final performance against unseen opponents relative to matched rewiring.
 
-**T — 最小検証**  
-同じ初期化規則・学習予算で独立seedを複数用意し、A/Bを対応付きで学習させる。探索に使ったseedと確証用seedを分離する。
+**T — Minimum test:** paired A/B training across multiple independent seeds using identical initialization rules and budgets. Separate exploratory from confirmatory seeds.
 
-**D — 判定**  
-事前に定めたeffect metricについて、A-B差の区間推定が実用差の正側に十分離れた場合のみPASS。区間が実用差をまたぐ場合はUNCERTAIN。実用差に届かないことを支持する場合はFAIL。
+**D — Decision:** PASS only when the interval estimate for the preregistered A-minus-B effect lies sufficiently above the practical-effect threshold. UNCERTAIN when the interval crosses it. FAIL when evidence supports falling short.
 
-**C — 対立仮説**  
-差がconnectome topologyではなく、input/output routing、weight scale、network size、optimizer interaction、特定相手へのoverfitで生じる可能性を個別に検査する。
+**C — Alternatives:** examine routing, weight scale, network size, optimizer interactions, and opponent overfitting as explanations distinct from topology.
 
-**U — 不確かさ**  
-主要源はbiological annotation、synaptic sign/strength model、routing assumption、RL seed variance、opponent distribution。生物学的不確かさと統計的sampling errorを別に報告する。
+**U — Uncertainty:** report annotation uncertainty, sign/strength assumptions, routing assumptions, training-seed variance, and opponent-distribution uncertainty. Separate biological uncertainty from statistical sampling error.
 
-## 最初の実装順序
+## Original implementation order
 
-1. Random vs Randomのlive FightingICEをheadlessで完走。
-2. P1/P2の観測、action request、remaining HP、terminal rewardを二者ログで照合。
-3. synthetic graph controllerを接続し、ゲームbridgeを検証。
-4. biological data importerを追加し、manifest/checksumでfail-closedにする。
-5. fixed-connectome + trainable readoutを学習。
-6. matched rewired controlとのA/B。
-7. topology固定・既存edge weightのみ学習する条件を別実験として追加。
-8. held-out opponentsで確証試験。
+Complete a headless random-vs-random fight; reconcile both agents' observations, actions, HP, and terminal rewards; validate the bridge with a synthetic controller; add a fail-closed biological importer; train the legacy fixed-connectome/readout condition; compare matched rewiring; separately test learning only existing edge weights under fixed topology; then conduct held-out confirmatory evaluation.
 
-## 解釈上の禁止事項
+The custom synthetic/readout stages are historical engineering checks, not canonical MaleCNS evidence.
 
-- 格ゲーを学習しただけで「ハエの知能を再現した」としない。
-- artificial encoder/readoutの性能をconnectome固有能力としない。
-- synthetic graphをbiological resultとして扱わない。
-- 同一学習済みpolicyの大量対戦を、独立学習seed数として数えない。
+## Interpretation prohibitions
+
+Learning a fighting game does not reproduce fly intelligence. Encoder/readout performance is not automatically a connectome-specific capability. Synthetic graphs are not biological results. Many matches from one trained policy are not multiple independent training seeds.

@@ -62,7 +62,7 @@ The adapter is `malecns-annotated-motor-to-flybody-tripod-v2`. It is a project i
 - FlyBody real MuJoCo physics contract: **PASS in independent CI**
 - FlyBody action dimension: **59**
 - neural-drive-vs-zero trajectory divergence: **PASS**
-- dedicated Next.js public control/viewer implementation: **IMPLEMENTED; production deployment verification pending**
+- dedicated Next.js public control/viewer implementation: **DEPLOYED; production compute E2E remains separate**
 - dedicated Vercel shared-LIVE E2E: **NOT YET VERIFIED**
 - GARNET generation 2: approved read-only inference state
 - ZEN canonical baseline: current P2 serving contract
@@ -98,6 +98,10 @@ Runtime publication is GitHub-only:
 `publish-arena-runtime-bundle → precompile-arena-brian2-cython-cache → publish-flybody-runtime-addon`.
 
 These workflows publish immutable release assets but do not stage them into a Vercel project. The dedicated Vercel control plane owns runtime-base staging. This prevents release jobs from mutating an unrelated deployment.
+
+## Colosseum candidate season
+
+The English-only candidate experiment is described in [COLOSSEUM.md](docs/COLOSSEUM.md). Its workflow requests one bounded cycle every ten minutes. Each cycle records parent evaluation, full-round collection, a post-round update, and paired child evaluation. Results remain experimental; a completed cycle is not proof of stronger play. The historical R2d learner is manual-only.
 
 ## Learning status
 

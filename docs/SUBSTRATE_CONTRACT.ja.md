@@ -1,146 +1,65 @@
 # Canonical Neural Substrate Contract
 
-## 目的
+English-only compatibility path. This preserves the substrate contract; the current exploratory training schedule is documented in [COLOSSEUM.md](COLOSSEUM.md).
 
-この文書は Connectome Fighter で「何をハエの脳として扱うか」を固定する。
+## Purpose
 
-**canonical control path では、汎用RNN/MLPや自作sigmoid recurrent networkをハエ脳の代用品として使用しない。**
+Define what Connectome Fighter treats as its fly neural substrate. The canonical control path must not substitute a generic RNN/MLP or a custom sigmoid recurrent network for the fly substrate.
 
-## 1. 解剖学的 substrate
+## 1. Anatomical substrate
 
-Canonical anatomy は **MaleCNS v1.0** とする。
+Canonical anatomy is **MaleCNS v1.0**, dataset `male-cns:v1.0`. The original source record identifies FlyEM/HHMI Janelia, University of Cambridge, MRC LMB, and Google Research; Berg et al., *Cell* (2026), DOI `10.1016/j.cell.2026.08.015`; official landing page `https://male-cns.janelia.org/`; bulk root `gs://flyem-male-cns/v1.0/`; CC-BY license.
 
-- dataset: `male-cns:v1.0`
-- project: FlyEM / HHMI Janelia + University of Cambridge + MRC LMB + Google Research
-- paper: Berg et al., *Cell* (2026), DOI `10.1016/j.cell.2026.08.015`
-- official landing page: `https://male-cns.janelia.org/`
-- bulk data root: `gs://flyem-male-cns/v1.0/`
-- license: CC-BY
+MaleCNS spans the male Drosophila brain, optic lobes, and ventral nerve cord. The source paper reports 166,691 neurons. That literature count is distinct from the project's filtered runtime count.
 
-MaleCNS v1.0 は brain + optic lobes + ventral nerve cord を連続的に含む雄 Drosophila CNS connectome である。論文は 166,691 neurons と報告している。
-
-Canonical import で最低限使用する一次データ:
+The canonical import initially uses:
 
 - `body-annotations-male-cns-v1.0-minconf-0.5.feather`
 - `body-neurotransmitters-male-cns-v1.0.feather`
 - `connectome-weights-male-cns-v1.0-minconf-0.5.feather`
 
-必要になった場合のみ synapse-level partner/location table を追加する。最初から 6.8–12.7 GB のsynapse tableを常用しない。
+Add synapse-level partner/location tables only when necessary; do not routinely load the 6.8–12.7 GB tables from the outset.
 
-### neuron candidate selection
+### Neuron candidate selection
 
-body annotation の全行をニューロンと見なさない。最初の候補集合は論文repositoryの `supplemental_data/quantify-neuron-connections.ipynb` と同じく、`superclass` が定義され、名前に `tbc` を含まないものとする。v1.0に対してこの基準を再計算し、論文記載数との差は勝手に補正せずmanifestに残す。
+Not every annotation row is a neuron. The initial candidate rule follows `supplemental_data/quantify-neuron-connections.ipynb` in the paper repository: superclass must be present and must not contain `tbc`. Recompute this for v1.0 and record differences from the paper count in the manifest rather than silently correcting them.
 
-## 2. 重要な区別: connectome != executable brain dynamics
+## 2. Connectivity is not executable neural dynamics
 
-MaleCNS は実測・再構成された**配線図、synaptic connection strength、cell annotation、neurotransmitter prediction**であり、膜電位を時間発展させる公式シミュレータそのものではない。
+MaleCNS provides reconstructed wiring, connection strengths, cell annotations, and transmitter predictions. It is not itself a simulator that evolves membrane potentials. Distinguish biological structure, published neural dynamics, and the project-defined game interface.
 
-したがって「Googleが公開したモデルを使う」という本プロジェクトの意味を以下のように分離する。
+## 3. Neural dynamics
 
-1. **構造**: MaleCNS v1.0 をそのまま使う。
-2. **神経ダイナミクス**: 公開済み・論文化済みの Drosophila LIF model を使う。
-3. **ゲームとのinterface**: 本プロジェクト固有。生物学的事実と混同しない。
+The initial canonical dynamics use Shiu et al., *Nature* 634, 210–219 (2024), DOI `10.1038/s41586-024-07763-9`. Reference code is `https://github.com/philshiu/Drosophila_brain_model`, with `model.py` pinned at `2a83ad611cd9768f8c9723fc613ed27761a5feb5`, using Brian2.
 
-## 3. 神経ダイナミクス
+The Shiu model was evaluated on the female FlyWire brain. Applying it to MaleCNS is a **project port**, not an official physiological model released for MaleCNS. Initially preserve the reference equations, threshold, refractory periods, delays, and weight conventions while supplying MaleCNS connectivity and transmitter identities.
 
-初期 canonical dynamics は Shiu et al. 2024 の leaky integrate-and-fire (LIF) model とする。
+The reference convention treats GABA/glutamate as inhibitory and acetylcholine/dopamine/octopamine/serotonin as excitatory. The MaleCNS adapter additionally treats histamine as inhibitory, explicitly versioning and hashing this extension rather than silently folding it into a reference category. This is an adapter assumption, motivated by histamine-gated chloride-channel inhibition in the fly visual system, not an unchanged Shiu reference rule.
 
-- paper: Shiu et al., *Nature* 634, 210–219 (2024)
-- DOI: `10.1038/s41586-024-07763-9`
-- reference code: `https://github.com/philshiu/Drosophila_brain_model`
-- pinned `model.py` commit: `2a83ad611cd9768f8c9723fc613ed27761a5feb5`
-- simulator in reference implementation: Brian2
+Do not silently assign signs to unclear or missing `consensus_nt`. Measure coverage first and document exclusion, fallback, or sensitivity-analysis decisions.
 
-重要: Shiu model 自体は FlyWire female-brain connectome 上で検証されたモデルであり、MaleCNS v1.0 への適用は**本プロジェクトによる移植**である。従って結果を「Google公式の生理モデル」と表現しない。
+## 4. Artificial-neural-network boundary
 
-初期移植では Shiu の neuron equations / threshold / refractory / synaptic delay / per-synapse weight convention を変更せず、MaleCNS の接続強度と neurotransmitter identity を入力する。
+Do not insert an MLP, GRU/LSTM/RNN, custom sigmoid core, GNN presented as the brain, or trainable latent encoder that replaces neural activity into the canonical path. Tensor libraries may be computational tools; a trainable artificial network must not replace the fly substrate.
 
-Shiu論文の分類では GABA と glutamate を inhibitory、acetylcholine / dopamine / octopamine / serotonin を excitatory とする。MaleCNS v1.0 にはこれに加えて histamine が多数含まれるため、**histamineを無言で既存カテゴリへ押し込まない**。Drosophila視覚系ではhistamine-gated chloride channelによる抑制性伝達が実験的に確立しているので、MaleCNS移植では `histamine = inhibitory` を明示的な拡張ルールとしてversion/hash化する。ただしこれはShiu reference modelそのものではなくMaleCNS adapterの追加仮定である。
+## 5. Separate individuals
 
-`consensus_nt` が `unclear` または欠損するcanonical candidateについても、推定符号を勝手に付与しない。coverageを先に計測し、除外・fallback・感度解析のどれを採るかをmanifestで明示する。
+GARNET, ZEN, LUD, and NEZ may share immutable anatomy, but not membrane/synaptic state, RNG state, episode history, plasticity state, or character-specific checkpoints. Sharing anatomy is a memory optimization, not shared simulation state.
 
-## 4. NN禁止境界
+## 6. Game interface
 
-Canonical control path に以下を置かない。
+Game-feature-to-sensory and neural-output-to-action mappings are artificial, versioned interfaces. Log feature/body mapping, stimulation rates or currents, selected types/superclasses/modalities, output IDs, aggregation rules, selected actions, and each output group's contribution. Any learned interface remains distinct from the substrate. Initial canonical checks prefer a fixed mapping.
 
-- MLP policy
-- GRU/LSTM/RNN policy
-- custom sigmoid recurrent brain
-- GNN を「脳本体」として使うこと
-- trainable latent encoder が神経活動を置換すること
+## 7. Post-hoc logs
 
-PyTorch等を高速なtensor計算器として使うこと自体は禁止しない。ただし**学習可能な人工NNをハエ脳の代わりにしない**。
+Each decision window records character/lineage/checkpoint, game frame/observation/action, stimulated IDs and drive, spike IDs/times/counts, membrane summary, available type/class/side/neuromere annotations, transmitter identity/confidence, motor/descending contribution, dataset hash, dynamics/parameter identity, and interface version.
 
-## 5. キャラごとの「別の脳」
+Do not duplicate static annotations for every run. Pin a metadata table and join by body ID. Separate `decisions.jsonl` from event-compressed `spikes.parquet`, allowing later connectivity joins, recruitment analysis, pathway/hub analysis, and sensory-to-motor analysis. Full all-neuron membrane traces are expensive; retain event-compressed spikes and state summaries by default, and full traces only for selected matches.
 
-GARNET / ZEN / LUD / NEZ は同じ immutable MaleCNS anatomy を参照してよいが、以下は共有しない。
+## 8. Legacy paths
 
-- membrane potential / synaptic state
-- RNG state
-- episode history
-- plasticity state（導入時）
-- character-specific checkpoint
+The older FlyWire/Shiu v783 continuous trainer, `brain.py` sigmoid core, PPO readout checkpoints, and `training-state` release are engineering history, not canonical MaleCNS learning generations.
 
-つまり anatomy asset の共有はメモリ最適化であり、simulation state は4個体で独立する。
+## 9. Original acceptance gates
 
-## 6. ゲームinterface
-
-FightingICE の状態を MaleCNS sensory populations に注入するmappingと、MaleCNS motor/descending activityをgame actionへ変換するmappingは人工interfaceである。
-
-このinterfaceは必ずversionedし、以下をログへ残す。
-
-- game feature -> stimulated neuron/body IDs
-- stimulation rate/current
-- selected neuron type / superclass / sensory modality
-- output neuron/body IDs
-- output aggregation rule
-- action chosen and each output group's contribution
-
-interfaceの学習を行う場合でも、脳本体と混同しない。最初のcanonical gateでは固定mappingを優先する。
-
-## 7. 後解析用ログ
-
-「何がどういう構造で起用されたか」を後から解析できることを第一級要件とする。
-
-各decision windowで最低限保存する:
-
-- character / lineage / checkpoint
-- frame / game observation / selected action
-- externally stimulated neuron IDs and drive
-- spiking neuron IDs and spike times/counts
-- membrane-potential summary
-- neuron type / superclass / class / side / soma neuromere where available
-- neurotransmitter identity + confidence
-- downstream motor/descending contribution
-- graph/dataset hash
-- dynamics-model version + parameter hash
-- interface version
-
-静的annotationはrunごとに重複保存せず、bodyIdでjoin可能な固定metadata tableとしてhashをpinする。dynamic logは `decisions.jsonl` と event-compressed `spikes.parquet` に分ける。これにより後からstatic connectivity graphへjoinして、局面別recruitment、経路、hub、sensor→motor flowを再解析できる。
-
-raw all-neuron membrane tracesは容量が大きいため、canonical evidenceとしては event-compressed spike logs + selected state summariesを保存し、必要な試合だけfull traceを保持する。
-
-## 8. Legacy扱い
-
-旧 pipeline の以下は canonical evidence ではない。
-
-- FlyWire/Shiu v783 graph を使った continuous trainer
-- `brain.py` の custom sigmoid recurrent core
-- PPO readout による legacy checkpoint
-- Release tag `training-state`
-
-これらは実装検証・FightingICE bridge検証の履歴として残してよいが、MaleCNS個体の学習世代として継承しない。
-
-## 9. Gate
-
-MaleCNS版 continuous training を再開する前に以下を全てPASSさせる。
-
-1. official MaleCNS files のURL・size・hashを記録してimportできる。
-2. body IDs / connection weights / transmitter predictions のjoinが一意に検証できる。
-3. canonical candidate set とNT coverageがrelease-specificに記録され、unknown signを暗黙補完していない。
-4. published LIF equationsの小回路golden testがpinned reference implementationと一致する。
-5. FightingICE 1 round が `MaleCNS -> LIF spikes -> action` の経路で完走する。
-6. replayに実 MaleCNS body ID とactivity traceが表示される。
-7. 4キャラのsimulation stateが独立している。
-
-この7点がPASSするまで scheduled learning は無効のままにする。
+Record official input URLs, sizes, and hashes; uniquely validate ID/weight/transmitter joins; record release-specific candidates and NT coverage without silent sign assignment; match small-circuit golden tests to pinned reference equations; complete an actual FightingICE round through MaleCNS/LIF spikes; expose real body IDs with activity logs; and establish independent character simulation state. Historical scheduled learning was deferred until those checks passed. Current functional CI and exploratory scheduling are tracked separately in the roadmap.
