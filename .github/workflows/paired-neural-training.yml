@@ -1,0 +1,133 @@
+name: paired-neural-training
+
+# One persistent experiment. Scheduled starts are best effort, not deadlines.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '7,17,27,37,47,57 * * * *'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/paired-neural-training.yml'
+      - 'scripts/paired_training_*.py'
+      - 'src/connectome_fighter/paired_training.py'
+      - 'configs/paired_training_v1.json'
+  pull_request:
+    paths:
+      - '.github/workflows/paired-neural-training.yml'
+      - 'scripts/paired_training_*.py'
+      - 'src/connectome_fighter/paired_training.py'
+      - 'configs/paired_training_v1.json'
+      - 'tests/test_paired_training.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: canonical-continuous-training-single-writer
+  cancel-in-progress: false
+
+env:
+  CI: 'true'
+  RUNTIME_ROOT: /home/vercel-sandbox/connectome-runtime/arena-runtime
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+
+jobs:
+  cycle:
+    if: vars.CONNECTOME_TRAINING_PAUSED != 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Preserve the exact tested source
+        run: |
+          mkdir -p runs/paired-training
+          git archive --format=tar.gz --output=runs/paired-training/tested-source.tar.gz HEAD
+          git rev-parse HEAD > runs/paired-training/tested-checkout.txt
+      - name: Test scoring, persistence, no-update and publication rejection
+        run: |
+          python -m pip install 'numpy==1.26.4' 'pytest==8.3.5'
+          PYTHONPATH=src python -m pytest -q tests/test_paired_search.py tests/test_paired_training.py --junitxml=runs/paired-training/unit.xml
+      - name: Install official renderer dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fontconfig fonts-dejavu-core ffmpeg
+      - name: Pin verified runtime, seed and optional persistent state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python scripts/fetch_combat_dependencies.py --out runs/paired-training
+          python scripts/paired_training_release.py resume --directory runs/paired-training/resume
+          sudo mkdir -p "$(dirname "$RUNTIME_ROOT")"
+          sudo chown -R "$(id -u):$(id -g)" /home/vercel-sandbox
+          tar -xzf runs/paired-training/runtime.tar.gz -C "$(dirname "$RUNTIME_ROOT")"
+          lscpu > runs/paired-training/cpu.txt
+          ffmpeg -version > runs/paired-training/ffmpeg-version.txt
+      - name: Actual paired learning and recorded before/after combat
+        run: |
+          set -euo pipefail
+          BRIDGE="$RUNTIME_ROOT/$(cat "$RUNTIME_ROOT/runtime/python311.path")"
+          args=()
+          if [ -s runs/paired-training/resume/search-state.npz ]; then
+            args+=(--resume-dir runs/paired-training/resume)
+          fi
+          PYTHONPATH="$GITHUB_WORKSPACE/src:$RUNTIME_ROOT/runtime/site311" \
+            "$BRIDGE" scripts/paired_training_cycle.py \
+            --runtime-root "$RUNTIME_ROOT" --source-archive runs/paired-training/source.tar.gz \
+            --out runs/paired-training --timeout-seconds 1500 "${args[@]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: paired-publication-${{ github.run_id }}
+          path: runs/paired-training/export
+          retention-days: 3
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: paired-training-evidence
+          retention-days: 3
+          if-no-files-found: error
+          path: |
+            runs/paired-training/result.json
+            runs/paired-training/design.json
+            runs/paired-training/dependencies.json
+            runs/paired-training/baseline-repeatability.json
+            runs/paired-training/matches-summary.json
+            runs/paired-training/group-membership.npz
+            runs/paired-training/*.log
+            runs/paired-training/*.txt
+            runs/paired-training/unit.xml
+            runs/paired-training/tested-source.tar.gz
+            runs/paired-training/candidate
+            runs/paired-training/matches
+
+  publish:
+    needs: cycle
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.CONNECTOME_TRAINING_PAUSED != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: paired-publication-${{ github.run_id }}
+          path: runs/publication
+      - name: Publish immutable evidence then update one verified pointer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/paired_training_release.py publish --directory runs/publication
