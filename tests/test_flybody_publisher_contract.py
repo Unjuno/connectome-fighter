@@ -313,12 +313,13 @@ def test_json_writer_preserves_previous_state_on_nonfinite_payload(tmp_path):
 
 
 @pytest.mark.parametrize('mode', ['truncate', 'expire'])
-def test_main_publishes_zero_drive_after_reset_or_expiry_and_binds_pngs(tmp_path, monkeypatch, mode):
+def test_main_tails_new_input_then_publishes_zero_after_reset_or_expiry_and_binds_pngs(tmp_path, monkeypatch, mode):
     import hashlib
     import signal
 
     path = tmp_path/'decisions.jsonl'
     p1, p2, state_path = (tmp_path/name for name in ['p1.png', 'p2.png', 'state.json'])
+    # This is intentionally pre-existing data and must not drive a newly started publisher.
     append(path, decision(1), decision(2))
     clock = SimpleNamespace(now=100.0)
     handlers = {}
@@ -335,6 +336,10 @@ def test_main_publishes_zero_drive_after_reset_or_expiry_and_binds_pngs(tmp_path
             assert state['sides'][label]['png_sha256'] == hashlib.sha256(png_path.read_bytes()).hexdigest()
         snapshots.append(state)
         if len(snapshots) == 1:
+            # Only data appended after startup is eligible to become fresh input.
+            append(path, decision(1, index=2, frame=20), decision(2, index=2, frame=20))
+            clock.now += 0.5
+        elif len(snapshots) == 2:
             if mode == 'truncate':
                 path.write_bytes(b'')
             clock.now += 0.5
@@ -348,13 +353,19 @@ def test_main_publishes_zero_drive_after_reset_or_expiry_and_binds_pngs(tmp_path
     monkeypatch.setattr(module.sys, 'argv', ['publisher', '--jsonl', str(path), '--p1-output', str(p1),
         '--p2-output', str(p2), '--state-output', str(state_path), '--stale-after-sec', '0.4'])
     assert module.main() == 0
-    assert len(snapshots) == 2
-    assert snapshots[0]['sides']['p1']['neural_command']['drive'] > 0
+    assert len(snapshots) == 3
     for side in ['p1', 'p2']:
-        after = snapshots[1]['sides'][side]
+        before = snapshots[0]['sides'][side]
+        assert before['neural_command']['drive'] == 0
+        assert before['decision'] is None
+        assert before['input_status'] == 'missing'
+        fresh = snapshots[1]['sides'][side]
+        assert fresh['neural_command']['drive'] > 0
+        assert fresh['decision']['decision_index'] == 2
+        after = snapshots[2]['sides'][side]
         assert after['neural_command']['drive'] == 0
         assert after['decision'] is None
         assert after['input_status'] == ('missing' if mode == 'truncate' else 'stale')
-    assert snapshots[1]['publisher'] == 'malecns-flybody-publisher-v2'
-    assert snapshots[1]['policy_access'] is False
-    assert snapshots[1]['game_telemetry_position_used'] is False
+    assert snapshots[2]['publisher'] == 'malecns-flybody-publisher-v2'
+    assert snapshots[2]['policy_access'] is False
+    assert snapshots[2]['game_telemetry_position_used'] is False
