@@ -3,7 +3,7 @@
   "candidate_only": true,
   "character": "GARNET",
   "comparison_phase": "after",
-  "evaluated_at": "2026-09-14T22:10:53.137801+00:00",
+  "evaluated_at": "2026-09-15T00:41:16.278748+00:00",
   "evaluation": {
     "configured_round_limit_seconds": 60,
     "decision_interval_frames": 60,
@@ -15,10 +15,10 @@
     "seed_p1": 800101,
     "seed_p2": 20202
   },
-  "generation": 13,
+  "generation": 14,
   "interpretation_boundary": "Actual frozen before/after evaluation on the same fixed seed; not held-out generalization, proof of improvement, or production LIVE.",
   "kind": "post-update-candidate-round-evaluation",
-  "matches": 13,
+  "matches": 14,
   "model": "KC-MBON-valence-depression-v0",
   "opponent": "ZEN",
   "policy_pixel_access": false,
@@ -43,17 +43,17 @@
   "reward_id": "R2e-combat-v1",
   "schema_version": 2,
   "served_by_vercel": false,
-  "source_training_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34902352979",
-  "state_sha256": "2cd818a4fa8154b96f366a3968f4edabab02b07e40c0603034f42274a9802e9b",
+  "source_training_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34913872559",
+  "state_sha256": "729fdcac7e0be514ead706d0cafc8af247bed9d2ae476a19b2df698d89a9a7ba",
   "status": "COMPLETED",
   "video": {
-    "asset_url": "https://github.com/Unjuno/connectome-fighter/releases/download/combat-evaluation-34902352979/after.mp4",
-    "bytes": 2030297,
+    "asset_url": "https://github.com/Unjuno/connectome-fighter/releases/download/combat-evaluation-34913872559/after.mp4",
+    "bytes": 1894123,
     "codec": "h264",
-    "duration_seconds": 61.7,
+    "duration_seconds": 53.9,
     "fps": 10,
     "height": 640,
-    "sha256": "b23ba7809208e177187f8f14ff7172136cdc0e5baeeef92d7bb5070b2bac1bfd",
+    "sha256": "6d890475fb06945160bf403a2f22bd9c87e012875108769cb5b7f01335663754",
     "width": 960
   }
 }
