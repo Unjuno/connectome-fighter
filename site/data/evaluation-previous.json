@@ -3,7 +3,7 @@
   "candidate_only": true,
   "character": "GARNET",
   "comparison_phase": "before",
-  "evaluated_at": "2026-09-15T19:03:56.340576+00:00",
+  "evaluated_at": "2026-09-15T22:09:32.549386+00:00",
   "evaluation": {
     "configured_round_limit_seconds": 60,
     "decision_interval_frames": 60,
@@ -15,10 +15,10 @@
     "seed_p1": 800101,
     "seed_p2": 20202
   },
-  "generation": 17,
+  "generation": 18,
   "interpretation_boundary": "Actual frozen before/after evaluation on the same fixed seed; not held-out generalization, proof of improvement, or production LIVE.",
   "kind": "post-update-candidate-round-evaluation",
-  "matches": 17,
+  "matches": 18,
   "model": "KC-MBON-valence-depression-v0",
   "opponent": "ZEN",
   "policy_pixel_access": false,
@@ -34,26 +34,26 @@
     "p2_hp": 400,
     "requested_action_counts": {
       "2": 3,
-      "4": 3,
+      "4": 1,
       "5": 1,
-      "6": 53
+      "6": 55
     },
     "winner": "DRAW"
   },
   "reward_id": "R2e-combat-v1",
   "schema_version": 2,
   "served_by_vercel": false,
-  "source_training_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/35010804453",
-  "state_sha256": "14444af513a6bb294ae9ac071e69e4833106ff5ef96fb5c4c64ac478d1d9206c",
+  "source_training_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/35029133681",
+  "state_sha256": "ccaad9e44146b27e1d93e4ab037c6bdac298d2bc6997403f75fe96fba101fbb6",
   "status": "COMPLETED",
   "video": {
-    "asset_url": "https://github.com/Unjuno/connectome-fighter/releases/download/combat-evaluation-35010804453/before.mp4",
-    "bytes": 1914455,
+    "asset_url": "https://github.com/Unjuno/connectome-fighter/releases/download/combat-evaluation-35029133681/before.mp4",
+    "bytes": 1915106,
     "codec": "h264",
     "duration_seconds": 55.0,
     "fps": 10,
     "height": 640,
-    "sha256": "ea64a0cdde72da36d321d7885871dc2597187048f9fb0be44a383eb9d72f3547",
+    "sha256": "0f4d4413efced2c8f527640deef5dd37f8dfe367d30387b15eac7edc20a13886",
     "width": 960
   }
 }
