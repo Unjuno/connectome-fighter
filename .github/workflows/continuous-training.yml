@@ -1,11 +1,10 @@
-name: combat-candidate-training
+name: paired-candidate-training
 
-# Ten-minute best-effort wake-up, NOT a guaranteed ten-minute completed update.
-# One writer, bounded work, full-round traces, paired frozen before/after video.
+# Replaces the R2e recurring writer. Requests are not completed-update promises.
 on:
   workflow_dispatch:
   schedule:
-    - cron: '3,13,23,33,43,53 * * * *'
+    - cron: '2,7,12,17,22,27,32,37,42,47,52,57 * * * *'
   push:
     branches: [main]
     paths:
@@ -13,35 +12,31 @@ on:
   pull_request:
     paths:
       - '.github/workflows/continuous-training.yml'
-      - 'scripts/combat_training_run.py'
-      - 'scripts/fetch_combat_dependencies.py'
-      - 'scripts/publish_combat_candidate.py'
-      - 'scripts/publish_combat_view.py'
-      - 'scripts/update_malecns_valence_plasticity.py'
-      - 'src/connectome_fighter/combat_*.py'
-      - 'configs/reward_r2e_combat_v1.json'
-      - 'configs/plasticity_combat_v1.json'
-      - 'tests/test_combat_*.py'
+      - 'scripts/paired_*.py'
+      - 'src/connectome_fighter/paired_*.py'
+      - 'tests/test_paired_*.py'
+      - 'tests/test_combat_schedule.py'
+      - 'app/api/evaluation/**'
+      - 'app/training/**'
+      - 'lib/paired-view.ts'
 
 permissions:
   contents: read
-
 concurrency:
   group: canonical-continuous-training-single-writer
   cancel-in-progress: false
 
 env:
-  TRAINING_TAG: combat-training-v1
-  SEED_TAG: canonical-training-latest
   CI: 'true'
   RUNTIME_ROOT: /home/vercel-sandbox/connectome-runtime/arena-runtime
   OMP_NUM_THREADS: '1'
   OPENBLAS_NUM_THREADS: '1'
+  CONNECTOME_TRAINING_PAUSED: ${{ vars.CONNECTOME_TRAINING_PAUSED }}
 
 jobs:
   contract:
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -49,14 +44,26 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: python -m pip install 'numpy==1.26.4' 'pytest==8.3.5' 'PyYAML==6.0.2'
-      - run: PYTHONPATH=src python -m pytest -q tests/test_combat_reward.py tests/test_combat_checkpoint.py tests/test_combat_schedule.py tests/test_combat_publication.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Test rewards, checkpoint continuity, publication and scheduler isolation
+        run: |
+          python -m pip install 'numpy==1.26.4' 'pytest==8.3.5' 'PyYAML==6.0.2'
+          PYTHONPATH=src python -m pytest -q tests/test_paired_search.py tests/test_paired_rollout.py tests/test_paired_publication.py tests/test_combat_schedule.py
+      - name: Validate actual public app and paired-envelope rejection
+        run: |
+          npm install --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          npx tsc lib/paired-view.ts --target es2022 --module commonjs --outDir runs/view-contract --skipLibCheck
+          node scripts/test_paired_view.cjs
 
   train-and-evaluate:
     needs: contract
     if: vars.CONNECTOME_TRAINING_PAUSED != 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
         with:
@@ -64,57 +71,60 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install official-renderer dependencies
+      - name: Install dependency verifier and actual renderer dependencies
         run: |
+          python -m pip install 'numpy==1.26.4'
           sudo apt-get update -qq
           sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fontconfig fonts-dejavu-core ffmpeg
-      - name: Pin and verify runtime and candidate asset bytes
+      - name: Resume exact published paired state or explicitly fork the R2e seed
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          python scripts/fetch_combat_dependencies.py --out runs/combat
+          set -euo pipefail
+          python scripts/paired_rollout_io.py fetch --out runs/paired-rollout
           sudo mkdir -p "$(dirname "$RUNTIME_ROOT")"
           sudo chown -R "$(id -u):$(id -g)" /home/vercel-sandbox
-          tar -xzf runs/combat/runtime.tar.gz -C "$(dirname "$RUNTIME_ROOT")"
-          lscpu > runs/combat/cpu.txt
-          python --version > runs/combat/python-version.txt
-          ffmpeg -version > runs/combat/ffmpeg-version.txt
-      - name: Real frozen baseline, full training round, and frozen updated evaluation
+          tar -xzf runs/paired-rollout/runtime.tar.gz -C "$(dirname "$RUNTIME_ROOT")"
+          lscpu > runs/paired-rollout/cpu.txt
+          ffmpeg -version > runs/paired-rollout/ffmpeg-version.txt
+          git rev-parse HEAD > runs/paired-rollout/tested-checkout.txt
+      - name: Real paired search, independent selection and recorded frozen combat
         run: |
-          python scripts/combat_training_run.py --runtime-root "$RUNTIME_ROOT" --source-archive runs/combat/source.tar.gz --out runs/combat --timeout-seconds 1050
+          set -euo pipefail
+          BRIDGE="$RUNTIME_ROOT/$(cat "$RUNTIME_ROOT/runtime/python311.path")"
+          PYTHONPATH="$GITHUB_WORKSPACE/src:$RUNTIME_ROOT/runtime/site311" \
+            "$BRIDGE" scripts/paired_search_experiment.py \
+            --runtime-root "$RUNTIME_ROOT" --source-archive runs/paired-rollout/source.tar.gz \
+            --out runs/paired-rollout --timeout-seconds 1800 --persistent
+          python scripts/paired_rollout_io.py package --out runs/paired-rollout
       - uses: actions/upload-artifact@v4
         with:
-          name: combat-candidate-publication-${{ github.run_id }}
-          path: runs/combat/publish
+          name: paired-publication-${{ github.run_id }}-${{ github.run_attempt }}
+          path: runs/paired-rollout/publish
+          if-no-files-found: error
+          retention-days: 3
+      - name: Preserve tested source even after a failed game
+        if: always()
+        run: |
+          mkdir -p runs/paired-rollout/tested-source
+          cp scripts/paired_*.py src/connectome_fighter/paired_*.py runs/paired-rollout/tested-source/
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: paired-cycle-evidence
           retention-days: 3
           if-no-files-found: error
-      - name: Save bounded experiment evidence
-        if: always()
-        run: |
-          mkdir -p runs/combat/evidence
-          cp scripts/combat_training_run.py scripts/fetch_combat_dependencies.py scripts/publish_combat_candidate.py configs/reward_r2e_combat_v1.json configs/plasticity_combat_v1.json runs/combat/evidence/
-          git rev-parse HEAD > runs/combat/evidence/tested-checkout.txt
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: combat-training-evidence
-          retention-days: 3
           path: |
-            runs/combat/result.json
-            runs/combat/environment.json
-            runs/combat/asset-audit.json
-            runs/combat/dependencies.json
-            runs/combat/update.json
-            runs/combat/*.log
-            runs/combat/*.txt
-            runs/combat/evidence
-            runs/combat/checkpoint
-            runs/combat/package/parent.json
-            runs/combat/matches/*/status.json
-            runs/combat/matches/*/p1.jsonl
-            runs/combat/matches/*/p2.jsonl
-            runs/combat/matches/*/p1-brain/*
-            runs/combat/matches/*/p2-brain/*
+            runs/paired-rollout/result.json
+            runs/paired-rollout/design.json
+            runs/paired-rollout/dependencies.json
+            runs/paired-rollout/matches-summary.json
+            runs/paired-rollout/baseline-repeatability.json
+            runs/paired-rollout/candidate
+            runs/paired-rollout/tested-source
+            runs/paired-rollout/*.log
+            runs/paired-rollout/*.txt
+            runs/paired-rollout/matches
 
   publish:
     needs: train-and-evaluate
@@ -128,13 +138,15 @@ jobs:
         with:
           ref: ${{ github.sha }}
           fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'numpy==1.26.4'
       - uses: actions/download-artifact@v4
         with:
-          name: combat-candidate-publication-${{ github.run_id }}
-          path: runs/publication
-      - name: Publish verified candidate and run-addressed videos, never approved inference
+          name: paired-publication-${{ github.run_id }}-${{ github.run_attempt }}
+          path: runs/paired-publication
+      - name: Upload immutable evidence, then advance one coherent public record
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python scripts/publish_combat_candidate.py --input runs/publication
-      - name: Atomically expose paired evaluations and training history
-        run: python scripts/publish_combat_view.py --input runs/publication
+        run: python scripts/paired_rollout_io.py publish --out runs/paired-publication

@@ -65,10 +65,11 @@ export function LiveClient() {
     <div className="ob-model-switch" role="group" aria-label="Select evaluation generation"><button className="ob-button" type="button" aria-pressed={!previous || !older} onClick={() => setPrevious(false)}>Latest completed Gen {metric(latest?.generation)}</button><button className="ob-button" type="button" aria-pressed={previous && Boolean(older)} disabled={!older} onClick={() => setPrevious(true)}>Previous Gen {metric(older?.generation)}</button></div>
   </>;
 
-  return <Observatory mode="replay" status="recorded-evaluation" media={media} controls={<><button className="ob-button" type="button" aria-pressed={paused} onClick={() => setPaused(value => !value)}>{paused ? 'Resume history updates' : 'Pause history updates'}</button><a className="ob-button ob-button-primary" href="/live">Observe LIVE ↗</a></>}>
+  return <Observatory mode="replay" status="recorded-evaluation" media={media} controls={<><button className="ob-button" type="button" aria-pressed={paused} onClick={() => setPaused(value => !value)}>{paused ? 'Resume history updates' : 'Pause history updates'}</button><a className="ob-button ob-button-primary" href="/live">Observe LIVE ↗</a><a className="ob-button" href="/training">Training console ↗</a></>}>
     {error ? <p className="ob-notice" role="status">Evaluation API unavailable: {error}. Any displayed records are from the last successful fetch.</p> : null}
     {paused ? <p className="ob-notice" role="status">History updates are paused. Use the video player controls to play or pause the recording.</p> : null}
     {behind ? <p className="ob-notice">Candidate is now Gen {metric(training?.generation)} . The latest completed evaluation shown here is Gen {metric(latest?.generation)}. Completion of the newer evaluation has not yet been verified.</p> : null}
+    {typeof training?.cycle_index === 'number' ? <p className="ob-notice">Experiment cycle {training.cycle_index} · Accepted updates {training.accepted_update_count} · {training.accepted_update ? 'Candidate update accepted for research.' : 'NO UPDATE: parent weights retained.'} <a href="/training">Inspect the paired record ↗</a></p> : null}
     <section id="evolution" className="ob-evolution">
       <div className="ob-section-title"><div><span className="ob-kicker">03 / RESEARCH TIMELINE</span><h2>Current behavior. Recorded progress.</h2></div><span className="ob-tag">candidate only · no automatic promotion</span></div>
       <div className="ob-history-grid">

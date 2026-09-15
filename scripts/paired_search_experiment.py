@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Bounded actual-game paired search, artifact-only, no automatic promotion.
+"""Bounded actual-game paired search with optional persistent candidate state.
 
-Run under bundled bridge Python/site311. P1 neural, dummy curriculum explicitly
-separate from canonical-opponent combat evaluation. No scheduled writer added.
+Run under bundled bridge Python/site311. P1 remains neural; the dummy curriculum
+is separate from canonical combat. This process does not publish or promote.
 """
 from __future__ import annotations
 import argparse
@@ -30,6 +30,8 @@ sys.path.insert(0,str(ROOT/'src'))
 from connectome_fighter.paired_search import EXPERIMENT, group_indices, multipliers, propose
 from connectome_fighter.combat_checkpoint import config_from_json
 from connectome_fighter.valence_plasticity import load_state
+from connectome_fighter.paired_rollout import (ROLLOUT, PROTOCOL_SHA256, load_parent,
+    save_checkpoint, seeds, weights_hash)
 
 
 def sha(path):
@@ -103,6 +105,7 @@ def main():
     p.add_argument('--source-archive',type=Path,required=True)
     p.add_argument('--out',type=Path,required=True)
     p.add_argument('--timeout-seconds',type=int,default=1500)
+    p.add_argument('--persistent',action='store_true',help='Explicit versioned recurring lane; not approved inference')
     args=p.parse_args()
     if os.environ.get('CI')!='true' or os.environ.get('VERCEL'):p.error('standalone CI only')
     if not 120<=args.timeout_seconds<=1800:p.error('invalid bounded timeout')
@@ -127,21 +130,47 @@ def main():
     with tarfile.open(args.source_archive) as archive:archive.extractall(source,filter='data')
     state_path=source/'state/GARNET.npz'
     cfg=config_from_json(json.loads((ROOT/'configs/plasticity_combat_v1.json').read_text()))
-    state=load_state(state_path,expected_character='GARNET',n_candidates=len(c),expected_candidate_sha256=sha(candidate_path),config=cfg)
-    parent_meta=json.loads(state_path.with_suffix('.npz.json').read_text())
-    parent_sha=sha(state_path)
     membership=group_indices(c['synapse_index'].to_numpy(dtype=np.int64),8)
+    if args.persistent:
+        state=load_parent(source,sha(candidate_path),membership,cfg)
+        state_path=state.state_path
+        parent_meta=state.metadata
+        cycle=parent_meta['cycle_index']+1
+        seed_plan=seeds(cycle)
+        phase=parent_meta['next_phase']
+    else:
+        state=load_state(state_path,expected_character='GARNET',n_candidates=len(c),expected_candidate_sha256=sha(candidate_path),config=cfg)
+        parent_meta=json.loads(state_path.with_suffix('.npz.json').read_text())
+        cycle=None
+        seed_plan={'direction':926015,'training':910001,'selection':910001,'validation':[910101,910102],'combat':800101}
+        phase='curriculum'
+    if args.persistent:
+        substrate={'anatomy':manifest['adapter_connectivity_sha256'], 'reference':manifest['shiu_model_sha256'],
+                   'game':manifest['fightingice_jar_sha256'], 'interface':embedded,
+                   'worker':sha(ROOT/'scripts/malecns_lif_worker.py'),
+                   'session':sha(ROOT/'src/connectome_fighter/session.py'),
+                   'contracts':sha(ROOT/'src/connectome_fighter/contracts.py'),
+                   'observations':sha(ROOT/'src/connectome_fighter/observations.py')}
+        if cycle>1 and parent_meta.get('substrate')!=substrate:
+            raise ValueError('numerical/biological substrate changed; explicit new lineage required')
+        state.metadata=dict(state.metadata,substrate=substrate)
+        parent_meta=state.metadata
+    parent_sha=sha(state_path)
+    training_opponent='neutral' if phase=='curriculum' else 'canonical'
+    score_key='curriculum_score' if phase=='curriculum' else 'combat_score'
     np.savez_compressed(out/'group-membership.npz',synapse_index=c['synapse_index'].to_numpy(),group=membership)
-    theta=np.zeros(8);sigma=.04;rng=np.random.default_rng(926015)
+    theta=np.zeros(8);sigma=.04;rng=np.random.default_rng(seed_plan['direction'])
     directions=rng.normal(size=(4,8))
     design={'experiment':EXPERIMENT,'parent':parent_meta,'tested_checkout':os.environ.get('GITHUB_SHA'),
             'runtime_manifest':manifest,'numpy_version':np.__version__,'python':sys.version,
             'paired_directions':directions.tolist(),'sigma':sigma,'learning_rate':.05,'step_norm_cap':.02,
             'groups':8,'group_membership_sha256':sha(out/'group-membership.npz'),
-            'multiplier_bounds':[.8,1.0],'training_seed':910001,'validation_seeds':[910101,910102],
+            'multiplier_bounds':[.8,1.0],'training_seed':seed_plan['training'],'validation_seeds':seed_plan['validation'],
             'decision_interval_frames':60,'neural_window_ms':20,'round_frame_limit':3600,
-            'candidate_only':True,'auto_promotion':False,'scheduled':False,
-            'training_opponent':'explicit neutral dummy','combat_opponent':'ZEN canonical baseline',
+            'candidate_only':True,'auto_promotion':False,'scheduled':bool(args.persistent),
+            'rollout':ROLLOUT if args.persistent else None,'protocol_sha256':PROTOCOL_SHA256 if args.persistent else None,
+            'phase':phase,'cycle_index':cycle,'seed_plan':seed_plan,
+            'training_opponent':training_opponent,'combat_opponent':'ZEN canonical baseline',
             'interpretation_boundary':'Engineering search on existing anatomy, not an endogenous plasticity mechanism. No held-out strength claim from this pilot.',
             'started_at':datetime.now(timezone.utc).isoformat()}
     write(out/'design.json',design)
@@ -191,8 +220,8 @@ def main():
         return entry
     result={'status':'FAIL','experiment':EXPERIMENT}
     try:
-        before=game('curriculum-before',theta,'neutral',910001,video=True)
-        repeat=game('curriculum-repeat',theta,'neutral',910001)
+        before=game('curriculum-before',theta,training_opponent,seed_plan['training'],video=True)
+        repeat=game('curriculum-repeat',theta,training_opponent,seed_plan['training'])
         repeatable=before['metrics']==repeat['metrics']
         write(out/'baseline-repeatability.json',{'identical_metrics':repeatable})
         if not repeatable:raise RuntimeError('same-seed baseline not repeatable: cannot attribute paired changes')
@@ -202,33 +231,44 @@ def main():
             local={}
             for sign in ([1,-1] if j%2==0 else [-1,1]):
                 name=f'probe-{j}-'+('plus' if sign==1 else 'minus')
-                e=game(name,sign*sigma*u,'neutral',910001)
-                local[sign]=e['metrics']['curriculum_score']
+                e=game(name,sign*sigma*u,training_opponent,seed_plan['training'])
+                local[sign]=e['metrics'][score_key]
             plus.append(local[1]);minus.append(local[-1])
         gradient,step=propose(directions,plus,minus,sigma=sigma)
         accepted=False;selected=theta;proposal_result=None
         if np.any(step):
-            proposal_result=game('curriculum-proposal',step,'neutral',910001,video=True)
-            accepted=proposal_result['metrics']['curriculum_score']>before['metrics']['curriculum_score']+1e-12
+            selection_parent=(game('selection-parent',theta,training_opponent,seed_plan['selection']) if args.persistent else before)
+            proposal_result=game('curriculum-proposal',step,training_opponent,seed_plan['selection'],video=True)
+            accepted=proposal_result['metrics'][score_key]>selection_parent['metrics'][score_key]+1e-12
+            if phase=='curriculum':
+                accepted=accepted and proposal_result['metrics']['damage_dealt_hp']>=selection_parent['metrics']['damage_dealt_hp']
+            accepted=bool(accepted and not np.array_equal(multipliers(state.multipliers,step,membership),state.multipliers))
             if accepted:selected=step
         curriculum_validation=[]
         if accepted:
-            for seed in [910101,910102]:
-                a=game(f'validation-{seed}-parent',theta,'neutral',seed)
-                b=game(f'validation-{seed}-candidate',selected,'neutral',seed)
+            for seed in seed_plan['validation']:
+                a=game(f'validation-{seed}-parent',theta,training_opponent,seed)
+                b=game(f'validation-{seed}-candidate',selected,training_opponent,seed)
                 curriculum_validation.append({'seed':seed,'parent':a['metrics'],'candidate':b['metrics']})
         combat_before=game('combat-before',theta,'canonical',800101,video=True)
         combat_after=game('combat-after',selected,'canonical',800101,video=True)
-        checkpoint=out/'candidate';checkpoint.mkdir()
-        np.savez_compressed(checkpoint/'search-state.npz',theta=selected,multipliers=multipliers(state.multipliers,selected,membership),membership=membership,parent_multipliers=state.multipliers)
-        child_meta={'experiment':EXPERIMENT,'model':'bounded-group-perturbation-on-existing-KC-MBON-v1',
-                    'parent_state_sha256':parent_sha,'parent_generation':state.generation,
-                    'accepted_update_count':int(accepted),'weights_changed':bool(accepted),
-                    'state_file_sha256':sha(checkpoint/'search-state.npz'),'candidate_sha256':sha(candidate_path),
-                    'candidate_only':True,'auto_promotion':False,'production_compatible':False}
-        write(checkpoint/'search-state.json',child_meta)
+        checkpoint=out/'candidate'
+        if args.persistent:
+            child_meta=save_checkpoint(checkpoint,state,membership,multipliers(state.multipliers,selected,membership),
+                accepted,sha(candidate_path),curriculum_validation,phase)
+        else:
+            checkpoint=out/'candidate';checkpoint.mkdir()
+            np.savez_compressed(checkpoint/'search-state.npz',theta=selected,multipliers=multipliers(state.multipliers,selected,membership),membership=membership,parent_multipliers=state.multipliers)
+            child_meta={'experiment':EXPERIMENT,'model':'bounded-group-perturbation-on-existing-KC-MBON-v1',
+                        'parent_state_sha256':parent_sha,'parent_generation':state.generation,
+                        'accepted_update_count':int(accepted),'weights_changed':bool(accepted),
+                        'state_file_sha256':sha(checkpoint/'search-state.npz'),'candidate_sha256':sha(candidate_path),
+                        'candidate_only':True,'auto_promotion':False,'production_compatible':False}
+            write(checkpoint/'search-state.json',child_meta)
         result={'status':'PASS','experiment':EXPERIMENT,'parent':parent_meta,'accepted_update':accepted,
-                'update_reason':'strict curriculum gain' if accepted else 'zero paired signal' if not np.any(step) else 'proposal did not outperform parent',
+                'phase':phase,'cycle_index':cycle,'rollout':ROLLOUT if args.persistent else None,
+                'parent_weights_sha256':weights_hash(state.multipliers),
+                'update_reason':'strict independent-seed score gain' if accepted and args.persistent else 'strict curriculum gain' if accepted else 'zero paired signal' if not np.any(step) else 'proposal did not outperform parent',
                 'plus_scores':plus,'minus_scores':minus,'gradient':gradient.tolist(),'proposal_step':step.tolist(),
                 'baseline_curriculum':before['metrics'],'proposal_curriculum':proposal_result['metrics'] if proposal_result else None,
                 'curriculum_validation':curriculum_validation,'combat_before':combat_before['metrics'],'combat_after':combat_after['metrics'],
