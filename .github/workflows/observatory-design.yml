@@ -5,6 +5,8 @@ on:
     paths:
       - 'app/**'
       - 'scripts/test_observatory_design.mjs'
+      - 'scripts/test_training_console.mjs'
+      - 'lib/paired-view.ts'
       - '.github/workflows/observatory-design.yml'
       - 'package.json'
   push:
@@ -12,6 +14,8 @@ on:
     paths:
       - 'app/**'
       - 'scripts/test_observatory_design.mjs'
+      - 'scripts/test_training_console.mjs'
+      - 'lib/paired-view.ts'
       - '.github/workflows/observatory-design.yml'
       - 'package.json'
   workflow_dispatch:
@@ -62,6 +66,7 @@ jobs:
           done
           test "$ready" = 1
           node scripts/test_observatory_design.mjs
+          node scripts/test_training_console.mjs
       - name: Preserve tested source and provenance
         if: always()
         run: |
