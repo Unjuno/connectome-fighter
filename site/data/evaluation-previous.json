@@ -3,7 +3,7 @@
   "candidate_only": true,
   "character": "GARNET",
   "comparison_phase": "before",
-  "evaluated_at": "2026-09-15T05:26:04.891288+00:00",
+  "evaluated_at": "2026-09-15T10:17:58.910974+00:00",
   "evaluation": {
     "configured_round_limit_seconds": 60,
     "decision_interval_frames": 60,
@@ -15,10 +15,10 @@
     "seed_p1": 800101,
     "seed_p2": 20202
   },
-  "generation": 14,
+  "generation": 15,
   "interpretation_boundary": "Actual frozen before/after evaluation on the same fixed seed; not held-out generalization, proof of improvement, or production LIVE.",
   "kind": "post-update-candidate-round-evaluation",
-  "matches": 14,
+  "matches": 15,
   "model": "KC-MBON-valence-depression-v0",
   "opponent": "ZEN",
   "policy_pixel_access": false,
@@ -33,27 +33,26 @@
     "p1_hp": 400,
     "p2_hp": 400,
     "requested_action_counts": {
-      "2": 2,
-      "4": 2,
-      "6": 55,
-      "7": 1
+      "2": 1,
+      "4": 1,
+      "6": 58
     },
     "winner": "DRAW"
   },
   "reward_id": "R2e-combat-v1",
   "schema_version": 2,
   "served_by_vercel": false,
-  "source_training_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34932405406",
-  "state_sha256": "729fdcac7e0be514ead706d0cafc8af247bed9d2ae476a19b2df698d89a9a7ba",
+  "source_training_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/34956814967",
+  "state_sha256": "a4fc2bba7fc38e2087602ec0002ec676eda321dc057a27ea97da121ad08e60b4",
   "status": "COMPLETED",
   "video": {
-    "asset_url": "https://github.com/Unjuno/connectome-fighter/releases/download/combat-evaluation-34932405406/before.mp4",
-    "bytes": 2022011,
+    "asset_url": "https://github.com/Unjuno/connectome-fighter/releases/download/combat-evaluation-34956814967/before.mp4",
+    "bytes": 1913885,
     "codec": "h264",
-    "duration_seconds": 59.7,
+    "duration_seconds": 56.0,
     "fps": 10,
     "height": 640,
-    "sha256": "8429ffc4d0db7150b7dc91ca07f029650e1fad35e3f22952414c2728546b6887",
+    "sha256": "8bc4a3e427b6e8230870fc49b688a1ddb73720e2458ed50f4f119e7049e293b9",
     "width": 960
   }
 }
