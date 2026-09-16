@@ -6,8 +6,10 @@ on:
     paths:
       - '.github/workflows/paired-neural-search.yml'
       - 'src/connectome_fighter/paired_search.py'
+      - 'src/connectome_fighter/neural_readout.py'
       - 'scripts/paired_search_*.py'
       - 'tests/test_paired_search.py'
+      - 'tests/test_neural_readout.py'
       - 'docs/PAIRED_NEURAL_SEARCH_V1.md'
 
 permissions:
@@ -15,7 +17,7 @@ permissions:
 
 concurrency:
   group: paired-neural-search-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   pilot:
@@ -34,10 +36,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Test dimensionless rewards, rejection and paired update
+      - name: Test dimensionless rewards, rejection, paired update and readout
         run: |
           python -m pip install 'numpy==1.26.4' 'pytest==8.3.5'
-          PYTHONPATH=src python -m pytest -q tests/test_paired_search.py
+          PYTHONPATH=src python -m pytest -q tests/test_paired_search.py tests/test_neural_readout.py
+          python -m py_compile scripts/paired_search_game.py scripts/paired_search_experiment.py src/connectome_fighter/neural_readout.py
       - name: Install the official game renderer and recording dependencies
         run: |
           sudo apt-get update -qq
@@ -54,7 +57,7 @@ jobs:
           lscpu > runs/paired-search/cpu.txt
           ffmpeg -version > runs/paired-search/ffmpeg-version.txt
           git rev-parse HEAD > runs/paired-search/tested-checkout.txt
-      - name: Actual neural search, neutral-dummy curriculum, canonical combat and videos
+      - name: Actual EMA-readout neural search, neutral curriculum, canonical combat and videos
         run: |
           set -euo pipefail
           BRIDGE="$RUNTIME_ROOT/$(cat "$RUNTIME_ROOT/runtime/python311.path")"
@@ -63,11 +66,34 @@ jobs:
             --runtime-root "$RUNTIME_ROOT" \
             --source-archive runs/paired-search/source.tar.gz \
             --out runs/paired-search --timeout-seconds 1500
+      - name: Verify experimental boundary
+        run: |
+          python - <<'PY'
+          import json
+          r=json.load(open('runs/paired-search/result.json'))
+          d=json.load(open('runs/paired-search/design.json'))
+          assert r['status']=='PASS'
+          assert r['readout_mode']=='ema-residual'
+          assert r['readout_contract']=='malecns-temporal-readout-v1'
+          assert d['readout_game_state_used'] is False
+          assert d['reward_coefficients_changed_in_this_experiment'] is False
+          assert r['strength_claim'] is False
+          assert r['checkpoint']['candidate_only'] is True
+          assert r['checkpoint']['auto_promotion'] is False
+          print(json.dumps({
+              'accepted_update':r['accepted_update'],
+              'update_reason':r['update_reason'],
+              'plus_scores':r['plus_scores'],
+              'minus_scores':r['minus_scores'],
+              'combat_before':r['combat_before'],
+              'combat_proposal':r['combat_proposal'],
+          },indent=2,sort_keys=True))
+          PY
       - name: Preserve tested experiment code
         if: always()
         run: |
           mkdir -p runs/paired-search/tested-source
-          cp scripts/paired_search_*.py src/connectome_fighter/paired_search.py tests/test_paired_search.py docs/PAIRED_NEURAL_SEARCH_V1.md runs/paired-search/tested-source/
+          cp scripts/paired_search_*.py src/connectome_fighter/paired_search.py src/connectome_fighter/neural_readout.py tests/test_paired_search.py tests/test_neural_readout.py docs/PAIRED_NEURAL_SEARCH_V1.md runs/paired-search/tested-source/
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -8,11 +8,13 @@ on:
       - '.github/workflows/readout-sensitivity.yml'
       - 'scripts/readout_sensitivity_experiment.py'
       - 'scripts/paired_search_game.py'
+      - 'src/connectome_fighter/neural_readout.py'
   pull_request:
     paths:
       - '.github/workflows/readout-sensitivity.yml'
       - 'scripts/readout_sensitivity_experiment.py'
       - 'scripts/paired_search_game.py'
+      - 'src/connectome_fighter/neural_readout.py'
 
 permissions:
   contents: read
@@ -42,9 +44,22 @@ jobs:
       - name: Contract and syntax checks
         run: |
           set -euo pipefail
-          python -m py_compile scripts/readout_sensitivity_experiment.py scripts/paired_search_game.py
-          grep -F "choices=['canonical','delta','ema-residual']" scripts/paired_search_game.py
-          grep -F "readout_game_state_used':False" scripts/paired_search_game.py
+          python -m py_compile scripts/readout_sensitivity_experiment.py scripts/paired_search_game.py src/connectome_fighter/neural_readout.py
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+          source=Path('src/connectome_fighter/neural_readout.py').read_text()
+          tree=ast.parse(source)
+          modes=None
+          for node in tree.body:
+              if isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='READOUT_MODES' for t in node.targets):
+                  modes=ast.literal_eval(node.value)
+          assert modes == ('canonical','delta','ema-residual')
+          text=Path('scripts/paired_search_game.py').read_text()
+          assert '--readout-mode' in text
+          assert 'p1_readout_uses_game_state' in text
+          assert 'TemporalReadoutPolicy' in text
+          PY
       - name: Install official renderer dependencies
         run: |
           sudo apt-get update -qq

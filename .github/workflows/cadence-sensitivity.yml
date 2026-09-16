@@ -1,6 +1,7 @@
 name: cadence-sensitivity
 
-# This rerun is intentionally read-only and uses the latest P1 routing-aware game harness.
+# Read-only diagnosis: keep the checkpoint, neural window and observation contract
+# fixed while changing only how long each selected action is held in FightingICE.
 on:
   workflow_dispatch:
   push:
@@ -46,8 +47,14 @@ jobs:
         run: |
           set -euo pipefail
           python -m py_compile scripts/cadence_sensitivity_experiment.py scripts/paired_search_game.py
-          grep -F "choices=[15,30,60]" scripts/paired_search_game.py
-          grep -F "INTERVALS=(60,30,15)" scripts/cadence_sensitivity_experiment.py
+          python - <<'PY'
+          from pathlib import Path
+          game=Path('scripts/paired_search_game.py').read_text()
+          cadence=Path('scripts/cadence_sensitivity_experiment.py').read_text().replace(' ','')
+          assert '--decision-interval' in game
+          assert 'choices=[15,30,60]' in game.replace(' ','')
+          assert 'INTERVALS=(60,30,15)' in cadence
+          PY
       - name: Install official renderer dependencies
         run: |
           sudo apt-get update -qq
@@ -83,7 +90,13 @@ jobs:
           assert r['fixed_neural_window_ms']==20.0
           assert len(r['results']['neutral'])==3 and len(r['results']['canonical'])==3
           for row in r['results']['neutral']+r['results']['canonical']:
-              assert row['metrics']['decision_count'] in (60,120,240)
+              interval=row['decision_interval_frames']
+              elapsed=row['metrics']['elapsed_frame']
+              decisions=row['metrics']['decision_count']
+              # FightingICE's delayed observation stream begins after round start,
+              # so the final interval may be one decision short of elapsed/interval.
+              expected=(elapsed + interval - 1)//interval
+              assert decisions in (expected-1, expected), (interval, elapsed, decisions, expected)
               assert row['source_state_sha256']==r['candidate_state_sha256']
           print(json.dumps({
               'generation':r['candidate_generation'],
