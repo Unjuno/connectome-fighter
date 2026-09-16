@@ -31,10 +31,10 @@ not a claim of biological motor decoding.
 The held-out readout-selection experiment used three seed pairs with the same
 checkpoint, 60-frame cadence, 20 ms neural window and canonical ZEN opponent.
 EMA-residual improved combat score in two of the three pairs. Across those three
-pairs canonical dealt 0 HP, while EMA-residual dealt 135 HP in total and had
-+75 HP aggregate net advantage relative to canonical. One seed pair worsened,
-so this evidence selects a training-control candidate; it is not a general
-strength claim.
+pairs canonical dealt 30 HP in total and had aggregate net HP -15; EMA-residual
+dealt 150 HP in total and had aggregate net HP +65. One seed pair worsened, so
+this evidence selects a training-control candidate; it is not a general strength
+claim.
 
 ## Rewards
 
@@ -53,7 +53,7 @@ No reward coefficient is changed in the EMA-readout paired-search pilot. Readout
 selection and reward changes are deliberately not confounded in one experiment.
 
 Incomplete, regressed, healing, nonfinite, non-400/400 or non-frozen traces fail.
-Overkill HP is clamped to zero. Recorded frame coverage and gaps are disclosed.
+Overkill HP is clamped at zero. Recorded frame coverage and gaps are disclosed.
 Per-frame delayed observations are only logged by the spectator, not given to
 the policy as privileged input. Combat and curriculum are scored separately.
 
@@ -63,10 +63,10 @@ the policy as privileged input. Combat and curriculum are scored separately.
 |---|---|---|---|---|
 | theta | Search coordinates | dimensionless | eight real numbers, initially zero | vector |
 | u | Gaussian direction | dimensionless | independent standard normal coordinates | random vector |
-| sigma | Search scale | dimensionless | 0.04 | scalar |
+| sigma | Probe scale | dimensionless | 0.04 | scalar |
 | M | Number of paired directions | dimensionless | four | integer |
 | F | Measured trial score | dimensionless | curriculum 0..1; combat -1.02..1.02 | scalar |
-| g | Antithetic gradient estimate | dimensionless | mean((Fplus-Fminus)*u)/(2*sigma) | vector |
+| g | Antithetic gradient diagnostic | dimensionless | mean((Fplus-Fminus)*u)/(2*sigma) | vector |
 | parent | Inherited edge multipliers | dimensionless | verified checkpoint, 0.8..1.0 | vector |
 | group | Fixed artificial edge partition | dimensionless | SHA-256 of experiment ID and synapse index, modulo 8 | integer vector |
 | H | Maximum HP | game HP, not SI | 400 | scalar |
@@ -76,9 +76,18 @@ All score terms and optimizer coordinates are dimensionless. HP and distances
 are divided by quantities in the same game units; no physiological calibration
 is implied. The zero coordinate exactly preserves inherited float32 multipliers.
 Effective multipliers are clip(parent + theta[group], 0.8, 1.0). Clipping is part
-of the scored objective. Gaussian smoothing permits gradient estimation even
-with clipping and argmax-like decisions; it does not guarantee an informative
-signal.
+of the scored objective.
+
+The first EMA-readout search showed nonzero paired score differences, proving the
+chosen KC-MBON subspace can affect the measured curriculum under this interface.
+However, the four-direction averaged gradient produced a smaller point that
+scored below its parent. The inherited state also had about 69% of candidate
+multipliers at the upper bound 1.0, so the clipped local landscape is strongly
+asymmetric. Accordingly, the next proposal uses the direction of the best
+actually measured plus/minus probe, scales that direction by learning rate 0.05,
+and caps its Euclidean norm at 0.02. That smaller point is then measured as a new
+trial before any validation or acceptance. The antithetic gradient remains a
+diagnostic rather than an unverified update instruction.
 
 ## Fixed protocol
 
@@ -94,10 +103,11 @@ Both actors are frozen throughout each 3600-frame-maximum round. Training seed i
    metrics under the same seed.
 4. Execute four plus/minus Gaussian perturbation pairs through EMA-residual.
    Alternate execution order.
-5. Estimate g; propose 0.05*g, bounded to Euclidean norm 0.02. Identical paired
-   scores produce exactly zero update.
-6. A nonzero proposal must strictly improve the training curriculum score before
-   it proceeds to the validation gate.
+5. Estimate `g` for diagnostics. If every plus/minus pair is identical, propose
+   exactly zero. Otherwise select the direction of the highest measured probe,
+   scale that direction by 0.05, and cap its Euclidean norm at 0.02.
+6. Measure that new bounded point on the training seed. It must strictly improve
+   the parent curriculum score before it proceeds to the validation gate.
 7. On both separate validation seeds, the proposal must not reduce curriculum
    score or damage dealt; at least one validation seed must strictly improve
    curriculum score.
@@ -121,9 +131,9 @@ within the existing KC-MBON subspace can produce measurable curriculum-score
 differences and a bounded candidate that does not regress the measured ZEN
 combat condition.
 
-**T:** Four antithetic pairs, repeated parent, strictly bounded proposal, two
-separate curriculum validation seeds and a canonical-combat nondegradation gate.
-This small pilot does not estimate a reliable win rate.
+**T:** Four antithetic pairs, repeated parent, bounded best-measured-direction
+proposal, two separate curriculum validation seeds and a canonical-combat
+nondegradation gate. This small pilot does not estimate a reliable win rate.
 
 **D:** Software/complete-round/hash checks permit execution PASS. Equal scores
 mean NO UPDATE, not failed infrastructure. A candidate is accepted only after
@@ -132,13 +142,13 @@ Acceptance remains candidate-only and is not a strength claim.
 
 **C:** Weak neural sensitivity, insufficient edge subspace, clipping, opponent or
 seed effects, action-interface limitations, or inadequate search scale can still
-make paired differences uninformative or unstable. One failed candidate does not
-prove all neural learning impossible.
+make paired differences unstable. One failed candidate does not prove all neural
+learning impossible.
 
 **U:** Seed/opponent effects, limited directions, one canonical-combat gate and
 clipping dominate uncertainty. No confidence bound, general strength percentage,
 or biological interpretation is assigned without broader independent data.
 
 Reference: Salimans et al., Evolution Strategies as a Scalable Alternative to
-Reinforcement Learning, arXiv:1703.03864. This project applies a bounded
-parameter-search method; it does not claim to identify endogenous fly learning.
+Reinforcement Learning, arXiv:1703.03864. This project uses bounded black-box
+perturbation ideas; it does not claim to identify endogenous fly learning.
