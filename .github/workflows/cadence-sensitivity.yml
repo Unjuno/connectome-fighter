@@ -47,8 +47,14 @@ jobs:
         run: |
           set -euo pipefail
           python -m py_compile scripts/cadence_sensitivity_experiment.py scripts/paired_search_game.py
-          grep -F "choices=[15,30,60]" scripts/paired_search_game.py
-          grep -F "INTERVALS=(60,30,15)" scripts/cadence_sensitivity_experiment.py
+          python - <<'PY'
+          from pathlib import Path
+          game=Path('scripts/paired_search_game.py').read_text()
+          cadence=Path('scripts/cadence_sensitivity_experiment.py').read_text().replace(' ','')
+          assert '--decision-interval' in game
+          assert 'choices=[15,30,60]' in game.replace(' ','')
+          assert 'INTERVALS=(60,30,15)' in cadence
+          PY
       - name: Install official renderer dependencies
         run: |
           sudo apt-get update -qq
