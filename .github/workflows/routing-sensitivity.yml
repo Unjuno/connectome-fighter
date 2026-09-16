@@ -1,0 +1,110 @@
+name: routing-sensitivity
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/routing-sensitivity.yml'
+      - 'scripts/routing_sensitivity_experiment.py'
+      - 'scripts/paired_search_game.py'
+  pull_request:
+    paths:
+      - '.github/workflows/routing-sensitivity.yml'
+      - 'scripts/routing_sensitivity_experiment.py'
+      - 'scripts/paired_search_game.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: routing-sensitivity-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: 'true'
+  RUNTIME_ROOT: /home/vercel-sandbox/connectome-runtime/arena-runtime
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+
+jobs:
+  actual-game-routing:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Contract and syntax checks
+        run: |
+          set -euo pipefail
+          python -m py_compile scripts/routing_sensitivity_experiment.py scripts/paired_search_game.py
+          grep -F "swap-b-forward" scripts/routing_sensitivity_experiment.py
+          grep -F "p1_interface_override" scripts/paired_search_game.py
+      - name: Install official renderer dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fontconfig fonts-dejavu-core ffmpeg
+      - name: Pin runtime and current candidate bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python scripts/fetch_combat_dependencies.py --out runs/routing
+          sudo mkdir -p "$(dirname "$RUNTIME_ROOT")"
+          sudo chown -R "$(id -u):$(id -g)" /home/vercel-sandbox
+          tar -xzf runs/routing/runtime.tar.gz -C "$(dirname "$RUNTIME_ROOT")"
+          lscpu > runs/routing/cpu.txt
+          git rev-parse HEAD > runs/routing/tested-checkout.txt
+      - name: Actual canonical and routing-permuted games
+        run: |
+          set -euo pipefail
+          BRIDGE="$RUNTIME_ROOT/$(cat "$RUNTIME_ROOT/runtime/python311.path")"
+          PYTHONPATH="$GITHUB_WORKSPACE/src:$RUNTIME_ROOT/runtime/site311" \
+            "$BRIDGE" scripts/routing_sensitivity_experiment.py \
+            --runtime-root "$RUNTIME_ROOT" \
+            --source-archive runs/routing/source.tar.gz \
+            --out runs/routing --timeout-seconds 1500
+      - name: Verify result boundary
+        run: |
+          python - <<'PY'
+          import json
+          r=json.load(open('runs/routing/result.json'))
+          assert r['status']=='PASS'
+          assert r['variants']==['canonical','swap-b-forward','swap-b-a']
+          assert r['decision_interval_frames']==60 and r['fixed_neural_window_ms']==20.0
+          assert r['learning_performed'] is False and r['weights_changed'] is False
+          assert len(r['results']['neutral'])==3 and len(r['results']['canonical'])==3
+          for row in r['results']['neutral']+r['results']['canonical']:
+              assert row['source_state_sha256']==r['candidate_state_sha256']
+          print(json.dumps({
+              'generation':r['candidate_generation'],
+              'neutral':[(x['variant'],x['metrics']['minimum_observed_distance_px'],x['metrics']['damage_dealt_hp'],x['p1_action_histogram']) for x in r['results']['neutral']],
+              'canonical':[(x['variant'],x['metrics']['minimum_observed_distance_px'],x['metrics']['damage_dealt_hp'],x['p1_action_histogram']) for x in r['results']['canonical']],
+          },indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: routing-sensitivity-evidence
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            runs/routing/result.json
+            runs/routing/partial-results.json
+            runs/routing/dependencies.json
+            runs/routing/tested-checkout.txt
+            runs/routing/cpu.txt
+            runs/routing/interfaces/*.json
+            runs/routing/*-game.log
+            runs/routing/matches/*/result.json
+            runs/routing/matches/*/p1.jsonl
+            runs/routing/matches/*/p2.jsonl
+            runs/routing/matches/*/observed-frames.jsonl
+            runs/routing/matches/*/p1-brain/*
+            runs/routing/matches/*/p2-brain/*
+            runs/routing/matches/*/screen.mp4
