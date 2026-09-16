@@ -3,7 +3,7 @@
   "candidate_only": true,
   "character": "GARNET",
   "comparison_phase": "before",
-  "evaluated_at": "2026-09-16T14:27:58.327314+00:00",
+  "evaluated_at": "2026-09-16T18:27:21.695538+00:00",
   "evaluation": {
     "configured_round_limit_seconds": 60,
     "decision_interval_frames": 60,
@@ -15,10 +15,10 @@
     "seed_p1": 800101,
     "seed_p2": 20202
   },
-  "generation": 22,
+  "generation": 23,
   "interpretation_boundary": "Actual frozen before/after evaluation on the same fixed seed; not held-out generalization, proof of improvement, or production LIVE.",
   "kind": "post-update-candidate-round-evaluation",
-  "matches": 22,
+  "matches": 23,
   "model": "KC-MBON-valence-depression-v0",
   "opponent": "ZEN",
   "policy_pixel_access": false,
@@ -33,27 +33,25 @@
     "p1_hp": 400,
     "p2_hp": 400,
     "requested_action_counts": {
-      "2": 4,
-      "4": 1,
-      "5": 1,
-      "6": 54
+      "2": 3,
+      "6": 57
     },
     "winner": "DRAW"
   },
   "reward_id": "R2e-combat-v1",
   "schema_version": 2,
   "served_by_vercel": false,
-  "source_training_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/35108182485",
-  "state_sha256": "29a411d33e74ddc3f1a1870aff2c087c162f1a4f2c6e5ca6f04daa5b624c5c20",
+  "source_training_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/35133953571",
+  "state_sha256": "6313c45b5ad3cd8be25d208e53a5923910518432f582703559e1cdbde944769c",
   "status": "COMPLETED",
   "video": {
-    "asset_url": "https://github.com/Unjuno/connectome-fighter/releases/download/combat-evaluation-35108182485/before.mp4",
-    "bytes": 1940571,
+    "asset_url": "https://github.com/Unjuno/connectome-fighter/releases/download/combat-evaluation-35133953571/before.mp4",
+    "bytes": 2032818,
     "codec": "h264",
-    "duration_seconds": 56.3,
+    "duration_seconds": 60.0,
     "fps": 10,
     "height": 640,
-    "sha256": "fa2f7b6b8e7261f409bb0dff9fc41406f6afcc3771c8d2c6763dfdf2f28d3223",
+    "sha256": "4c43daaedbed05e262ae6a5759691212cea8c88e5de8769868a141951bd71d26",
     "width": 960
   }
 }
