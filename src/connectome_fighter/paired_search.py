@@ -124,11 +124,14 @@ def multipliers(parent: np.ndarray, theta: np.ndarray, membership: np.ndarray) -
 
 
 def propose(directions, plus, minus, *, sigma=.04, learning_rate=.05, max_step=.02):
-    """Return the antithetic Gaussian-smoothing gradient and a small diagnostic step.
+    """Return diagnostic gradient plus a bounded step in the best measured direction.
 
-    With a clipped objective and few directions this step is diagnostic only; an
-    unmeasured extrapolated step must not outrank a measured perturbation merely
-    because the local estimator points there.
+    Four random directions in an eight-dimensional clipped, discontinuous
+    objective are not enough to trust the averaged gradient direction. The
+    second return value therefore follows the direction of the best actually
+    observed plus/minus probe, then scales it through ``learning_rate`` and caps
+    its Euclidean norm at ``max_step``. The caller must measure this new smaller
+    point and apply independent validation before accepting it.
     """
     u, p, m = np.asarray(directions, dtype=float), np.asarray(plus, dtype=float), np.asarray(minus, dtype=float)
     if u.ndim != 2 or min(u.shape) < 1 or p.shape != (len(u),) or m.shape != p.shape:
@@ -137,7 +140,11 @@ def propose(directions, plus, minus, *, sigma=.04, learning_rate=.05, max_step=.
         raise ValueError('nonfinite samples or invalid search scale')
     difference = p-m
     gradient = np.mean(difference[:,None]*u, axis=0)/(2*sigma)
-    step = learning_rate*gradient
+    if np.array_equal(p, m):
+        return gradient, np.zeros(u.shape[1], dtype=float)
+    candidates = [(float(p[i]), i, 1) for i in range(len(u))] + [(float(m[i]), i, -1) for i in range(len(u))]
+    _, index, sign = max(candidates, key=lambda row: (row[0], -row[1], row[2]))
+    step = learning_rate * sign * u[index].copy()
     norm = float(np.linalg.norm(step))
     if norm > max_step:
         step *= max_step/norm
