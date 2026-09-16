@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "kind": "connectome-fighter-research-status",
+  "status": "EXPERIMENTAL_CANDIDATE_EVIDENCE",
+  "updated_at": "2026-09-16T14:53:49Z",
+  "candidate_only": true,
+  "auto_promotion": false,
+  "strength_claim": false,
+  "control_contract": {
+    "readout_mode": "ema-residual",
+    "readout_contract": "malecns-temporal-readout-v1",
+    "decision_interval_frames": 60,
+    "neural_window_ms": 20,
+    "readout_game_state_used": false,
+    "policy_pixel_access": false,
+    "interpretation": "Project-defined temporal readout selected for candidate-training experiments. It is not a biologically identified motor decoder."
+  },
+  "heldout_readout": {
+    "status": "PASS_AS_TRAINING_CONTROL_CANDIDATE",
+    "seed_pairs": 3,
+    "improved_pairs": 2,
+    "canonical_damage_dealt_hp_total": 30,
+    "ema_damage_dealt_hp_total": 150,
+    "canonical_aggregate_net_hp": -15,
+    "ema_aggregate_net_hp": 65,
+    "interpretation": "EMA-residual improved two of three held-out seed pairs. One pair worsened, so this is not a general strength claim."
+  },
+  "paired_search": {
+    "experiment": "paired-neural-search-v1",
+    "status": "PASS",
+    "accepted_update": false,
+    "update_reason": "proposal did not outperform parent on training curriculum",
+    "completed_games": 13,
+    "parent_generation": 23,
+    "readout_mode": "ema-residual",
+    "baseline_curriculum_score": 0.575,
+    "proposal_curriculum_score": 0.575,
+    "best_measured_probe_score": 0.64375,
+    "combat_before": {
+      "score": 1.00125,
+      "damage_dealt_hp": 35,
+      "damage_taken_hp": 10
+    },
+    "combat_proposal": {
+      "score": 1.00225,
+      "damage_dealt_hp": 55,
+      "damage_taken_hp": 10
+    },
+    "combat_nondegrading": true,
+    "weights_changed": false,
+    "reward_coefficients_changed": false,
+    "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/35109910825",
+    "source_head_sha": "c550b64b88553c9f11a4d8b5e9506ada59f2c1ef",
+    "interpretation": "The measured perturbations changed real-game behavior, but the bounded proposal failed the strict curriculum-improvement gate. Parent weights were retained."
+  },
+  "live_compute_snapshot": {
+    "status": "capacity-blocked",
+    "observed_at": "2026-09-16T15:06:40Z",
+    "provider": "Vercel Sandbox",
+    "provider_error_code": "payment_required",
+    "blocked_until": "2026-10-01T00:00:00.000Z",
+    "interpretation": "This is an operational snapshot. It does not change the evaluation or candidate-training evidence."
+  }
+}
