@@ -2,11 +2,14 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-const URL = "https://raw.githubusercontent.com/Unjuno/connectome-fighter/main/site/data/research-status.json";
+function sourceUrl() {
+  const ref = process.env.VERCEL_GIT_COMMIT_SHA || "main";
+  return `https://raw.githubusercontent.com/Unjuno/connectome-fighter/${encodeURIComponent(ref)}/site/data/research-status.json`;
+}
 
 export async function GET() {
   try {
-    const response = await fetch(`${URL}?t=${Date.now()}`, {
+    const response = await fetch(`${sourceUrl()}?t=${Date.now()}`, {
       cache: "no-store",
       headers: { "User-Agent": "connectome-fighter-research-status/1" },
       signal: AbortSignal.timeout(8000),
