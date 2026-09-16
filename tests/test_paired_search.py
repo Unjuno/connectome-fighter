@@ -1,7 +1,7 @@
 import copy
 import numpy as np
 import pytest
-from connectome_fighter.paired_search import group_indices, multipliers, propose, score_round
+from connectome_fighter.paired_search import group_indices, multipliers, propose, score_round, select_elite_probe
 
 
 def episode(hps=(400,400), end=3600, xs=(480,480)):
@@ -84,6 +84,22 @@ def test_difference_sign_and_bound():
     u=np.array([[1.,0],[0,1]])
     g,s=propose(u,[1,0],[0,1])
     assert g[0]>0 and g[1]<0 and np.linalg.norm(s)==pytest.approx(.02)
+
+
+def test_proposal_follows_best_measured_probe_direction():
+    u=np.array([[1.,0.],[0.,2.]])
+    _,s=propose(u,[.55,.8],[.5,.2],sigma=.04,learning_rate=.05,max_step=.02)
+    assert np.allclose(s,[0.,.02])
+
+
+def test_elite_probe_requires_measured_baseline_improvement():
+    u=np.array([[1.,0.],[0.,2.]])
+    theta,meta=select_elite_probe(u,[.55,.8],[.5,.2],.6,sigma=.04)
+    assert meta['measured_improvement'] is True
+    assert meta['direction_index']==1 and meta['sign']==1
+    assert np.allclose(theta,[0.,.08])
+    zero,meta=select_elite_probe(u,[.55,.58],[.5,.2],.6,sigma=.04)
+    assert meta['measured_improvement'] is False and not np.any(zero)
 
 
 def test_linear_objective_estimator():
