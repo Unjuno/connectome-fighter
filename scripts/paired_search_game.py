@@ -3,7 +3,9 @@
 
 P1 is always the real MaleCNS/Shiu controller. P2 is explicitly either a neutral
 training dummy or the canonical baseline. No weights change within a round.
-Per-frame samples are delayed FrameData, observational only.
+Per-frame samples are delayed FrameData, observational only. A P1-only interface
+override is permitted for explicitly labelled routing diagnostics; canonical P2
+always keeps the pinned runtime interface.
 """
 from __future__ import annotations
 import argparse
@@ -22,6 +24,7 @@ def main():
     p.add_argument('--runtime-root',type=Path,required=True)
     p.add_argument('--adapter',type=Path,required=True)
     p.add_argument('--reference-python',required=True)
+    p.add_argument('--interface',type=Path,default=None,help='Optional P1-only experimental interface mapping')
     p.add_argument('--out',type=Path,required=True)
     p.add_argument('--seed',type=int,required=True)
     p.add_argument('--opponent',choices=['neutral','canonical'],required=True)
@@ -58,24 +61,34 @@ def main():
                 elif data['frame']<samples[-1]['frame']:
                     raise RuntimeError('sample frame regressed')
 
+    canonical_interface=args.runtime_root/'data/interface.json'
+    p1_interface=(args.interface or canonical_interface).resolve()
+    if not p1_interface.is_file():raise FileNotFoundError(p1_interface)
+    p1_interface_data=json.loads(p1_interface.read_text(encoding='utf-8'))
     policies=[];agents=[];recorder=None;samples=[]
     sample_handle=(args.out/'observed-frames.jsonl').open('w')
     status={'status':'FAILED','opponent_mode':args.opponent,'p1_controller':'MaleCNS/Shiu LIF',
             'seed_p1':args.seed,'seed_p2':20202,'decision_interval_frames':args.decision_interval,
+            'p1_interface_id':p1_interface_data.get('interface_id'),
+            'p1_interface_sha256':p1_interface_data.get('interface_sha256'),
+            'p1_interface_override':p1_interface != canonical_interface.resolve(),
             'learning_performed':False,'policy_pixel_access':False,'synthetic_neural_fixture':False,
             'strength_claim':False}
     try:
-        def brain(character,seed,adapter,side):
+        def brain(character,seed,adapter,side,interface):
             manifest=json.loads((adapter/'manifest.json').read_text())
-            version='paired-'+character+'-'+manifest['output_hashes']['connectivity_sha256'][:16]
+            interface_data=json.loads(Path(interface).read_text(encoding='utf-8'))
+            interface_sha=str(interface_data.get('interface_sha256') or '')
+            if len(interface_sha)!=64:raise ValueError('interface SHA identity missing')
+            version='paired-'+character+'-'+manifest['output_hashes']['connectivity_sha256'][:12]+'-'+interface_sha[:12]
             return MaleCNSWorkerPolicy(character=character,seed=seed,version=version,
                 python_executable=args.reference_python,
                 worker_script=args.runtime_root/'repo/scripts/malecns_lif_worker.py',
                 reference_model=args.runtime_root/'shiu/model.py',adapter_dir=adapter,
-                interface_path=args.runtime_root/'data/interface.json',
+                interface_path=interface,
                 trace_root=args.out/f'p{side}-brain',run_id=args.out.name+f'-p{side}')
-        policies.append(brain('GARNET',args.seed,args.adapter,1))
-        policies.append(Neutral() if args.opponent=='neutral' else brain('ZEN',20202,args.runtime_root/'data/malecns-shiu-strict-v1',2))
+        policies.append(brain('GARNET',args.seed,args.adapter,1,p1_interface))
+        policies.append(Neutral() if args.opponent=='neutral' else brain('ZEN',20202,args.runtime_root/'data/malecns-shiu-strict-v1',2,canonical_interface))
         status['workers']=[p.worker_ready for p in policies if hasattr(p,'worker_ready')]
         expected=1 if args.opponent=='neutral' else 2
         if len(status['workers'])!=expected or not all(w['neurons']==156675 and w['synapses']==6025920 for w in status['workers']):
