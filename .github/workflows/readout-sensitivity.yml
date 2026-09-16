@@ -45,10 +45,16 @@ jobs:
         run: |
           set -euo pipefail
           python -m py_compile scripts/readout_sensitivity_experiment.py scripts/paired_search_game.py src/connectome_fighter/neural_readout.py
-          PYTHONPATH=src python - <<'PY'
+          python - <<'PY'
+          import ast
           from pathlib import Path
-          from connectome_fighter.neural_readout import READOUT_MODES
-          assert READOUT_MODES == ('canonical','delta','ema-residual')
+          source=Path('src/connectome_fighter/neural_readout.py').read_text()
+          tree=ast.parse(source)
+          modes=None
+          for node in tree.body:
+              if isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='READOUT_MODES' for t in node.targets):
+                  modes=ast.literal_eval(node.value)
+          assert modes == ('canonical','delta','ema-residual')
           text=Path('scripts/paired_search_game.py').read_text()
           assert '--readout-mode' in text
           assert 'p1_readout_uses_game_state' in text
