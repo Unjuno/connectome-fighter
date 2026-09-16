@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One real FightingICE round for the isolated paired neural search pilot.
+"""One real FightingICE round for isolated neural-search/cadence experiments.
 
 P1 is always the real MaleCNS/Shiu controller. P2 is explicitly either a neutral
 training dummy or the canonical baseline. No weights change within a round.
@@ -25,6 +25,7 @@ def main():
     p.add_argument('--out',type=Path,required=True)
     p.add_argument('--seed',type=int,required=True)
     p.add_argument('--opponent',choices=['neutral','canonical'],required=True)
+    p.add_argument('--decision-interval',type=int,choices=[15,30,60],default=60)
     p.add_argument('--timeout',type=int,default=300)
     p.add_argument('--video',action='store_true')
     args=p.parse_args();args.out.mkdir(parents=True,exist_ok=False)
@@ -60,7 +61,7 @@ def main():
     policies=[];agents=[];recorder=None;samples=[]
     sample_handle=(args.out/'observed-frames.jsonl').open('w')
     status={'status':'FAILED','opponent_mode':args.opponent,'p1_controller':'MaleCNS/Shiu LIF',
-            'seed_p1':args.seed,'seed_p2':20202,'decision_interval_frames':60,
+            'seed_p1':args.seed,'seed_p2':20202,'decision_interval_frames':args.decision_interval,
             'learning_performed':False,'policy_pixel_access':False,'synthetic_neural_fixture':False,
             'strength_claim':False}
     try:
@@ -82,7 +83,7 @@ def main():
         for i,policy in enumerate(policies):
             cls=RecordedAI if i==0 else FighterAI
             agents.append(cls('paired-search-p'+str(i+1),policy,JsonlSink(args.out/f'p{i+1}.jsonl'),
-                              args.out.name,policies[1-i].version,decision_interval=60,trainable=False))
+                              args.out.name,policies[1-i].version,decision_interval=args.decision_interval,trainable=False))
         if args.video:
             recorder=FightingICEScreenRecorder(args.out/'screen.mp4',fps=10,ffmpeg='ffmpeg')
         async def play():
