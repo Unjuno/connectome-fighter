@@ -5,6 +5,8 @@ character owns a separate Brian2 worker process with independent membrane/
 synaptic state and RNG. Optional spectator video is captured through pyftg's
 separate StreamInterface and is never exposed to either policy. Optional live
 telemetry is a write-only spectator side channel and cannot influence actions.
+Experimental temporal readouts are project-defined interface engineering and
+use neural history only; canonical mode preserves the pinned worker action.
 """
 from __future__ import annotations
 
@@ -23,6 +25,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from connectome_fighter.characters import validate_character
 from connectome_fighter.game_runtime import now_utc, write_json
+from connectome_fighter.neural_readout import READOUT_MODES, TemporalReadoutPolicy
 
 
 def main() -> int:
@@ -44,6 +47,10 @@ def main() -> int:
     p.add_argument("--interface", type=Path, required=True)
     p.add_argument("--decision-interval", type=int, default=30,
                    help="FightingICE frames between expensive canonical LIF decisions")
+    p.add_argument("--readout-mode-p1", choices=READOUT_MODES, default="canonical",
+                   help="P1 output-group readout; residual modes use neural history only")
+    p.add_argument("--readout-mode-p2", choices=READOUT_MODES, default="canonical",
+                   help="P2 output-group readout; residual modes use neural history only")
     p.add_argument("--games", type=int, default=1)
     p.add_argument("--expected-rounds", type=int, default=1)
     p.add_argument("--timeout", type=float, default=900.0)
@@ -62,6 +69,7 @@ def main() -> int:
     args.character_p1 = validate_character(args.character_p1)
     args.character_p2 = validate_character(args.character_p2)
     adapter_dirs = [args.adapter_dir_p1 or args.adapter_dir, args.adapter_dir_p2 or args.adapter_dir]
+    readout_modes = [args.readout_mode_p1, args.readout_mode_p2]
     if args.games <= 0 or args.expected_rounds <= 0 or args.timeout <= 0:
         p.error("games/rounds/timeout must be positive")
     if args.decision_interval <= 0 or not 1 <= args.port <= 65535 or args.spectator_fps <= 0:
@@ -82,17 +90,21 @@ def main() -> int:
 
     out = (args.out / run_id).resolve()
     out.mkdir(parents=True, exist_ok=False)
+    canonical_control = all(mode == "canonical" for mode in readout_modes)
     status = {
         "status": "STARTING",
         "started_at_utc": now_utc(),
         "run_id": run_id,
-        "canonical": True,
+        "canonical": canonical_control,
         "learning_performed": False,
         "trace_trainable": bool(args.trainable_trace),
         "brain_model": "MaleCNS v1.0 + pinned Shiu LIF",
         "characters": [args.character_p1, args.character_p2],
         "seeds": [args.seed_p1, args.seed_p2],
         "decision_interval_frames": args.decision_interval,
+        "readout_modes": readout_modes,
+        "readout_contract": "canonical-worker-action" if canonical_control else "malecns-temporal-readout-v1",
+        "readout_game_state_used": False,
         "games_requested": args.games,
         "host": args.host,
         "port": args.port,
@@ -123,12 +135,14 @@ def main() -> int:
         characters = [args.character_p1, args.character_p2]
         seeds = [args.seed_p1, args.seed_p2]
         status["character_adapters"] = []
-        for i, (character, seed, adapter_dir) in enumerate(zip(characters, seeds, adapter_dirs), start=1):
+        for i, (character, seed, adapter_dir, readout_mode) in enumerate(
+            zip(characters, seeds, adapter_dirs, readout_modes), start=1
+        ):
             adapter_manifest = json.loads((adapter_dir / "manifest.json").read_text(encoding="utf-8"))
             plasticity = adapter_manifest.get("plasticity") or {}
             generation = int(plasticity.get("generation", 0))
             version = f"malecns-shiu-{character.lower()}-g{generation:06d}-{interface_hash[:10]}-seed{seed}"
-            policy = MaleCNSWorkerPolicy(
+            base_policy = MaleCNSWorkerPolicy(
                 character=character,
                 seed=seed,
                 version=version,
@@ -140,11 +154,13 @@ def main() -> int:
                 trace_root=out / f"p{i}-brain",
                 run_id=f"{run_id}-p{i}",
             )
+            policy = base_policy if readout_mode == "canonical" else TemporalReadoutPolicy(base_policy, readout_mode)
             policies.append(policy)
             status["character_adapters"].append({
                 "character": character,
                 "adapter": adapter_manifest.get("adapter"),
                 "plasticity": plasticity,
+                "readout_mode": readout_mode,
             })
         status["workers"] = [p.worker_ready for p in policies]
         status["interface_sha256"] = interface_hash
@@ -229,7 +245,11 @@ def main() -> int:
             recorder.write_summary(out / "spectator.json")
             if recorder.frames <= 0 or not recorder.output.is_file() or recorder.output.stat().st_size <= 10_000:
                 raise RuntimeError(f"spectator recording is not usable: {recorder.summary()}")
-        status["status"] = "COMPLETED_WITH_VALIDATED_CANONICAL_TRACES"
+        status["status"] = (
+            "COMPLETED_WITH_VALIDATED_CANONICAL_TRACES"
+            if canonical_control
+            else "COMPLETED_WITH_VALIDATED_EXPERIMENTAL_READOUT_TRACES"
+        )
         code = 0
     except KeyboardInterrupt:
         status["status"] = "INTERRUPTED"
@@ -269,6 +289,7 @@ def main() -> int:
             "path": str(out),
             "completed_rounds_per_agent": status["completed_rounds_per_agent"],
             "live_telemetry_observer_errors": status["live_telemetry_observer_errors"],
+            "readout_modes": status["readout_modes"],
             "spectator": status.get("spectator"),
             "error": status.get("error"),
         }, indent=2))
