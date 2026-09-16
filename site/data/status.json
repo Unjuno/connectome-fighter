@@ -336,58 +336,73 @@
       "nonzero_reward_rounds": 2,
       "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/35126342089",
       "updated_at": "2026-09-16T17:14:30Z"
+    },
+    {
+      "action_rates": {
+        "A": 0.017708333333333333,
+        "B": 0.6635416666666667,
+        "BACKWARD": 0.14375,
+        "C": 0.04375,
+        "DOWN": 0.10208333333333333,
+        "FORWARD": 0.0125,
+        "UP": 0.016666666666666666
+      },
+      "independent_rounds": 48,
+      "nonzero_reward_rate": 0.041666666666666664,
+      "nonzero_reward_rounds": 2,
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/35152421903",
+      "updated_at": "2026-09-16T21:32:14Z"
     }
   ],
   "latest_match": {
     "replay_url": "./data/replay-latest.json",
-    "run_id": "baseline-r24-zen-lud-ZEN-LUD",
-    "winner": "LUD"
+    "run_id": "baseline-r25-garnet-zen-GARNET-ZEN",
+    "winner": "ZEN"
   },
   "metrics": {
     "action_counts": {
-      "A": 11,
-      "B": 550,
-      "BACKWARD": 262,
-      "C": 31,
-      "DOWN": 73,
-      "FORWARD": 14,
-      "UP": 19
+      "A": 17,
+      "B": 637,
+      "BACKWARD": 138,
+      "C": 42,
+      "DOWN": 98,
+      "FORWARD": 12,
+      "UP": 16
     },
     "action_rates": {
-      "A": 0.011458333333333333,
-      "B": 0.5729166666666666,
-      "BACKWARD": 0.27291666666666664,
-      "C": 0.03229166666666667,
-      "DOWN": 0.07604166666666666,
-      "FORWARD": 0.014583333333333334,
-      "UP": 0.019791666666666666
+      "A": 0.017708333333333333,
+      "B": 0.6635416666666667,
+      "BACKWARD": 0.14375,
+      "C": 0.04375,
+      "DOWN": 0.10208333333333333,
+      "FORWARD": 0.0125,
+      "UP": 0.016666666666666666
     },
     "characters": {
       "GARNET": {
         "action_counts": {
-          "A": 3,
-          "B": 143,
-          "BACKWARD": 56,
-          "C": 4,
-          "DOWN": 24,
-          "FORWARD": 7,
-          "UP": 3
+          "B": 159,
+          "BACKWARD": 27,
+          "C": 15,
+          "DOWN": 28,
+          "FORWARD": 5,
+          "UP": 6
         },
         "decisions": 240,
-        "draws": 24,
-        "losses": 0,
+        "draws": 23,
+        "losses": 1,
         "rounds": 24,
         "wins": 0
       },
       "LUD": {
         "action_counts": {
-          "A": 2,
-          "B": 134,
-          "BACKWARD": 72,
+          "A": 9,
+          "B": 167,
+          "BACKWARD": 27,
           "C": 10,
-          "DOWN": 11,
-          "FORWARD": 2,
-          "UP": 9
+          "DOWN": 20,
+          "FORWARD": 3,
+          "UP": 4
         },
         "decisions": 240,
         "draws": 23,
@@ -397,12 +412,13 @@
       },
       "NEZ": {
         "action_counts": {
-          "A": 2,
-          "B": 148,
-          "BACKWARD": 59,
-          "C": 9,
-          "DOWN": 19,
-          "UP": 3
+          "A": 4,
+          "B": 152,
+          "BACKWARD": 50,
+          "C": 6,
+          "DOWN": 23,
+          "FORWARD": 3,
+          "UP": 2
         },
         "decisions": 240,
         "draws": 23,
@@ -413,16 +429,16 @@
       "ZEN": {
         "action_counts": {
           "A": 4,
-          "B": 125,
-          "BACKWARD": 75,
-          "C": 8,
-          "DOWN": 19,
-          "FORWARD": 5,
+          "B": 159,
+          "BACKWARD": 34,
+          "C": 11,
+          "DOWN": 27,
+          "FORWARD": 1,
           "UP": 4
         },
         "decisions": 240,
-        "draws": 22,
-        "losses": 1,
+        "draws": 23,
+        "losses": 0,
         "rounds": 24,
         "wins": 1
       }
@@ -446,10 +462,10 @@
     "win": 1.0
   },
   "schema_version": 4,
-  "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/35126342089",
+  "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/35152421903",
   "spatial_visualization": {
     "available": false,
     "policy_access": false
   },
-  "updated_at": "2026-09-16T17:14:30Z"
+  "updated_at": "2026-09-16T21:32:14Z"
 }
