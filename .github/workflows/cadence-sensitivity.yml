@@ -1,6 +1,7 @@
 name: cadence-sensitivity
 
-# This rerun is intentionally read-only and uses the latest P1 routing-aware game harness.
+# Read-only diagnosis: keep the checkpoint, neural window and observation contract
+# fixed while changing only how long each selected action is held in FightingICE.
 on:
   workflow_dispatch:
   push:
@@ -83,7 +84,13 @@ jobs:
           assert r['fixed_neural_window_ms']==20.0
           assert len(r['results']['neutral'])==3 and len(r['results']['canonical'])==3
           for row in r['results']['neutral']+r['results']['canonical']:
-              assert row['metrics']['decision_count'] in (60,120,240)
+              interval=row['decision_interval_frames']
+              elapsed=row['metrics']['elapsed_frame']
+              decisions=row['metrics']['decision_count']
+              # FightingICE's delayed observation stream begins after round start,
+              # so the final interval may be one decision short of elapsed/interval.
+              expected=(elapsed + interval - 1)//interval
+              assert decisions in (expected-1, expected), (interval, elapsed, decisions, expected)
               assert row['source_state_sha256']==r['candidate_state_sha256']
           print(json.dumps({
               'generation':r['candidate_generation'],
