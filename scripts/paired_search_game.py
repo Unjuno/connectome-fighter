@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""One real FightingICE round for isolated neural-search/cadence experiments.
+"""One real FightingICE round for isolated neural-control experiments.
 
 P1 is always the real MaleCNS/Shiu controller. P2 is explicitly either a neutral
 training dummy or the canonical baseline. No weights change within a round.
-Per-frame samples are delayed FrameData, observational only. A P1-only interface
-override is permitted for explicitly labelled routing diagnostics; canonical P2
-always keeps the pinned runtime interface.
+Per-frame samples are delayed FrameData, observational only. P1-only interface
+and readout overrides are permitted for explicitly labelled engineering
+sensitivity diagnostics; canonical P2 always keeps the pinned runtime contract.
 """
 from __future__ import annotations
 import argparse
@@ -25,6 +25,8 @@ def main():
     p.add_argument('--adapter',type=Path,required=True)
     p.add_argument('--reference-python',required=True)
     p.add_argument('--interface',type=Path,default=None,help='Optional P1-only experimental interface mapping')
+    p.add_argument('--readout-mode',choices=['canonical','delta','ema-residual'],default='canonical',
+                   help='P1-only neural readout diagnostic; never applied to canonical P2')
     p.add_argument('--out',type=Path,required=True)
     p.add_argument('--seed',type=int,required=True)
     p.add_argument('--opponent',choices=['neutral','canonical'],required=True)
@@ -33,7 +35,7 @@ def main():
     p.add_argument('--video',action='store_true')
     args=p.parse_args();args.out.mkdir(parents=True,exist_ok=False)
     from pyftg.socket.aio.gateway import Gateway
-    from connectome_fighter.contracts import Decision
+    from connectome_fighter.contracts import Action, Decision
     from connectome_fighter.malecns_worker_policy import MaleCNSWorkerPolicy
     from connectome_fighter.pyftg_bridge import FighterAI, _display_frame
     from connectome_fighter.trajectory import JsonlSink
@@ -47,12 +49,59 @@ def main():
         def act(self, observation):return Decision(0,0.,0.,self.version)
         def close(self):pass
 
+    class ReadoutPolicy:
+        """Transform only the worker's seven neural group counts into game actions.
+
+        `delta` and `ema-residual` use no game state. They remove stationary
+        between-group firing bias by selecting the largest positive temporal
+        residual. The underlying worker and trace remain intact and the ledger
+        records the actually applied transformed action plus raw-action telemetry.
+        """
+        GROUP_ORDER=('FORWARD','BACKWARD','UP','DOWN','A','B','C')
+        def __init__(self,base,mode):
+            self.base=base;self.mode=mode;self.version=base.version+'-readout-'+mode
+            self.previous=None;self.ema=None;self._last=None
+        @property
+        def worker_ready(self):return self.base.worker_ready
+        def set_context(self,**kwargs):self.base.set_context(**kwargs)
+        def reset(self):
+            self.base.reset();self.previous=None;self.ema=None;self._last=None
+        def _action(self,counts):
+            current={name:float(counts[name]) for name in self.GROUP_ORDER}
+            residual={name:0.0 for name in self.GROUP_ORDER}
+            if self.mode=='delta':
+                if self.previous is not None:
+                    residual={name:current[name]-self.previous[name] for name in self.GROUP_ORDER}
+                self.previous=current
+            elif self.mode=='ema-residual':
+                if self.ema is None:
+                    self.ema=dict(current)
+                else:
+                    residual={name:current[name]-self.ema[name] for name in self.GROUP_ORDER}
+                    self.ema={name:.9*self.ema[name]+.1*current[name] for name in self.GROUP_ORDER}
+            else:raise ValueError('readout transform called in canonical mode')
+            best=max(self.GROUP_ORDER,key=lambda name:(residual[name],-self.GROUP_ORDER.index(name)))
+            action=int(Action[best]) if residual[best]>0 else int(Action.NEUTRAL)
+            return action,residual
+        def act(self,observation):
+            raw=self.base.act(observation);brain=dict(self.base.telemetry() or {})
+            if self.mode=='canonical':
+                applied=int(raw.action);residual=None
+            else:
+                applied,residual=self._action(brain['group_spike_counts'])
+            brain.update({'readout_mode':self.mode,'raw_worker_action':int(raw.action),
+                          'applied_action':applied,'readout_residual':residual,
+                          'readout_game_state_used':False})
+            self._last=brain
+            return Decision(applied,0.0,0.0,self.version)
+        def telemetry(self):return self._last
+        def close(self):self.base.close()
+
     class RecordedAI(FighterAI):
         def get_information(self,frame_data,is_control):
             super().get_information(frame_data,is_control)
             data=_display_frame(frame_data)
             if data and data['frame']>0:
-                # A frame can be sent more than once; never inflate progress.
                 if not samples or data['frame']>samples[-1]['frame']:
                     data['p1']['engine_action']=str(getattr(frame_data.character_data[0],'action','unavailable'))
                     data['p2']['engine_action']=str(getattr(frame_data.character_data[1],'action','unavailable'))
@@ -72,6 +121,7 @@ def main():
             'p1_interface_id':p1_interface_data.get('interface_id'),
             'p1_interface_sha256':p1_interface_data.get('interface_sha256'),
             'p1_interface_override':p1_interface != canonical_interface.resolve(),
+            'p1_readout_mode':args.readout_mode,'p1_readout_uses_game_state':False,
             'learning_performed':False,'policy_pixel_access':False,'synthetic_neural_fixture':False,
             'strength_claim':False}
     try:
@@ -87,7 +137,8 @@ def main():
                 reference_model=args.runtime_root/'shiu/model.py',adapter_dir=adapter,
                 interface_path=interface,
                 trace_root=args.out/f'p{side}-brain',run_id=args.out.name+f'-p{side}')
-        policies.append(brain('GARNET',args.seed,args.adapter,1,p1_interface))
+        p1=brain('GARNET',args.seed,args.adapter,1,p1_interface)
+        policies.append(p1 if args.readout_mode=='canonical' else ReadoutPolicy(p1,args.readout_mode))
         policies.append(Neutral() if args.opponent=='neutral' else brain('ZEN',20202,args.runtime_root/'data/malecns-shiu-strict-v1',2,canonical_interface))
         status['workers']=[p.worker_ready for p in policies if hasattr(p,'worker_ready')]
         expected=1 if args.opponent=='neutral' else 2
