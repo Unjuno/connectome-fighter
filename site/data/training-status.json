@@ -1,11 +1,29 @@
 {
-  "actual_pipeline_seconds": 158.286435965,
-  "archive_file": "garnet-g000025-baab3bc022fa7493.tar.gz",
-  "archive_sha256": "88dedc1800362712ac198d5cbd6511baeb1a44e639f62b2febbf3f0a05bf5589",
+  "actual_pipeline_seconds": 223.58696525699997,
+  "archive_file": "garnet-g000026-926b9dec50c44140.tar.gz",
+  "archive_sha256": "72685a5fa0e82232ac4e974934da7b59bf8cb3365db8e5ca7a361ed60cdc59fd",
   "auto_promotion": false,
   "character": "GARNET",
   "combat_metrics": {
     "after": {
+      "damage_dealt_hp": 0,
+      "damage_taken_hp": 0,
+      "decision_count": 60,
+      "elapsed_frame": 3600,
+      "elapsed_seconds": 60.0,
+      "ended_by": "TIME_LIMIT",
+      "no_damage_draw": true,
+      "p1_hp": 400,
+      "p2_hp": 400,
+      "requested_action_counts": {
+        "2": 1,
+        "4": 1,
+        "5": 2,
+        "6": 56
+      },
+      "winner": "DRAW"
+    },
+    "before": {
       "damage_dealt_hp": 0,
       "damage_taken_hp": 0,
       "decision_count": 60,
@@ -22,23 +40,6 @@
       },
       "winner": "DRAW"
     },
-    "before": {
-      "damage_dealt_hp": 0,
-      "damage_taken_hp": 0,
-      "decision_count": 60,
-      "elapsed_frame": 3600,
-      "elapsed_seconds": 60.0,
-      "ended_by": "TIME_LIMIT",
-      "no_damage_draw": true,
-      "p1_hp": 400,
-      "p2_hp": 400,
-      "requested_action_counts": {
-        "2": 4,
-        "4": 2,
-        "6": 54
-      },
-      "winner": "DRAW"
-    },
     "training": {
       "damage_dealt_hp": 0,
       "damage_taken_hp": 0,
@@ -50,24 +51,23 @@
       "p1_hp": 400,
       "p2_hp": 400,
       "requested_action_counts": {
-        "2": 2,
-        "3": 1,
-        "4": 1,
-        "6": 56
+        "2": 1,
+        "4": 2,
+        "6": 57
       },
       "winner": "DRAW"
     }
   },
-  "generation": 25,
+  "generation": 26,
   "interpretation_boundary": "Experimental R2e candidate. One paired seed measures a local change, not general fighting strength or biological validity.",
   "kind": "canonical-continuous-training-candidate",
   "match_status": "COMPLETED_WITH_VALIDATED_CANONICAL_TRACES",
-  "matches": 25,
+  "matches": 26,
   "model": "KC-MBON-valence-depression-v0",
-  "opponent": "ZEN",
-  "parent_generation": 24,
+  "opponent": "LUD",
+  "parent_generation": 25,
   "parent_reward_id": "R2e-combat-v1",
-  "parent_state_sha256": "b45a876c9378c29d2f796a08080efe9aff632180b3bcb70a963fcbde878bf26f",
+  "parent_state_sha256": "baab3bc022fa7493ddf53a13a6f3322d207c7f72941ef9a2bf2075632f2fa662",
   "reward_id": "R2e-combat-v1",
   "schedule_minutes": 10,
   "schema_version": 1,
@@ -80,19 +80,19 @@
     "sum": -0.234375
   },
   "source_kind": "combat-training-v1",
-  "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/35152605753",
-  "state_sha256": "baab3bc022fa7493ddf53a13a6f3322d207c7f72941ef9a2bf2075632f2fa662",
+  "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/35163751725",
+  "state_sha256": "926b9dec50c4414028b2e1c8ad6599031728b7f086b832f53d1de55c66cad5df",
   "status": "candidate-only-not-arena-approved",
-  "training_seed": 902425,
+  "training_seed": 902526,
   "update_summary": {
-    "changed_approach_edges": 6341,
+    "changed_approach_edges": 6234,
     "changed_avoidance_edges": 0,
-    "changed_edges": 6341,
-    "depressed_edges": 6341,
+    "changed_edges": 6234,
+    "depressed_edges": 6234,
     "max_multiplier": 1.0,
-    "mean_multiplier": 0.9972289374731224,
-    "min_multiplier": 0.9618769288063049,
+    "mean_multiplier": 0.9970671043123811,
+    "min_multiplier": 0.9596251845359802,
     "potentiated_edges": 0
   },
-  "updated_at": "2026-09-16T21:33:05.974060+00:00"
+  "updated_at": "2026-09-16T23:51:07.504109+00:00"
 }

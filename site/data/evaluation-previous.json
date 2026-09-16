@@ -3,7 +3,7 @@
   "candidate_only": true,
   "character": "GARNET",
   "comparison_phase": "before",
-  "evaluated_at": "2026-09-16T21:33:06.009591+00:00",
+  "evaluated_at": "2026-09-16T23:51:07.555361+00:00",
   "evaluation": {
     "configured_round_limit_seconds": 60,
     "decision_interval_frames": 60,
@@ -15,10 +15,10 @@
     "seed_p1": 800101,
     "seed_p2": 20202
   },
-  "generation": 24,
+  "generation": 25,
   "interpretation_boundary": "Actual frozen before/after evaluation on the same fixed seed; not held-out generalization, proof of improvement, or production LIVE.",
   "kind": "post-update-candidate-round-evaluation",
-  "matches": 24,
+  "matches": 25,
   "model": "KC-MBON-valence-depression-v0",
   "opponent": "ZEN",
   "policy_pixel_access": false,
@@ -34,25 +34,25 @@
     "p2_hp": 400,
     "requested_action_counts": {
       "2": 4,
-      "4": 2,
-      "6": 54
+      "4": 1,
+      "6": 55
     },
     "winner": "DRAW"
   },
   "reward_id": "R2e-combat-v1",
   "schema_version": 2,
   "served_by_vercel": false,
-  "source_training_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/35152605753",
-  "state_sha256": "b45a876c9378c29d2f796a08080efe9aff632180b3bcb70a963fcbde878bf26f",
+  "source_training_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/35163751725",
+  "state_sha256": "baab3bc022fa7493ddf53a13a6f3322d207c7f72941ef9a2bf2075632f2fa662",
   "status": "COMPLETED",
   "video": {
-    "asset_url": "https://github.com/Unjuno/connectome-fighter/releases/download/combat-evaluation-35152605753/before.mp4",
-    "bytes": 1886621,
+    "asset_url": "https://github.com/Unjuno/connectome-fighter/releases/download/combat-evaluation-35163751725/before.mp4",
+    "bytes": 1941550,
     "codec": "h264",
-    "duration_seconds": 54.7,
+    "duration_seconds": 56.6,
     "fps": 10,
     "height": 640,
-    "sha256": "044d0661a9f251fc1e9f731623b9285e329a479a9207d56d75cd15be60c71ab5",
+    "sha256": "b948c2f9e54534697ab1379b02a0dd31fa2436921001bda1cc0fa0d9c6c8de26",
     "width": 960
   }
 }
