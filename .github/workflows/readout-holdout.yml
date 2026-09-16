@@ -1,0 +1,115 @@
+name: readout-holdout
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/readout-holdout.yml'
+      - 'scripts/readout_holdout_experiment.py'
+      - 'scripts/run_game_malecns_lif.py'
+      - 'src/connectome_fighter/neural_readout.py'
+      - 'tests/test_neural_readout.py'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/readout-holdout.yml'
+      - 'scripts/readout_holdout_experiment.py'
+      - 'scripts/run_game_malecns_lif.py'
+      - 'src/connectome_fighter/neural_readout.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: readout-holdout-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: 'true'
+  RUNTIME_ROOT: /home/vercel-sandbox/connectome-runtime/arena-runtime
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'numpy==1.26.4' 'pytest==8.3.5'
+      - run: PYTHONPATH=src python -m pytest -q tests/test_neural_readout.py
+      - run: python -m py_compile src/connectome_fighter/neural_readout.py scripts/run_game_malecns_lif.py scripts/readout_holdout_experiment.py
+
+  actual-game-holdout:
+    needs: contract
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install official-renderer dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fontconfig fonts-dejavu-core ffmpeg
+      - name: Pin runtime and current candidate bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python scripts/fetch_combat_dependencies.py --out runs/readout-holdout
+          sudo mkdir -p "$(dirname "$RUNTIME_ROOT")"
+          sudo chown -R "$(id -u):$(id -g)" /home/vercel-sandbox
+          tar -xzf runs/readout-holdout/runtime.tar.gz -C "$(dirname "$RUNTIME_ROOT")"
+          lscpu > runs/readout-holdout/cpu.txt
+          git rev-parse HEAD > runs/readout-holdout/tested-checkout.txt
+      - name: Run held-out canonical vs EMA-residual games
+        run: |
+          set -euo pipefail
+          BRIDGE="$RUNTIME_ROOT/$(cat "$RUNTIME_ROOT/runtime/python311.path")"
+          PYTHONPATH="$GITHUB_WORKSPACE/src:$RUNTIME_ROOT/runtime/site311" \
+            "$BRIDGE" scripts/readout_holdout_experiment.py \
+            --runtime-root "$RUNTIME_ROOT" \
+            --source-archive runs/readout-holdout/source.tar.gz \
+            --out runs/readout-holdout --timeout-seconds 1500
+      - name: Verify result boundary
+        run: |
+          python - <<'PY'
+          import json
+          r=json.load(open('runs/readout-holdout/result.json'))
+          assert r['status']=='PASS'
+          assert r['modes']==['canonical','ema-residual']
+          assert len(r['seed_pairs'])==3 and len(r['rows'])==6 and len(r['paired_deltas'])==3
+          assert r['decision_interval_frames']==60 and r['fixed_neural_window_ms']==20.0
+          assert r['learning_performed'] is False and r['weights_changed'] is False
+          assert r['readout_game_state_used'] is False and r['strength_claim'] is False
+          assert all(row['source_state_sha256']==r['candidate_state_sha256'] for row in r['rows'])
+          print(json.dumps(r['selection'],indent=2,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: readout-holdout-evidence
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            runs/readout-holdout/result.json
+            runs/readout-holdout/partial-results.json
+            runs/readout-holdout/dependencies.json
+            runs/readout-holdout/tested-checkout.txt
+            runs/readout-holdout/cpu.txt
+            runs/readout-holdout/*-game.log
+            runs/readout-holdout/matches/*/status.json
+            runs/readout-holdout/matches/*/p1.jsonl
+            runs/readout-holdout/matches/*/p2.jsonl
+            runs/readout-holdout/matches/*/p1-brain/*
+            runs/readout-holdout/matches/*/p2-brain/*
