@@ -3,7 +3,7 @@
   "candidate_only": true,
   "character": "GARNET",
   "comparison_phase": "after",
-  "evaluated_at": "2026-09-16T18:27:21.754111+00:00",
+  "evaluated_at": "2026-09-16T21:33:06.044922+00:00",
   "evaluation": {
     "configured_round_limit_seconds": 60,
     "decision_interval_frames": 60,
@@ -15,10 +15,10 @@
     "seed_p1": 800101,
     "seed_p2": 20202
   },
-  "generation": 24,
+  "generation": 25,
   "interpretation_boundary": "Actual frozen before/after evaluation on the same fixed seed; not held-out generalization, proof of improvement, or production LIVE.",
   "kind": "post-update-candidate-round-evaluation",
-  "matches": 24,
+  "matches": 25,
   "model": "KC-MBON-valence-depression-v0",
   "opponent": "ZEN",
   "policy_pixel_access": false,
@@ -34,25 +34,25 @@
     "p2_hp": 400,
     "requested_action_counts": {
       "2": 4,
-      "4": 2,
-      "6": 54
+      "4": 1,
+      "6": 55
     },
     "winner": "DRAW"
   },
   "reward_id": "R2e-combat-v1",
   "schema_version": 2,
   "served_by_vercel": false,
-  "source_training_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/35133953571",
-  "state_sha256": "b45a876c9378c29d2f796a08080efe9aff632180b3bcb70a963fcbde878bf26f",
+  "source_training_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/35152605753",
+  "state_sha256": "baab3bc022fa7493ddf53a13a6f3322d207c7f72941ef9a2bf2075632f2fa662",
   "status": "COMPLETED",
   "video": {
-    "asset_url": "https://github.com/Unjuno/connectome-fighter/releases/download/combat-evaluation-35133953571/after.mp4",
-    "bytes": 2018064,
+    "asset_url": "https://github.com/Unjuno/connectome-fighter/releases/download/combat-evaluation-35152605753/after.mp4",
+    "bytes": 1875585,
     "codec": "h264",
-    "duration_seconds": 60.0,
+    "duration_seconds": 53.5,
     "fps": 10,
     "height": 640,
-    "sha256": "b9753c5570e7d2286a8728185ed8381f9e7119ca91dd8f40237e13e04cca33c5",
+    "sha256": "037bd4442cdf19a79822234f59e2c1a4ae8e33e582e57d4d03d87244ac4ad2d8",
     "width": 960
   }
 }
