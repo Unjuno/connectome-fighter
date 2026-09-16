@@ -1,0 +1,112 @@
+name: cadence-sensitivity
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cadence-sensitivity.yml'
+      - 'scripts/cadence_sensitivity_experiment.py'
+      - 'scripts/paired_search_game.py'
+      - 'src/connectome_fighter/paired_search.py'
+  pull_request:
+    paths:
+      - '.github/workflows/cadence-sensitivity.yml'
+      - 'scripts/cadence_sensitivity_experiment.py'
+      - 'scripts/paired_search_game.py'
+      - 'src/connectome_fighter/paired_search.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cadence-sensitivity-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: 'true'
+  RUNTIME_ROOT: /home/vercel-sandbox/connectome-runtime/arena-runtime
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+
+jobs:
+  actual-game-cadence:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Contract and syntax checks
+        run: |
+          set -euo pipefail
+          python -m py_compile scripts/cadence_sensitivity_experiment.py scripts/paired_search_game.py
+          grep -F "choices=[15,30,60]" scripts/paired_search_game.py
+          grep -F "INTERVALS=(60,30,15)" scripts/cadence_sensitivity_experiment.py
+      - name: Install official renderer dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fontconfig fonts-dejavu-core ffmpeg
+      - name: Pin runtime and current candidate bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python scripts/fetch_combat_dependencies.py --out runs/cadence
+          sudo mkdir -p "$(dirname "$RUNTIME_ROOT")"
+          sudo chown -R "$(id -u):$(id -g)" /home/vercel-sandbox
+          tar -xzf runs/cadence/runtime.tar.gz -C "$(dirname "$RUNTIME_ROOT")"
+          lscpu > runs/cadence/cpu.txt
+          git rev-parse HEAD > runs/cadence/tested-checkout.txt
+      - name: Actual 60/30/15-frame sensitivity against neutral and canonical opponents
+        run: |
+          set -euo pipefail
+          BRIDGE="$RUNTIME_ROOT/$(cat "$RUNTIME_ROOT/runtime/python311.path")"
+          PYTHONPATH="$GITHUB_WORKSPACE/src:$RUNTIME_ROOT/runtime/site311" \
+            "$BRIDGE" scripts/cadence_sensitivity_experiment.py \
+            --runtime-root "$RUNTIME_ROOT" \
+            --source-archive runs/cadence/source.tar.gz \
+            --out runs/cadence --timeout-seconds 1500
+      - name: Verify result boundary
+        run: |
+          python - <<'PY'
+          import json
+          r=json.load(open('runs/cadence/result.json'))
+          assert r['status']=='PASS'
+          assert r['intervals']==[60,30,15]
+          assert r['learning_performed'] is False and r['weights_changed'] is False
+          assert r['fixed_neural_window_ms']==20.0
+          assert len(r['results']['neutral'])==3 and len(r['results']['canonical'])==3
+          for row in r['results']['neutral']+r['results']['canonical']:
+              assert row['metrics']['decision_count'] in (60,120,240)
+              assert row['source_state_sha256']==r['candidate_state_sha256']
+          print(json.dumps({
+              'generation':r['candidate_generation'],
+              'neutral':[(x['decision_interval_frames'],x['metrics']['minimum_observed_distance_px'],x['metrics']['damage_dealt_hp'],x['p1_action_histogram']) for x in r['results']['neutral']],
+              'canonical':[(x['decision_interval_frames'],x['metrics']['minimum_observed_distance_px'],x['metrics']['damage_dealt_hp'],x['p1_action_histogram']) for x in r['results']['canonical']],
+          },indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cadence-sensitivity-evidence
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            runs/cadence/result.json
+            runs/cadence/partial-results.json
+            runs/cadence/dependencies.json
+            runs/cadence/tested-checkout.txt
+            runs/cadence/cpu.txt
+            runs/cadence/*-game.log
+            runs/cadence/matches/*/result.json
+            runs/cadence/matches/*/p1.jsonl
+            runs/cadence/matches/*/p2.jsonl
+            runs/cadence/matches/*/observed-frames.jsonl
+            runs/cadence/matches/*/p1-brain/*
+            runs/cadence/matches/*/p2-brain/*
+            runs/cadence/matches/*/screen.mp4
