@@ -611,12 +611,46 @@
         "potentiated_edges": 0
       },
       "updated_at": "2026-09-16T00:21:01.945036+00:00"
+    },
+    {
+      "auto_promotion": false,
+      "character": "GARNET",
+      "generation": 21,
+      "interpretation_boundary": "Experimental R2e candidate. One paired seed measures a local change, not general fighting strength or biological validity.",
+      "match_status": "COMPLETED_WITH_VALIDATED_CANONICAL_TRACES",
+      "matches": 21,
+      "model": "KC-MBON-valence-depression-v0",
+      "opponent": "NEZ",
+      "reward_id": "R2e-combat-v1",
+      "served_by_vercel": false,
+      "signal_summary": {
+        "decision_windows": 60,
+        "negative": 1,
+        "nonzero": 1,
+        "positive": 0,
+        "sum": -0.234375
+      },
+      "source_kind": "combat-training-v1",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/35057642286",
+      "state_sha256": "fca6ae0238c000c6a1187b7db0e4197bf921bbac0e5adfba940d83d61a985b22",
+      "status": "candidate-only-not-arena-approved",
+      "update_summary": {
+        "changed_approach_edges": 6430,
+        "changed_avoidance_edges": 0,
+        "changed_edges": 6430,
+        "depressed_edges": 6430,
+        "max_multiplier": 1.0,
+        "mean_multiplier": 0.9979087979042761,
+        "min_multiplier": 0.971088707447052,
+        "potentiated_edges": 0
+      },
+      "updated_at": "2026-09-16T05:03:13.245816+00:00"
     }
   ],
-  "entry_count": 18,
+  "entry_count": 19,
   "interpretation_boundary": "This ledger records GitHub research-candidate updates only. Entries are not arena approval, not proof of improved fighting performance, and are never served by Vercel without a separate promotion gate.",
   "kind": "canonical-continuous-training-history",
-  "latest_generation": 20,
-  "latest_state_sha256": "fd5f6a4c83165fd3936d1ba59c7d3230f12bcb4e8d3bf91e3044368ead72bc19",
+  "latest_generation": 21,
+  "latest_state_sha256": "fca6ae0238c000c6a1187b7db0e4197bf921bbac0e5adfba940d83d61a985b22",
   "schema_version": 1
 }

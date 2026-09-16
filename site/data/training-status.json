@@ -1,7 +1,7 @@
 {
-  "actual_pipeline_seconds": 185.792104108,
-  "archive_file": "garnet-g000020-fd5f6a4c83165fd3.tar.gz",
-  "archive_sha256": "7b47cfd2575266ae5eaf119ccf19c0670e714e87936274ba2142328d0048c3e7",
+  "actual_pipeline_seconds": 249.9821187,
+  "archive_file": "garnet-g000021-fca6ae0238c000c6.tar.gz",
+  "archive_sha256": "6f15efe34331664bc51fbe4d0163edf1bb1f1f0ff6ff9f4f72c1f15c6c50bb54",
   "auto_promotion": false,
   "character": "GARNET",
   "combat_metrics": {
@@ -18,7 +18,8 @@
       "requested_action_counts": {
         "2": 3,
         "4": 1,
-        "6": 56
+        "6": 55,
+        "7": 1
       },
       "winner": "DRAW"
     },
@@ -33,10 +34,9 @@
       "p1_hp": 400,
       "p2_hp": 400,
       "requested_action_counts": {
-        "2": 2,
-        "4": 3,
-        "5": 1,
-        "6": 54
+        "2": 3,
+        "4": 1,
+        "6": 56
       },
       "winner": "DRAW"
     },
@@ -52,23 +52,22 @@
       "p2_hp": 400,
       "requested_action_counts": {
         "2": 3,
-        "4": 3,
-        "6": 53,
-        "7": 1
+        "4": 1,
+        "6": 56
       },
       "winner": "DRAW"
     }
   },
-  "generation": 20,
+  "generation": 21,
   "interpretation_boundary": "Experimental R2e candidate. One paired seed measures a local change, not general fighting strength or biological validity.",
   "kind": "canonical-continuous-training-candidate",
   "match_status": "COMPLETED_WITH_VALIDATED_CANONICAL_TRACES",
-  "matches": 20,
+  "matches": 21,
   "model": "KC-MBON-valence-depression-v0",
-  "opponent": "LUD",
-  "parent_generation": 19,
+  "opponent": "NEZ",
+  "parent_generation": 20,
   "parent_reward_id": "R2e-combat-v1",
-  "parent_state_sha256": "1ed6f050514f3c7936fde0a02d4778b6e3132ffd444e1b0af785278449e2e659",
+  "parent_state_sha256": "fd5f6a4c83165fd3936d1ba59c7d3230f12bcb4e8d3bf91e3044368ead72bc19",
   "reward_id": "R2e-combat-v1",
   "schedule_minutes": 10,
   "schema_version": 1,
@@ -81,19 +80,19 @@
     "sum": -0.234375
   },
   "source_kind": "combat-training-v1",
-  "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/35039333273",
-  "state_sha256": "fd5f6a4c83165fd3936d1ba59c7d3230f12bcb4e8d3bf91e3044368ead72bc19",
+  "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/35057642286",
+  "state_sha256": "fca6ae0238c000c6a1187b7db0e4197bf921bbac0e5adfba940d83d61a985b22",
   "status": "candidate-only-not-arena-approved",
-  "training_seed": 901920,
+  "training_seed": 902021,
   "update_summary": {
-    "changed_approach_edges": 6423,
+    "changed_approach_edges": 6430,
     "changed_avoidance_edges": 0,
-    "changed_edges": 6423,
-    "depressed_edges": 6423,
+    "changed_edges": 6430,
+    "depressed_edges": 6430,
     "max_multiplier": 1.0,
-    "mean_multiplier": 0.9980816904491903,
-    "min_multiplier": 0.9733673930168152,
+    "mean_multiplier": 0.9979087979042761,
+    "min_multiplier": 0.971088707447052,
     "potentiated_edges": 0
   },
-  "updated_at": "2026-09-16T00:21:01.945036+00:00"
+  "updated_at": "2026-09-16T05:03:13.245816+00:00"
 }
