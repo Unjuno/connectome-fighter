@@ -5,6 +5,8 @@ import { Observatory, metric, stamp } from './observatory';
 
 type Json = Record<string, any>;
 type Envelope = { latest?: Json | null; previous?: Json | null; training?: Json | null };
+type ResearchEnvelope = { ready?: boolean; research?: Json | null };
+
 function videoUrl(evaluation: Json | null) {
   const raw = evaluation?.video?.asset_url;
   if (typeof raw !== 'string') return null;
@@ -15,18 +17,27 @@ function videoUrl(evaluation: Json | null) {
     return url.toString();
   } catch { return null; }
 }
+
 function completed(value: unknown): value is Json {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const row = value as Json;
   return row.status === 'COMPLETED' && row.candidate_only === true && row.auto_promotion === false && row.policy_pixel_access === false;
 }
 
+function signed(value: unknown) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
+  return value > 0 ? `+${value}` : String(value);
+}
+
 export function LiveClient() {
   const [data, setData] = useState<Envelope | null>(null);
+  const [researchData, setResearchData] = useState<ResearchEnvelope | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [researchError, setResearchError] = useState<string | null>(null);
   const [previous, setPrevious] = useState(false);
   const [paused, setPaused] = useState(false);
   const [videoError, setVideoError] = useState(false);
+
   useEffect(() => {
     if (paused) return;
     let stopped = false;
@@ -41,15 +52,33 @@ export function LiveClient() {
         if (!stopped) { setData(body); setError(null); }
       } catch (reason) {
         if (!stopped) setError(reason instanceof Error ? reason.message : 'Evaluation data unavailable');
-      } finally { if (!stopped) timer = setTimeout(poll, 30_000); }
+      }
+
+      try {
+        const response = await fetch('/api/research-status', { cache: 'no-store', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(10_000)]) });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const body = await response.json();
+        if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('Invalid research status response');
+        if (!stopped) { setResearchData(body); setResearchError(null); }
+      } catch (reason) {
+        if (!stopped) setResearchError(reason instanceof Error ? reason.message : 'Research status unavailable');
+      } finally {
+        if (!stopped) timer = setTimeout(poll, 30_000);
+      }
     };
     void poll();
     return () => { stopped = true; controller.abort(); clearTimeout(timer); };
   }, [paused]);
+
   const latest = completed(data?.latest) ? data!.latest! : null;
   const older = completed(data?.previous) ? data!.previous! : null;
   const selected = previous && older ? older : latest;
   const training = data?.training;
+  const research = researchData?.ready === true ? researchData.research : null;
+  const control = research?.control_contract;
+  const holdout = research?.heldout_readout;
+  const search = research?.paired_search;
+  const liveCompute = research?.live_compute_snapshot;
   const video = videoUrl(selected);
   useEffect(() => setVideoError(false), [video]);
   const behind = typeof training?.generation === 'number' && typeof latest?.generation === 'number' && training.generation > latest.generation;
@@ -67,10 +96,47 @@ export function LiveClient() {
 
   return <Observatory mode="replay" status="recorded-evaluation" media={media} controls={<><button className="ob-button" type="button" aria-pressed={paused} onClick={() => setPaused(value => !value)}>{paused ? 'Resume history updates' : 'Pause history updates'}</button><a className="ob-button ob-button-primary" href="/live">Observe LIVE ↗</a></>}>
     {error ? <p className="ob-notice" role="status">Evaluation API unavailable: {error}. Any displayed records are from the last successful fetch.</p> : null}
+    {researchError ? <p className="ob-notice" role="status">Research status API unavailable: {researchError}. Evaluation records remain independent.</p> : null}
     {paused ? <p className="ob-notice" role="status">History updates are paused. Use the video player controls to play or pause the recording.</p> : null}
-    {behind ? <p className="ob-notice">Candidate is now Gen {metric(training?.generation)} . The latest completed evaluation shown here is Gen {metric(latest?.generation)}. Completion of the newer evaluation has not yet been verified.</p> : null}
+    {behind ? <p className="ob-notice">Candidate is now Gen {metric(training?.generation)}. The latest completed evaluation shown here is Gen {metric(latest?.generation)}. Completion of the newer evaluation has not yet been verified.</p> : null}
+
+    <section id="research" className="ob-evolution">
+      <div className="ob-section-title"><div><span className="ob-kicker">03 / ACTIVE RESEARCH STATUS</span><h2>What changed, what passed, what was rejected.</h2></div><span className="ob-tag">experimental · candidate only</span></div>
+      {liveCompute?.status === 'capacity-blocked' ? <p className="ob-notice">LIVE compute snapshot: Vercel Sandbox is capacity-blocked until {stamp(liveCompute?.blocked_until)}. Recorded evaluations and research evidence remain available. This operational state is separate from model performance.</p> : null}
+      <div className="ob-history-grid">
+        <article className="ob-panel ob-history-card">
+          <span className="ob-step-number">A</span><span className="ob-kicker">CONTROL CONTRACT</span><h3>{control?.readout_mode || '—'}</h3><p>Project-defined temporal neural readout for candidate-training experiments.</p>
+          <div className="ob-data-pair"><span>Decision interval</span><strong>{metric(control?.decision_interval_frames)} frames</strong></div>
+          <div className="ob-data-pair"><span>Neural window</span><strong>{metric(control?.neural_window_ms)} ms</strong></div>
+          <div className="ob-data-pair"><span>Game state used by readout</span><strong>{control?.readout_game_state_used === false ? 'NO' : '—'}</strong></div>
+          <small>{control?.readout_contract || 'Not recorded'}</small>
+        </article>
+        <article className="ob-panel ob-history-card">
+          <span className="ob-step-number">B</span><span className="ob-kicker">HELD-OUT READOUT CHECK</span><h3>{metric(holdout?.improved_pairs)}/{metric(holdout?.seed_pairs)} improved</h3><p>Canonical and EMA-residual used the same checkpoint under held-out seed pairs.</p>
+          <div className="ob-data-pair"><span>Damage dealt</span><strong>{metric(holdout?.canonical_damage_dealt_hp_total)} → {metric(holdout?.ema_damage_dealt_hp_total)} HP</strong></div>
+          <div className="ob-data-pair"><span>Aggregate net HP</span><strong>{signed(holdout?.canonical_aggregate_net_hp)} → {signed(holdout?.ema_aggregate_net_hp)}</strong></div>
+          <small>One held-out pair worsened · no general strength claim</small>
+        </article>
+        <article className="ob-panel ob-history-card">
+          <span className="ob-step-number">C</span><span className="ob-kicker">PAIRED NEURAL SEARCH</span><h3>{search?.accepted_update === false ? 'UPDATE REJECTED' : search?.accepted_update === true ? 'CANDIDATE ACCEPTED' : '—'}</h3><p>{search?.update_reason || 'No paired-search result recorded.'}</p>
+          <div className="ob-data-pair"><span>Actual games</span><strong>{metric(search?.completed_games)}</strong></div>
+          <div className="ob-data-pair"><span>Best measured probe</span><strong>{metric(search?.best_measured_probe_score, 5)}</strong></div>
+          <div className="ob-data-pair"><span>Parent → proposal curriculum</span><strong>{metric(search?.baseline_curriculum_score, 5)} → {metric(search?.proposal_curriculum_score, 5)}</strong></div>
+          <div className="ob-data-pair"><span>Weights changed</span><strong>{search?.weights_changed === false ? 'NO' : search?.weights_changed === true ? 'YES' : '—'}</strong></div>
+          <small>Strict gate retained parent weights</small>
+        </article>
+      </div>
+      <details className="ob-evaluation-details"><summary>Inspect experimental control and combat gate</summary>
+        <p>Readout: <code>{control?.readout_contract || 'Not recorded'}</code> · mode <code>{control?.readout_mode || 'Not recorded'}</code> · policy_pixel_access=false</p>
+        <p>Combat gate, parent: dealt {metric(search?.combat_before?.damage_dealt_hp)} HP / took {metric(search?.combat_before?.damage_taken_hp)} HP / score {metric(search?.combat_before?.score, 5)}.<br />Proposal: dealt {metric(search?.combat_proposal?.damage_dealt_hp)} HP / took {metric(search?.combat_proposal?.damage_taken_hp)} HP / score {metric(search?.combat_proposal?.score, 5)}.</p>
+        <p>Combat non-degrading: {search?.combat_nondegrading === true ? 'YES' : search?.combat_nondegrading === false ? 'NO' : '—'}. Reward coefficients changed in this experiment: {search?.reward_coefficients_changed === false ? 'NO' : '—'}.</p>
+        {typeof search?.source_run_url === 'string' ? <p><a href={search.source_run_url}>Open source GitHub Actions run ↗</a></p> : null}
+        <p>{search?.interpretation || 'Experimental evidence is not available.'}</p>
+      </details>
+    </section>
+
     <section id="evolution" className="ob-evolution">
-      <div className="ob-section-title"><div><span className="ob-kicker">03 / RESEARCH TIMELINE</span><h2>Current behavior. Recorded progress.</h2></div><span className="ob-tag">candidate only · no automatic promotion</span></div>
+      <div className="ob-section-title"><div><span className="ob-kicker">04 / RESEARCH TIMELINE</span><h2>Current behavior. Recorded progress.</h2></div><span className="ob-tag">candidate only · no automatic promotion</span></div>
       <div className="ob-history-grid">
         <article className="ob-panel ob-history-card"><span className="ob-step-number">01</span><span className="ob-kicker">CANDIDATE UPDATE</span><h3>Gen {metric(training?.generation)}</h3><p>Research checkpoint update</p><div className="ob-data-pair"><span>Completed matches</span><strong>{metric(training?.matches)}</strong></div><div className="ob-data-pair"><span>Changed connections</span><strong>{metric(training?.update_summary?.changed_edges)}</strong></div><small>{stamp(training?.updated_at)}</small></article>
         <article className="ob-panel ob-history-card"><span className="ob-step-number">02</span><span className="ob-kicker">FROZEN EVALUATION</span><h3>Gen {metric(latest?.generation)}</h3><p>Latest completed fixed-condition evaluation</p><div className="ob-data-pair"><span>Previous evaluated generation</span><strong>{metric(older?.generation)}</strong></div><div className="ob-data-pair"><span>Evaluation rounds</span><strong>{metric(latest?.evaluation?.rounds)}</strong></div><small>{stamp(latest?.evaluated_at)}</small></article>
