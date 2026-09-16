@@ -4,7 +4,7 @@ from collections import Counter
 import json
 import math
 from pathlib import Path
-from .contracts import N_ACTIONS, OBS_DIM, action_keys
+from .contracts import KEY_NAMES, N_ACTIONS, OBS_DIM, action_keys
 from .trajectory import round_reward
 
 
@@ -14,6 +14,37 @@ def _fail(message: str) -> None:
 
 def _finite_number(value) -> bool:
     return not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(value)
+
+
+def _audited_requested_keys(step: dict, action: int) -> None:
+    if "requested_keys" not in step:
+        return
+    facing = step.get("facing_right")
+    if type(facing) is not bool:
+        _fail("Missing direction for key reconstruction")
+    brain = step.get("brain") or {}
+    if brain.get("control_contract") == "neural-composite-keys-v1":
+        requested = step["requested_keys"]
+        applied = brain.get("applied_keys")
+        if not isinstance(requested, dict) or set(requested) != set(KEY_NAMES):
+            _fail("Composite requested keys have invalid schema")
+        if not isinstance(applied, dict) or set(applied) != set(KEY_NAMES):
+            _fail("Composite telemetry keys have invalid schema")
+        if any(type(v) is not bool for v in requested.values()) or any(type(v) is not bool for v in applied.values()):
+            _fail("Composite key values must be boolean")
+        if requested != applied:
+            _fail("Composite requested keys disagree with neural telemetry")
+        if brain.get("readout_game_state_used") is not False:
+            _fail("Composite readout used unapproved game state")
+        if requested["L"] and requested["R"]:
+            _fail("Composite control requested both horizontal directions")
+        if requested["U"] and requested["D"]:
+            _fail("Composite control requested both vertical directions")
+        if sum(bool(requested[k]) for k in ("A", "B", "C")) > 1:
+            _fail("Composite control requested multiple attacks")
+        return
+    if step["requested_keys"] != action_keys(action, facing):
+        _fail("Requested keys disagree with action/direction")
 
 
 def _read(path: Path, side: int, expected_trainable: bool | None) -> dict:
@@ -77,12 +108,7 @@ def _read(path: Path, side: int, expected_trainable: bool | None) -> dict:
                 reward = expected if index == len(transitions)-1 else 0.0
                 if step["reward"] != reward:
                     _fail("Reward must appear only on the final decision")
-                if "requested_keys" in step:
-                    facing = step.get("facing_right")
-                    if type(facing) is not bool:
-                        _fail("Missing direction for key reconstruction")
-                    if step["requested_keys"] != action_keys(action, facing):
-                        _fail("Requested keys disagree with action/direction")
+                _audited_requested_keys(step, action)
             rounds[identity] = item
     if not rounds:
         _fail("No completed rounds")
@@ -100,7 +126,9 @@ def audit_pair(
 
     `expected_trainable=True` preserves the original integration-training gate.
     Frozen canonical evaluation/smoke matches must explicitly pass False; None
-    accepts either mode but still requires both sides to agree.
+    accepts either mode but still requires both sides to agree. Explicit
+    `neural-composite-keys-v1` traces are accepted only when the recorded keys
+    exactly match strict neural telemetry and contain no contradictory keys.
     """
     left, right = (
         _read(p1, 0, expected_trainable),
