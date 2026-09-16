@@ -124,6 +124,12 @@ def multipliers(parent: np.ndarray, theta: np.ndarray, membership: np.ndarray) -
 
 
 def propose(directions, plus, minus, *, sigma=.04, learning_rate=.05, max_step=.02):
+    """Return the antithetic Gaussian-smoothing gradient and a small diagnostic step.
+
+    With a clipped objective and few directions this step is diagnostic only; an
+    unmeasured extrapolated step must not outrank a measured perturbation merely
+    because the local estimator points there.
+    """
     u, p, m = np.asarray(directions, dtype=float), np.asarray(plus, dtype=float), np.asarray(minus, dtype=float)
     if u.ndim != 2 or min(u.shape) < 1 or p.shape != (len(u),) or m.shape != p.shape:
         raise ValueError('invalid paired sample shapes')
@@ -136,3 +142,42 @@ def propose(directions, plus, minus, *, sigma=.04, learning_rate=.05, max_step=.
     if norm > max_step:
         step *= max_step/norm
     return gradient, step
+
+
+def select_elite_probe(directions, plus, minus, baseline, *, sigma=.04, tolerance=1e-12):
+    """Select only a perturbation whose score was actually measured above baseline.
+
+    This is deliberately conservative for the current clipped, discontinuous
+    action-readout landscape. It does not infer that the perturbation generalizes;
+    callers must apply independent-seed and combat gates before accepting it.
+    """
+    u = np.asarray(directions, dtype=float)
+    p = np.asarray(plus, dtype=float)
+    m = np.asarray(minus, dtype=float)
+    baseline = finite(baseline, 'baseline')
+    if u.ndim != 2 or min(u.shape) < 1 or p.shape != (len(u),) or m.shape != p.shape:
+        raise ValueError('invalid paired sample shapes')
+    if not math.isfinite(sigma) or sigma <= 0 or not math.isfinite(tolerance) or tolerance < 0:
+        raise ValueError('invalid elite selection scale')
+    if not all(np.isfinite(v).all() for v in (u, p, m)):
+        raise ValueError('nonfinite elite samples')
+
+    candidates = []
+    for i in range(len(u)):
+        candidates.append((float(p[i]), i, 1, sigma * u[i]))
+        candidates.append((float(m[i]), i, -1, -sigma * u[i]))
+    # Deterministic tie order: score, then earlier direction, then plus before minus.
+    best = max(candidates, key=lambda row: (row[0], -row[1], row[2]))
+    score, direction_index, sign, theta = best
+    improved = score > baseline + tolerance
+    selected = theta.copy() if improved else np.zeros(u.shape[1], dtype=float)
+    return selected, {
+        'baseline_score': baseline,
+        'best_score': score,
+        'improvement': score - baseline,
+        'direction_index': int(direction_index),
+        'sign': int(sign),
+        'theta_norm': float(np.linalg.norm(theta)),
+        'max_abs_theta': float(np.max(np.abs(theta))),
+        'measured_improvement': bool(improved),
+    }
