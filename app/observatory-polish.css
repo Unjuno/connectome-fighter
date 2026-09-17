@@ -1,0 +1,55 @@
+/* Visual-only refinement. No experiment state or data semantics are changed here. */
+.observatory{background:
+  radial-gradient(900px 460px at 50% -80px,#1e353744,transparent 70%),
+  linear-gradient(90deg,transparent 0 49.96%,#17232728 50%,transparent 50.04%),
+  var(--ob-bg)}
+.ob-wrap{width:min(1540px,100%)}
+.ob-nav{height:88px}
+.ob-brand-mark{box-shadow:inset 0 0 24px #72c1af10,0 12px 40px #0004}
+.ob-intro{padding:50px 0 35px}
+.ob-intro h1{max-width:780px;font-size:clamp(30px,4vw,54px);font-weight:610}
+.ob-intro>div:first-child>p:last-child{max-width:610px;font-size:14px;line-height:1.9}
+.ob-modebar{position:sticky;top:0;z-index:8;margin-inline:-12px;padding:11px 12px;background:#091114e8;backdrop-filter:blur(15px);border-color:#304044}
+.ob-stage{gap:12px}
+.ob-arena{border-color:#35494d;box-shadow:0 28px 90px #0005, inset 0 1px #ffffff05}
+.ob-screen{border-color:#405257;box-shadow:inset 0 0 70px #0008}
+.ob-result{padding:4px 2px}
+.ob-flow{margin-top:30px;background:#0d151788;padding-inline:16px}
+.ob-bodies{gap:12px}
+
+#research{position:relative;margin-top:54px;padding-top:31px;border-top:1px solid #344448}
+#research:before{content:"ACTIVE EXPERIMENT / EVIDENCE LAYER";position:absolute;top:-9px;left:0;padding:0 10px 0 0;background:var(--ob-bg);color:#71978f;font:600 9px/18px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.15em}
+#research .ob-section-title{align-items:flex-start;margin:0 0 19px}
+#research .ob-section-title h2{max-width:790px;font-size:clamp(25px,3vw,38px);line-height:1.22;font-weight:560;letter-spacing:-.045em}
+#research .ob-section-title .ob-tag{margin-top:3px;border-radius:99px;border-color:#4d6b65;background:#12231f;color:#b8dfd5}
+#research>.ob-notice{border:1px solid #493e2f;border-left:2px solid #b28b59;border-radius:6px;background:linear-gradient(90deg,#211a12,transparent),#121516;color:#cfbea6}
+#research .ob-history-grid{grid-template-columns:minmax(0,.9fr) minmax(0,1.15fr) minmax(0,1.2fr);gap:12px}
+#research .ob-history-card{min-height:322px;padding:25px 23px 21px;background:linear-gradient(145deg,#15252966,transparent 48%),#0d1619;border-color:#2d3d41;box-shadow:0 18px 55px #0002}
+#research .ob-history-card:nth-child(1){border-top:2px solid #73a99e}
+#research .ob-history-card:nth-child(2){border-top:2px solid var(--ob-p2)}
+#research .ob-history-card:nth-child(3){border-top:2px solid #b58c57}
+#research .ob-history-card .ob-step-number{font-size:19px;top:17px;color:#607976}
+#research .ob-history-card:nth-child(3) .ob-step-number{color:#93734c}
+#research .ob-history-card h3{margin:22px 0 10px;font:520 clamp(22px,2.4vw,31px)/1.12 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:-.055em;color:#eff5f2;overflow-wrap:anywhere}
+#research .ob-history-card p{min-height:39px;color:#94a4a2;line-height:1.75}
+#research .ob-data-pair{padding:12px 0;border-color:#26363a}
+#research .ob-data-pair span{color:#83928f;font-size:10px}
+#research .ob-data-pair strong{font:500 12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;color:#e0e8e5;text-align:right}
+#research .ob-history-card:nth-child(2) .ob-data-pair strong{color:#afe7dc}
+#research .ob-history-card:nth-child(3) .ob-data-pair strong{color:#e0c199}
+#research .ob-history-card small{margin-top:auto;padding-top:15px;border-top:1px solid #263438;color:#728482;font:9px/1.65 ui-monospace,monospace}
+#research .ob-evaluation-details{margin-top:12px;border:1px solid #2f4044;border-radius:6px;background:#0c1417}
+#research .ob-evaluation-details summary{padding:15px 17px;color:#c4d3cf;font:600 10px/1.5 ui-monospace,monospace;letter-spacing:.06em}
+#research .ob-evaluation-details[open] summary{border-bottom:1px solid #29383c}
+#research .ob-evaluation-details p{margin:0;padding:10px 17px;color:#8fa09d;font-size:10px;line-height:1.8}
+#research .ob-evaluation-details code{color:#b7dfd5}
+#research .ob-evaluation-details a{text-decoration:underline;text-underline-offset:3px;color:#b6e0d4}
+
+#evolution{margin-top:54px;padding-top:26px;border-top:1px solid #26363a}
+#evolution .ob-history-card{background:#0d1518}
+.ob-protocol{margin-top:62px}
+.ob-footer{margin-top:52px}
+
+@media(max-width:1050px){#research .ob-history-grid{grid-template-columns:1fr 1fr}#research .ob-history-card:nth-child(3){grid-column:1/-1;min-height:0}}
+@media(max-width:760px){.ob-modebar{position:static;margin-inline:0;padding-inline:0;background:transparent;backdrop-filter:none}#research .ob-history-grid{grid-template-columns:1fr}#research .ob-history-card:nth-child(3){grid-column:auto}.ob-intro{padding-top:34px}.ob-wrap{padding-inline:18px}}
+@media(prefers-reduced-motion:reduce){.ob-modebar{backdrop-filter:none}}
