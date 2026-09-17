@@ -20,6 +20,9 @@ import tarfile
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT/'src'))
+from connectome_fighter.combat_reward import paired_evaluation_gate
+
 REWARD = 'R2e-combat-v1'
 REPO = 'Unjuno/connectome-fighter'
 READOUT_MODE = 'ema-residual'
@@ -164,16 +167,19 @@ else:
           'python':sys.version,'runtime_manifest':manifest,'reward':REWARD,'game_frames':3600,'decision_interval_frames':60,
           'readout_mode_p1':READOUT_MODE,'readout_mode_p2':'canonical','readout_contract':READOUT_CONTRACT,
           'evaluation_seeds':[800101,20202],'synthetic_neural_fixture':False,'candidate_only':True,'auto_promotion':False,
-          'pipeline':'paired-before/train/paired-after','source_archive_sha256':sha(args.source_archive),
+          'pipeline':'paired-before/train/paired-after/strict-acceptance-gate','training_seed_strategy':'generation-plus-github-run-id-salt','source_archive_sha256':sha(args.source_archive),
           'selected_dependency_descriptor':json.loads((out/'dependencies.json').read_text()) if (out/'dependencies.json').exists() else None})
-    result={'status':'FAIL','reward_id':REWARD,'source_run_url':run_url,'readout_mode':READOUT_MODE,'readout_contract':READOUT_CONTRACT}
+    result={'status':'FAIL','accepted_update':False,'reward_id':REWARD,'source_run_url':run_url,'readout_mode':READOUT_MODE,'readout_contract':READOUT_CONTRACT}
     try:
         frozen=sha(state)
         before=match('before',before_adapter,'ZEN',800101,20202,video=True)
         assert sha(state)==frozen
         generation=int(metadata['generation']);opponents=('ZEN','LUD','NEZ');opponent=opponents[generation%3]
-        train_seed=900001+generation*101
-        training=match('training',before_adapter,opponent,train_seed,700001+generation*103,train=True)
+        try: attempt_salt=int(run_id)%100000
+        except ValueError: attempt_salt=0
+        train_seed=900001+generation*101+attempt_salt
+        train_seed_p2=700001+generation*103+attempt_salt*3
+        training=match('training',before_adapter,opponent,train_seed,train_seed_p2,train=True)
         assert sha(state)==frozen
         run([bridge,runtime/'repo/scripts/update_malecns_valence_plasticity.py','--character','GARNET','--side','1','--round-trace',out/'matches/training/p1.jsonl','--spikes',out/'matches/training/p1-brain/spikes.parquet','--candidates',candidates,'--reward-config',ROOT/'configs/reward_r2e_combat_v1.json','--plasticity-config',cfg,'--state',state,'--out-summary',out/'update.json'],'update')
         update=json.loads((out/'update.json').read_text());assert update['status']=='PASS'
@@ -183,6 +189,22 @@ else:
         assert sha(state)==after_hash
         assert before_source=={str(f.relative_to(source)):sha(f) for f in source.rglob('*') if f.is_file()}
         meta=json.loads(state.with_suffix('.npz.json').read_text());assert meta['generation']==generation+1
+        reward_config=json.loads((ROOT/'configs/reward_r2e_combat_v1.json').read_text())
+        gate=paired_evaluation_gate(before,after,reward_config)
+        gate.update({'protocol':'same-seed-frozen-before-after-v1','seed_p1':800101,'seed_p2':20202,
+                     'parent_generation':generation,'proposed_generation':meta['generation'],
+                     'parent_state_sha256':parent['state_sha256'],'proposed_state_sha256':after_hash})
+        write(out/'acceptance.json',gate)
+        if not gate['accepted_update']:
+            result={'status':'REJECTED','accepted_update':False,'reward_id':REWARD,'source_run_url':run_url,
+                    'generation':generation,'proposed_generation':meta['generation'],'readout_mode':READOUT_MODE,
+                    'readout_contract':READOUT_CONTRACT,'before':before,'training':training,'after':after,
+                    'acceptance_gate':gate,'changed_edges':update['updates']['changed_edges'],
+                    'parent_state_sha256':parent['state_sha256'],'proposed_state_sha256':after_hash,
+                    'training_seed':train_seed,'training_seed_p2':train_seed_p2,'training_attempt_salt':attempt_salt,
+                    'auto_promotion':False,'pipeline_seconds':time.monotonic()-clock}
+            print(json.dumps(result,indent=2))
+            return 0
         publish=out/'publish';publish.mkdir()
         package=out/'package';(package/'state').mkdir(parents=True)
         shutil.copy2(state,package/'state/GARNET.npz');shutil.copy2(state.with_suffix('.npz.json'),package/'state/GARNET.npz.json')
@@ -199,7 +221,8 @@ else:
                 'match_status':MATCH_STATUS,'signal_summary':update['signals'],'update_summary':update['updates'],
                 'parent_generation':generation,'parent_reward_id':parent['reward_id'],'parent_state_sha256':parent['state_sha256'],
                 'archive_file':archive_name,'archive_sha256':archive_sha,'schedule_minutes':10,
-                'actual_pipeline_seconds':time.monotonic()-clock,'training_seed':train_seed,
+                'actual_pipeline_seconds':time.monotonic()-clock,'training_seed':train_seed,'training_seed_p2':train_seed_p2,
+                'training_attempt_salt':attempt_salt,'accepted_update':True,'acceptance_gate':gate,
                 'combat_metrics':{'before':before,'training':training,'after':after},
                 'interpretation_boundary':'Experimental R2e candidate using the held-out-selected EMA-residual P1 readout. One paired seed measures a local change, not general fighting strength or biological validity.'}
         write(publish/'training-manifest.json',status);write(publish/'training-status.json',status)
@@ -221,9 +244,10 @@ else:
                         'interpretation_boundary':'Actual frozen before/after evaluation using the held-out-selected EMA-residual P1 readout on the same fixed seed; not held-out generalization, proof of improvement, or production LIVE.'}
             write(publish/('evaluation-status.json' if phase=='after' else 'evaluation-previous.json'),evaluation)
         write(publish/'publication.json',{'video_tag':video_tag,'checkpoint_tag':'combat-training-v1','archive_file':archive_name,'generation':meta['generation'],'source_run_id':run_id,'source_commit':os.environ.get('GITHUB_SHA')})
-        result={'status':'PASS','reward_id':REWARD,'source_run_url':run_url,'generation':meta['generation'],
+        result={'status':'PASS','accepted_update':True,'reward_id':REWARD,'source_run_url':run_url,'generation':meta['generation'],
                 'readout_mode':READOUT_MODE,'readout_contract':READOUT_CONTRACT,
-                'before':before,'training':training,'after':after,'changed_edges':update['updates']['changed_edges'],
+                'before':before,'training':training,'after':after,'acceptance_gate':gate,'changed_edges':update['updates']['changed_edges'],
+                'training_seed':train_seed,'training_seed_p2':train_seed_p2,'training_attempt_salt':attempt_salt,
                 'new_state_sha256':after_hash,'parent_state_sha256':parent['state_sha256'],
                 'auto_promotion':False,'pipeline_seconds':time.monotonic()-clock}
         print(json.dumps(result,indent=2))
