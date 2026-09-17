@@ -24,6 +24,7 @@ REWARD = 'R2e-combat-v1'
 REPO = 'Unjuno/connectome-fighter'
 READOUT_MODE = 'ema-residual'
 READOUT_CONTRACT = 'malecns-temporal-readout-v1'
+MATCH_STATUS = 'COMPLETED_WITH_VALIDATED_EXPERIMENTAL_READOUT_TRACES'
 
 
 def sha(path):
@@ -138,11 +139,13 @@ else:
             finally:stop(game)
         folder=out/'matches'/name
         status=json.loads((folder/'status.json').read_text())
-        assert status['status']=='COMPLETED_WITH_VALIDATED_CANONICAL_TRACES'
+        assert status['status']==MATCH_STATUS
+        assert status['canonical'] is False
+        assert status['readout_modes']==[READOUT_MODE,'canonical']
+        assert status['readout_contract']==READOUT_CONTRACT and status['readout_game_state_used'] is False
         assert status['learning_performed'] is False and status['trace_trainable'] is train
         assert status['completed_rounds_per_agent']==[1,1]
         assert len(status['workers'])==2 and all(w['neurons']==156675 and w['synapses']==6025920 for w in status['workers'])
-        assert status['workers'][0]['readout_mode']==READOUT_MODE and status['workers'][1]['readout_mode']=='canonical'
         rows=[json.loads(line) for line in (folder/'p1.jsonl').read_text().splitlines() if line.strip()]
         assert len(rows)==1 and rows[0]['terminated'] is True and rows[0]['truncated'] is False
         trace=rows[0];hps=[max(0,v) for v in trace['remaining_hps']]
@@ -193,7 +196,7 @@ else:
                 'model':meta['model'],'reward_id':REWARD,'opponent':opponent,'source_kind':'combat-training-v1',
                 'source_run_url':run_url,'served_by_vercel':False,'auto_promotion':False,'updated_at':now(),
                 'readout_mode':READOUT_MODE,'readout_contract':READOUT_CONTRACT,
-                'match_status':'COMPLETED_WITH_VALIDATED_CANONICAL_TRACES','signal_summary':update['signals'],'update_summary':update['updates'],
+                'match_status':MATCH_STATUS,'signal_summary':update['signals'],'update_summary':update['updates'],
                 'parent_generation':generation,'parent_reward_id':parent['reward_id'],'parent_state_sha256':parent['state_sha256'],
                 'archive_file':archive_name,'archive_sha256':archive_sha,'schedule_minutes':10,
                 'actual_pipeline_seconds':time.monotonic()-clock,'training_seed':train_seed,
