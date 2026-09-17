@@ -917,12 +917,46 @@
         "potentiated_edges": 0
       },
       "updated_at": "2026-09-17T11:15:24.673894+00:00"
+    },
+    {
+      "auto_promotion": false,
+      "character": "GARNET",
+      "generation": 30,
+      "interpretation_boundary": "Experimental R2e candidate using the held-out-selected EMA-residual P1 readout. One paired seed measures a local change, not general fighting strength or biological validity.",
+      "match_status": "COMPLETED_WITH_VALIDATED_EXPERIMENTAL_READOUT_TRACES",
+      "matches": 30,
+      "model": "KC-MBON-valence-depression-v0",
+      "opponent": "NEZ",
+      "reward_id": "R2e-combat-v1",
+      "served_by_vercel": false,
+      "signal_summary": {
+        "decision_windows": 60,
+        "negative": 1,
+        "nonzero": 6,
+        "positive": 5,
+        "sum": 2.040625
+      },
+      "source_kind": "combat-training-v1",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/35219926835",
+      "state_sha256": "dfb1aca3e2674d51e3349ab9c7c1655bca7ebc014a062020dba38f0c40cc0fec",
+      "status": "candidate-only-not-arena-approved",
+      "update_summary": {
+        "changed_approach_edges": 6228,
+        "changed_avoidance_edges": 4447,
+        "changed_edges": 10675,
+        "depressed_edges": 10675,
+        "max_multiplier": 1.0,
+        "mean_multiplier": 0.9947366424105974,
+        "min_multiplier": 0.9542211294174194,
+        "potentiated_edges": 0
+      },
+      "updated_at": "2026-09-17T12:18:52.070302+00:00"
     }
   ],
-  "entry_count": 27,
+  "entry_count": 28,
   "interpretation_boundary": "This ledger records GitHub research-candidate updates only. Entries are not arena approval, not proof of improved fighting performance, and are never served by Vercel without a separate promotion gate.",
   "kind": "canonical-continuous-training-history",
-  "latest_generation": 29,
-  "latest_state_sha256": "f326ce62e7fd0c759de271d783c46999ce9f31e3b6d1c51925c5837a4c692b43",
+  "latest_generation": 30,
+  "latest_state_sha256": "dfb1aca3e2674d51e3349ab9c7c1655bca7ebc014a062020dba38f0c40cc0fec",
   "schema_version": 1
 }
