@@ -24,9 +24,10 @@ function completed(value: unknown): value is Json {
   return row.status === 'COMPLETED' && row.candidate_only === true && row.auto_promotion === false && row.policy_pixel_access === false;
 }
 
-function signed(value: unknown) {
+function signed(value: unknown, digits = 0) {
   if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
-  return value > 0 ? `+${value}` : String(value);
+  const rendered = metric(Math.abs(value), digits);
+  return value > 0 ? `+${rendered}` : value < 0 ? `-${rendered}` : rendered;
 }
 
 export function LiveClient() {
@@ -121,7 +122,7 @@ export function LiveClient() {
         <article className="ob-panel ob-history-card">
           <span className="ob-step-number">C</span><span className="ob-kicker">SCHEDULED UPDATE GATE</span><h3>{gate?.accepted_update === true ? 'UPDATE ACCEPTED' : gate?.accepted_update === false ? 'UPDATE REJECTED' : 'NOT YET RECORDED'}</h3><p>{gate?.reason || 'Published candidates before this gate do not have a paired acceptance record.'}</p>
           <div className="ob-data-pair"><span>Paired utility</span><strong>{metric(gate?.before_utility, 5)} → {metric(gate?.after_utility, 5)}</strong></div>
-          <div className="ob-data-pair"><span>Utility delta</span><strong>{signed(gate?.utility_delta)}</strong></div>
+          <div className="ob-data-pair"><span>Utility delta</span><strong>{signed(gate?.utility_delta, 5)}</strong></div>
           <div className="ob-data-pair"><span>Parent → candidate</span><strong>Gen {metric(gate?.parent_generation)} → {metric(gate?.proposed_generation)}</strong></div>
           <div className="ob-data-pair"><span>Changed connections</span><strong>{metric(training?.update_summary?.changed_edges)}</strong></div>
           <small>Same-seed frozen evaluation · publication requires strict improvement</small>
@@ -129,7 +130,7 @@ export function LiveClient() {
       </div>
       <details className="ob-evaluation-details"><summary>Inspect current gate and earlier search evidence</summary>
         <p>Readout: <code>{control?.readout_contract || training?.readout_contract || 'Not recorded'}</code> · mode <code>{training?.readout_mode || control?.readout_mode || 'Not recorded'}</code> · policy_pixel_access=false</p>
-        <p>Current scheduled gate: utility {metric(gate?.before_utility, 5)} → {metric(gate?.after_utility, 5)} ({signed(gate?.utility_delta)}). Protocol: <code>{gate?.protocol || 'Not recorded'}</code>.</p>
+        <p>Current scheduled gate: utility {metric(gate?.before_utility, 5)} → {metric(gate?.after_utility, 5)} ({signed(gate?.utility_delta, 5)}). Protocol: <code>{gate?.protocol || 'Not recorded'}</code>.</p>
         {typeof training?.source_run_url === 'string' ? <p><a href={training.source_run_url}>Open current candidate Actions run ↗</a></p> : null}
         <p>Earlier paired-search pilot, parent: dealt {metric(search?.combat_before?.damage_dealt_hp)} HP / took {metric(search?.combat_before?.damage_taken_hp)} HP / score {metric(search?.combat_before?.score, 5)}.<br />Proposal: dealt {metric(search?.combat_proposal?.damage_dealt_hp)} HP / took {metric(search?.combat_proposal?.damage_taken_hp)} HP / score {metric(search?.combat_proposal?.score, 5)}.</p>
         <p>Earlier pilot accepted update: {search?.accepted_update === true ? 'YES' : search?.accepted_update === false ? 'NO' : '—'}. Reward coefficients changed in that experiment: {search?.reward_coefficients_changed === false ? 'NO' : '—'}.</p>
