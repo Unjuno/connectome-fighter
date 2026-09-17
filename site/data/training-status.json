@@ -1,11 +1,35 @@
 {
-  "actual_pipeline_seconds": 219.92712519199998,
-  "archive_file": "garnet-g000031-ea0385aa9d15d9ad.tar.gz",
-  "archive_sha256": "4529a88132712c78db29a88bb0cd445452cc7ea14d0a13ad9d21116d4a2a7385",
+  "actual_pipeline_seconds": 212.91679173800003,
+  "archive_file": "garnet-g000032-d9b0181cfbe0d5c6.tar.gz",
+  "archive_sha256": "dd6dc005bddb0f6a8836d9c9d2981c436139500c77616f1dfdd8042afc3fd061",
   "auto_promotion": false,
   "character": "GARNET",
   "combat_metrics": {
     "after": {
+      "damage_dealt_hp": 10,
+      "damage_taken_hp": 0,
+      "decision_count": 60,
+      "elapsed_frame": 3600,
+      "elapsed_seconds": 60.0,
+      "ended_by": "TIME_LIMIT",
+      "no_damage_draw": false,
+      "p1_hp": 400,
+      "p2_hp": 390,
+      "readout_contract": "malecns-temporal-readout-v1",
+      "readout_mode": "ema-residual",
+      "requested_action_counts": {
+        "0": 3,
+        "1": 1,
+        "2": 5,
+        "3": 4,
+        "4": 8,
+        "5": 10,
+        "6": 20,
+        "7": 9
+      },
+      "winner": "GARNET"
+    },
+    "before": {
       "damage_dealt_hp": 45,
       "damage_taken_hp": 0,
       "decision_count": 60,
@@ -29,8 +53,8 @@
       },
       "winner": "GARNET"
     },
-    "before": {
-      "damage_dealt_hp": 85,
+    "training": {
+      "damage_dealt_hp": 55,
       "damage_taken_hp": 0,
       "decision_count": 60,
       "elapsed_frame": 3600,
@@ -38,56 +62,32 @@
       "ended_by": "TIME_LIMIT",
       "no_damage_draw": false,
       "p1_hp": 400,
-      "p2_hp": 315,
+      "p2_hp": 345,
       "readout_contract": "malecns-temporal-readout-v1",
       "readout_mode": "ema-residual",
       "requested_action_counts": {
         "0": 1,
-        "1": 6,
+        "1": 7,
         "2": 9,
-        "3": 5,
-        "4": 11,
-        "5": 9,
-        "6": 12,
-        "7": 7
-      },
-      "winner": "GARNET"
-    },
-    "training": {
-      "damage_dealt_hp": 0,
-      "damage_taken_hp": 40,
-      "decision_count": 60,
-      "elapsed_frame": 3600,
-      "elapsed_seconds": 60.0,
-      "ended_by": "TIME_LIMIT",
-      "no_damage_draw": false,
-      "p1_hp": 360,
-      "p2_hp": 400,
-      "readout_contract": "malecns-temporal-readout-v1",
-      "readout_mode": "ema-residual",
-      "requested_action_counts": {
-        "0": 2,
-        "1": 3,
-        "2": 12,
         "3": 2,
         "4": 8,
-        "5": 3,
-        "6": 20,
-        "7": 10
+        "5": 10,
+        "6": 14,
+        "7": 9
       },
-      "winner": "ZEN"
+      "winner": "GARNET"
     }
   },
-  "generation": 31,
+  "generation": 32,
   "interpretation_boundary": "Experimental R2e candidate using the held-out-selected EMA-residual P1 readout. One paired seed measures a local change, not general fighting strength or biological validity.",
   "kind": "canonical-continuous-training-candidate",
   "match_status": "COMPLETED_WITH_VALIDATED_EXPERIMENTAL_READOUT_TRACES",
-  "matches": 31,
+  "matches": 32,
   "model": "KC-MBON-valence-depression-v0",
-  "opponent": "ZEN",
-  "parent_generation": 30,
+  "opponent": "LUD",
+  "parent_generation": 31,
   "parent_reward_id": "R2e-combat-v1",
-  "parent_state_sha256": "dfb1aca3e2674d51e3349ab9c7c1655bca7ebc014a062020dba38f0c40cc0fec",
+  "parent_state_sha256": "ea0385aa9d15d9ad58f39c33a29789707271e7eb47569b10a91d72e0bfbe60f8",
   "readout_contract": "malecns-temporal-readout-v1",
   "readout_mode": "ema-residual",
   "reward_id": "R2e-combat-v1",
@@ -96,25 +96,25 @@
   "served_by_vercel": false,
   "signal_summary": {
     "decision_windows": 60,
-    "negative": 5,
-    "nonzero": 7,
-    "positive": 2,
-    "sum": -2.084375
+    "negative": 0,
+    "nonzero": 11,
+    "positive": 11,
+    "sum": 2.153125
   },
   "source_kind": "combat-training-v1",
-  "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/35270097770",
-  "state_sha256": "ea0385aa9d15d9ad58f39c33a29789707271e7eb47569b10a91d72e0bfbe60f8",
+  "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/35284342678",
+  "state_sha256": "d9b0181cfbe0d5c65b8e794e7e07249d07fc33cd6c9a68ab257943e99a78ed28",
   "status": "candidate-only-not-arena-approved",
-  "training_seed": 903031,
+  "training_seed": 903132,
   "update_summary": {
-    "changed_approach_edges": 6388,
-    "changed_avoidance_edges": 4218,
-    "changed_edges": 10606,
-    "depressed_edges": 10606,
+    "changed_approach_edges": 0,
+    "changed_avoidance_edges": 4387,
+    "changed_edges": 4387,
+    "depressed_edges": 4387,
     "max_multiplier": 1.0,
-    "mean_multiplier": 0.9933398912765543,
+    "mean_multiplier": 0.9923769536979562,
     "min_multiplier": 0.9343913793563843,
     "potentiated_edges": 0
   },
-  "updated_at": "2026-09-17T20:24:10.465600+00:00"
+  "updated_at": "2026-09-17T22:59:41.594904+00:00"
 }

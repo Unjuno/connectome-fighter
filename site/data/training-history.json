@@ -985,12 +985,46 @@
         "potentiated_edges": 0
       },
       "updated_at": "2026-09-17T20:24:10.465600+00:00"
+    },
+    {
+      "auto_promotion": false,
+      "character": "GARNET",
+      "generation": 32,
+      "interpretation_boundary": "Experimental R2e candidate using the held-out-selected EMA-residual P1 readout. One paired seed measures a local change, not general fighting strength or biological validity.",
+      "match_status": "COMPLETED_WITH_VALIDATED_EXPERIMENTAL_READOUT_TRACES",
+      "matches": 32,
+      "model": "KC-MBON-valence-depression-v0",
+      "opponent": "LUD",
+      "reward_id": "R2e-combat-v1",
+      "served_by_vercel": false,
+      "signal_summary": {
+        "decision_windows": 60,
+        "negative": 0,
+        "nonzero": 11,
+        "positive": 11,
+        "sum": 2.153125
+      },
+      "source_kind": "combat-training-v1",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/35284342678",
+      "state_sha256": "d9b0181cfbe0d5c65b8e794e7e07249d07fc33cd6c9a68ab257943e99a78ed28",
+      "status": "candidate-only-not-arena-approved",
+      "update_summary": {
+        "changed_approach_edges": 0,
+        "changed_avoidance_edges": 4387,
+        "changed_edges": 4387,
+        "depressed_edges": 4387,
+        "max_multiplier": 1.0,
+        "mean_multiplier": 0.9923769536979562,
+        "min_multiplier": 0.9343913793563843,
+        "potentiated_edges": 0
+      },
+      "updated_at": "2026-09-17T22:59:41.594904+00:00"
     }
   ],
-  "entry_count": 29,
+  "entry_count": 30,
   "interpretation_boundary": "This ledger records GitHub research-candidate updates only. Entries are not arena approval, not proof of improved fighting performance, and are never served by Vercel without a separate promotion gate.",
   "kind": "canonical-continuous-training-history",
-  "latest_generation": 31,
-  "latest_state_sha256": "ea0385aa9d15d9ad58f39c33a29789707271e7eb47569b10a91d72e0bfbe60f8",
+  "latest_generation": 32,
+  "latest_state_sha256": "d9b0181cfbe0d5c65b8e794e7e07249d07fc33cd6c9a68ab257943e99a78ed28",
   "schema_version": 1
 }
