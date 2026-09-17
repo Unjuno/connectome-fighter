@@ -1,12 +1,14 @@
 name: combat-candidate-training
 
-# Ten-minute best-effort wake-up, NOT a guaranteed ten-minute completed update.
+# Bounded self-chaining research lane. A successful main run requests one next run
+# after a two-minute hold; hourly cron is only a watchdog because GitHub schedules
+# are best-effort and can be delayed or dropped. This is NOT guaranteed throughput.
 # One writer, bounded work, full-round traces, paired frozen before/after video.
 # The scheduled P1 controller uses the versioned readout declared by combat_training_run.py; current mode is ema-residual.
 on:
   workflow_dispatch:
   schedule:
-    - cron: '3,13,23,33,43,53 * * * *'
+    - cron: '17 * * * *'
   push:
     branches: [main]
     paths:
@@ -147,3 +149,42 @@ jobs:
         run: python scripts/publish_combat_candidate.py --input runs/publication
       - name: Atomically expose paired evaluations and training history
         run: python scripts/publish_combat_view.py --input runs/publication
+
+
+  continue-loop:
+    needs: [train-and-evaluate, publish]
+    if: >-
+      always() &&
+      github.event_name != 'pull_request' &&
+      github.ref == 'refs/heads/main' &&
+      vars.CONNECTOME_TRAINING_PAUSED != 'true' &&
+      needs.train-and-evaluate.result == 'success' &&
+      (needs.publish.result == 'success' || needs.publish.result == 'skipped')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Hold before requesting the next bounded training run
+        run: sleep 120
+      - name: Dispatch only when no sibling run is already queued or active
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          workflow='continuous-training.yml'
+          sibling="$(
+            {
+              gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/runs?branch=main&status=queued&per_page=100" \
+                --jq ".workflow_runs[] | select(.id != ${GITHUB_RUN_ID}) | .id"
+              gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/runs?branch=main&status=in_progress&per_page=100" \
+                --jq ".workflow_runs[] | select(.id != ${GITHUB_RUN_ID}) | .id"
+            } | head -n 1
+          )"
+          if [ -n "$sibling" ]; then
+            echo "A sibling combat-training run already exists: $sibling"
+            exit 0
+          fi
+          gh api --method POST "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/dispatches" -f ref=main
+          echo "Requested exactly one next main-branch training run."
