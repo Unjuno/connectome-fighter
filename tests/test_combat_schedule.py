@@ -28,6 +28,8 @@ def test_actual_pipeline_contains_both_frozen_evaluations_and_no_promotion():
     source=(ROOT/'scripts/combat_training_run.py').read_text()
     assert "match('before'" in source and "match('after'" in source and "match('training'" in source
     assert "'--decision-interval','60'" in source and "'-f','3600'" in source
+    assert "'--readout-mode-p1',READOUT_MODE" in source and "'--readout-mode-p2','canonical'" in source
+    assert "READOUT_MODE = 'ema-residual'" in source and "READOUT_CONTRACT = 'malecns-temporal-readout-v1'" in source
     assert "'auto_promotion':False" in source and "'served_by_vercel':False" in source
     publisher=(ROOT/'scripts/publish_combat_candidate.py').read_text()
     assert 'upload_immutable' in publisher and 'immutable publication collision' in publisher
