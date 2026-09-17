@@ -2,6 +2,7 @@ name: combat-candidate-training
 
 # Ten-minute best-effort wake-up, NOT a guaranteed ten-minute completed update.
 # One writer, bounded work, full-round traces, paired frozen before/after video.
+# The scheduled P1 controller uses the versioned readout declared by combat_training_run.py; current mode is ema-residual.
 on:
   workflow_dispatch:
   schedule:
