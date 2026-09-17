@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./observatory-polish.css";
 
 export const metadata: Metadata = {
   title: "Connectome Fighter · Neural Observatory",
