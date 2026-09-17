@@ -41,6 +41,51 @@ def validate_config(config: dict) -> None:
         raise ValueError('potential shaping version mismatch')
 
 
+def paired_evaluation_utility(metrics: dict, config: dict) -> float:
+    """Comparable fixed-evaluation utility for candidate acceptance.
+
+    This uses the terminal and net-damage terms from R2e. The proximity-potential
+    term is omitted because paired before/after evaluations share the same fixed
+    initial condition, making its episode-total contribution a common constant.
+    It is an engineering acceptance metric, not a biological reinforcement claim.
+    """
+    validate_config(config)
+    if not isinstance(metrics, dict):
+        raise ValueError('evaluation metrics must be an object')
+    max_hp = float(config['max_hp'])
+    p1 = finite(metrics.get('p1_hp'), 'p1 HP')
+    p2 = finite(metrics.get('p2_hp'), 'p2 HP')
+    dealt = finite(metrics.get('damage_dealt_hp'), 'damage dealt')
+    taken = finite(metrics.get('damage_taken_hp'), 'damage taken')
+    if not (0.0 <= p1 <= max_hp and 0.0 <= p2 <= max_hp and 0.0 <= dealt <= max_hp and 0.0 <= taken <= max_hp):
+        raise ValueError('evaluation HP/damage outside configured range')
+    if abs(dealt - (max_hp - p2)) > 1e-9 or abs(taken - (max_hp - p1)) > 1e-9:
+        raise ValueError('evaluation damage does not match final HP')
+    elapsed = integer(metrics.get('elapsed_frame'), 'elapsed frame', 1)
+    if elapsed > config['round_frame_limit']:
+        raise ValueError('evaluation exceeds configured horizon')
+    margin = p1 - p2
+    total_damage = dealt + taken
+    terminal = config['terminal']
+    outcome = terminal['win'] if margin > 0 else terminal['loss'] if margin < 0 else terminal['no_damage_draw_penalty'] if total_damage == 0 else terminal['ordinary_draw']
+    bonus = terminal['early_ko_win_bonus'] * (1 - elapsed / config['round_frame_limit']) if margin > 0 and p2 == 0 else 0.0
+    return float(outcome + config['damage_weight'] * (dealt - taken) / max_hp + bonus)
+
+
+def paired_evaluation_gate(before: dict, after: dict, config: dict) -> dict:
+    """Accept only a strict improvement on the identical frozen evaluation."""
+    before_utility = paired_evaluation_utility(before, config)
+    after_utility = paired_evaluation_utility(after, config)
+    accepted = after_utility > before_utility + 1e-12
+    return {
+        'accepted_update': accepted,
+        'before_utility': before_utility,
+        'after_utility': after_utility,
+        'utility_delta': after_utility - before_utility,
+        'reason': 'strict paired fixed-evaluation improvement' if accepted else 'proposal did not strictly improve paired fixed-evaluation utility',
+    }
+
+
 def reward_sequence(round_row: dict, side: int, config: dict, *, require_trainable: bool = True) -> list[dict]:
     """Score a complete round. Offline rescores must explicitly opt out of training.
 
