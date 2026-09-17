@@ -3,7 +3,7 @@
   "candidate_only": true,
   "character": "GARNET",
   "comparison_phase": "before",
-  "evaluated_at": "2026-09-17T01:53:36.745293+00:00",
+  "evaluated_at": "2026-09-17T06:50:44.404728+00:00",
   "evaluation": {
     "configured_round_limit_seconds": 60,
     "decision_interval_frames": 60,
@@ -15,10 +15,10 @@
     "seed_p1": 800101,
     "seed_p2": 20202
   },
-  "generation": 26,
+  "generation": 27,
   "interpretation_boundary": "Actual frozen before/after evaluation on the same fixed seed; not held-out generalization, proof of improvement, or production LIVE.",
   "kind": "post-update-candidate-round-evaluation",
-  "matches": 26,
+  "matches": 27,
   "model": "KC-MBON-valence-depression-v0",
   "opponent": "ZEN",
   "policy_pixel_access": false,
@@ -33,27 +33,26 @@
     "p1_hp": 400,
     "p2_hp": 400,
     "requested_action_counts": {
-      "2": 1,
-      "4": 1,
-      "5": 2,
-      "6": 56
+      "2": 4,
+      "4": 3,
+      "6": 53
     },
     "winner": "DRAW"
   },
   "reward_id": "R2e-combat-v1",
   "schema_version": 2,
   "served_by_vercel": false,
-  "source_training_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/35171992158",
-  "state_sha256": "926b9dec50c4414028b2e1c8ad6599031728b7f086b832f53d1de55c66cad5df",
+  "source_training_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/35191340854",
+  "state_sha256": "d8c0a68f3235a70efe65c0546a6da3382c718500f56b259fdbbc34666137cd6e",
   "status": "COMPLETED",
   "video": {
-    "asset_url": "https://github.com/Unjuno/connectome-fighter/releases/download/combat-evaluation-35171992158/before.mp4",
-    "bytes": 1921572,
+    "asset_url": "https://github.com/Unjuno/connectome-fighter/releases/download/combat-evaluation-35191340854/before.mp4",
+    "bytes": 1950212,
     "codec": "h264",
-    "duration_seconds": 54.7,
+    "duration_seconds": 55.8,
     "fps": 10,
     "height": 640,
-    "sha256": "34903a82688356b12a9497e9d649e8501ac484886cf2e80f6c589d3a1f5b8123",
+    "sha256": "e8f8873365d8c00f44ce097b62a4242f801e848312b3de5a81adb8a7606f0514",
     "width": 960
   }
 }

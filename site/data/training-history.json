@@ -849,12 +849,46 @@
         "potentiated_edges": 0
       },
       "updated_at": "2026-09-17T01:53:36.692311+00:00"
+    },
+    {
+      "auto_promotion": false,
+      "character": "GARNET",
+      "generation": 28,
+      "interpretation_boundary": "Experimental R2e candidate. One paired seed measures a local change, not general fighting strength or biological validity.",
+      "match_status": "COMPLETED_WITH_VALIDATED_CANONICAL_TRACES",
+      "matches": 28,
+      "model": "KC-MBON-valence-depression-v0",
+      "opponent": "ZEN",
+      "reward_id": "R2e-combat-v1",
+      "served_by_vercel": false,
+      "signal_summary": {
+        "decision_windows": 60,
+        "negative": 1,
+        "nonzero": 1,
+        "positive": 0,
+        "sum": -0.234375
+      },
+      "source_kind": "combat-training-v1",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/35191340854",
+      "state_sha256": "2ed0cb15e071aedfcd73aa803334c2ec94ed561fdd31eccf7b1904fc5b05e313",
+      "status": "candidate-only-not-arena-approved",
+      "update_summary": {
+        "changed_approach_edges": 6479,
+        "changed_avoidance_edges": 0,
+        "changed_edges": 6479,
+        "depressed_edges": 6479,
+        "max_multiplier": 1.0,
+        "mean_multiplier": 0.996725230261324,
+        "min_multiplier": 0.9549882411956787,
+        "potentiated_edges": 0
+      },
+      "updated_at": "2026-09-17T06:50:44.361585+00:00"
     }
   ],
-  "entry_count": 25,
+  "entry_count": 26,
   "interpretation_boundary": "This ledger records GitHub research-candidate updates only. Entries are not arena approval, not proof of improved fighting performance, and are never served by Vercel without a separate promotion gate.",
   "kind": "canonical-continuous-training-history",
-  "latest_generation": 27,
-  "latest_state_sha256": "d8c0a68f3235a70efe65c0546a6da3382c718500f56b259fdbbc34666137cd6e",
+  "latest_generation": 28,
+  "latest_state_sha256": "2ed0cb15e071aedfcd73aa803334c2ec94ed561fdd31eccf7b1904fc5b05e313",
   "schema_version": 1
 }
