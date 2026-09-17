@@ -22,6 +22,8 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 REWARD = 'R2e-combat-v1'
 REPO = 'Unjuno/connectome-fighter'
+READOUT_MODE = 'ema-residual'
+READOUT_CONTRACT = 'malecns-temporal-readout-v1'
 
 
 def sha(path):
@@ -129,7 +131,7 @@ else:
                     if 'Socket server is started' in (out/(name+'-game.log')).read_text(errors='replace'):break
                     time.sleep(.5)
                 else:raise TimeoutError('game startup timeout')
-                cmd=[bridge,runtime/'repo/scripts/run_game_malecns_lif.py','--host','127.0.0.1','--port','31415','--character-p1','GARNET','--character-p2',opponent,'--seed-p1',str(seed1),'--seed-p2',str(seed2),'--reference-python',wrapper,'--reference-model',runtime/'shiu/model.py','--adapter-dir',base,'--adapter-dir-p1',adapter,'--interface',runtime/'data/interface.json','--decision-interval','60','--games','1','--expected-rounds','1','--timeout',str(max(1,min(600,int(deadline-time.monotonic())))),'--run-id',name,'--out',out/'matches']
+                cmd=[bridge,runtime/'repo/scripts/run_game_malecns_lif.py','--host','127.0.0.1','--port','31415','--character-p1','GARNET','--character-p2',opponent,'--seed-p1',str(seed1),'--seed-p2',str(seed2),'--reference-python',wrapper,'--reference-model',runtime/'shiu/model.py','--adapter-dir',base,'--adapter-dir-p1',adapter,'--interface',runtime/'data/interface.json','--decision-interval','60','--readout-mode-p1',READOUT_MODE,'--readout-mode-p2','canonical','--games','1','--expected-rounds','1','--timeout',str(max(1,min(600,int(deadline-time.monotonic())))),'--run-id',name,'--out',out/'matches']
                 if train: cmd+=['--trainable-trace']
                 if video: cmd+=['--spectator-video',out/(name+'.mp4'),'--spectator-fps','10']
                 run(cmd,name)
@@ -140,6 +142,7 @@ else:
         assert status['learning_performed'] is False and status['trace_trainable'] is train
         assert status['completed_rounds_per_agent']==[1,1]
         assert len(status['workers'])==2 and all(w['neurons']==156675 and w['synapses']==6025920 for w in status['workers'])
+        assert status['workers'][0]['readout_mode']==READOUT_MODE and status['workers'][1]['readout_mode']=='canonical'
         rows=[json.loads(line) for line in (folder/'p1.jsonl').read_text().splitlines() if line.strip()]
         assert len(rows)==1 and rows[0]['terminated'] is True and rows[0]['truncated'] is False
         trace=rows[0];hps=[max(0,v) for v in trace['remaining_hps']]
@@ -150,15 +153,17 @@ else:
                 'ended_by':'KO' if min(hps)==0 else 'TIME_LIMIT',
                 'damage_dealt_hp':max(0,initial['p2']['hp']-hps[1]),'damage_taken_hp':max(0,initial['p1']['hp']-hps[0]),
                 'no_damage_draw':hps==[400,400], 'decision_count':len(transitions),
+                'readout_mode':READOUT_MODE,'readout_contract':READOUT_CONTRACT,
                 'requested_action_counts':dict(Counter(str(t['action']) for t in transitions))}
     started=now();clock=time.monotonic()
     run_id=os.environ.get('GITHUB_RUN_ID','local');run_url=f'https://github.com/{REPO}/actions/runs/{run_id}'
     write(out/'environment.json',{'started_at':started,'tested_commit':os.environ.get('GITHUB_SHA'),
           'python':sys.version,'runtime_manifest':manifest,'reward':REWARD,'game_frames':3600,'decision_interval_frames':60,
+          'readout_mode_p1':READOUT_MODE,'readout_mode_p2':'canonical','readout_contract':READOUT_CONTRACT,
           'evaluation_seeds':[800101,20202],'synthetic_neural_fixture':False,'candidate_only':True,'auto_promotion':False,
           'pipeline':'paired-before/train/paired-after','source_archive_sha256':sha(args.source_archive),
           'selected_dependency_descriptor':json.loads((out/'dependencies.json').read_text()) if (out/'dependencies.json').exists() else None})
-    result={'status':'FAIL','reward_id':REWARD,'source_run_url':run_url}
+    result={'status':'FAIL','reward_id':REWARD,'source_run_url':run_url,'readout_mode':READOUT_MODE,'readout_contract':READOUT_CONTRACT}
     try:
         frozen=sha(state)
         before=match('before',before_adapter,'ZEN',800101,20202,video=True)
@@ -187,12 +192,13 @@ else:
                 'character':'GARNET','generation':meta['generation'],'matches':meta['matches'],'state_sha256':meta['state_sha256'],
                 'model':meta['model'],'reward_id':REWARD,'opponent':opponent,'source_kind':'combat-training-v1',
                 'source_run_url':run_url,'served_by_vercel':False,'auto_promotion':False,'updated_at':now(),
+                'readout_mode':READOUT_MODE,'readout_contract':READOUT_CONTRACT,
                 'match_status':'COMPLETED_WITH_VALIDATED_CANONICAL_TRACES','signal_summary':update['signals'],'update_summary':update['updates'],
                 'parent_generation':generation,'parent_reward_id':parent['reward_id'],'parent_state_sha256':parent['state_sha256'],
                 'archive_file':archive_name,'archive_sha256':archive_sha,'schedule_minutes':10,
                 'actual_pipeline_seconds':time.monotonic()-clock,'training_seed':train_seed,
                 'combat_metrics':{'before':before,'training':training,'after':after},
-                'interpretation_boundary':'Experimental R2e candidate. One paired seed measures a local change, not general fighting strength or biological validity.'}
+                'interpretation_boundary':'Experimental R2e candidate using the held-out-selected EMA-residual P1 readout. One paired seed measures a local change, not general fighting strength or biological validity.'}
         write(publish/'training-manifest.json',status);write(publish/'training-status.json',status)
         video_tag=f'combat-evaluation-{run_id}'
         for phase,metrics,g in [('before',before,generation),('after',after,meta['generation'])]:
@@ -205,13 +211,15 @@ else:
                         'candidate_only':True,'auto_promotion':False,'served_by_vercel':False,'policy_pixel_access':False,
                         'character':'GARNET','opponent':'ZEN','generation':g,'matches':meta['matches'] if phase=='after' else parent['matches'],
                         'state_sha256':after_hash if phase=='after' else frozen,'model':meta['model'],'reward_id':REWARD,
+                        'readout_mode':READOUT_MODE,'readout_contract':READOUT_CONTRACT,
                         'evaluated_at':now(),'source_training_run_url':run_url,'comparison_phase':phase,
                         'evaluation':{'protocol':'fixed-full-round-v2','rounds':1,'fixed_opponent':True,'seed_p1':800101,'seed_p2':20202,'round_frame_limit':3600,'nominal_game_fps':60,'configured_round_limit_seconds':60,'decision_interval_frames':60},
                         'result':metrics,'video':{'asset_url':f'https://github.com/{REPO}/releases/download/{video_tag}/{phase}.mp4','codec':'h264','width':960,'height':640,'fps':10,'duration_seconds':duration,'bytes':video.stat().st_size,'sha256':sha(video)},
-                        'interpretation_boundary':'Actual frozen before/after evaluation on the same fixed seed; not held-out generalization, proof of improvement, or production LIVE.'}
+                        'interpretation_boundary':'Actual frozen before/after evaluation using the held-out-selected EMA-residual P1 readout on the same fixed seed; not held-out generalization, proof of improvement, or production LIVE.'}
             write(publish/('evaluation-status.json' if phase=='after' else 'evaluation-previous.json'),evaluation)
         write(publish/'publication.json',{'video_tag':video_tag,'checkpoint_tag':'combat-training-v1','archive_file':archive_name,'generation':meta['generation'],'source_run_id':run_id,'source_commit':os.environ.get('GITHUB_SHA')})
         result={'status':'PASS','reward_id':REWARD,'source_run_url':run_url,'generation':meta['generation'],
+                'readout_mode':READOUT_MODE,'readout_contract':READOUT_CONTRACT,
                 'before':before,'training':training,'after':after,'changed_edges':update['updates']['changed_edges'],
                 'new_state_sha256':after_hash,'parent_state_sha256':parent['state_sha256'],
                 'auto_promotion':False,'pipeline_seconds':time.monotonic()-clock}
