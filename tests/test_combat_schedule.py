@@ -5,11 +5,12 @@ import yaml
 ROOT=Path(__file__).resolve().parents[1]
 
 
-def test_ten_minute_single_writer_with_read_only_pr_jobs():
+def test_self_chaining_single_writer_with_hourly_watchdog_and_read_only_pr_jobs():
     raw=(ROOT/'.github/workflows/continuous-training.yml').read_text();d=yaml.safe_load(raw)
     trigger=d.get('on',d.get(True))
     assert d['name']=='combat-candidate-training'
-    assert trigger['schedule']==[{'cron':'3,13,23,33,43,53 * * * *'}]
+    assert trigger['schedule']==[{'cron':'17 * * * *'}]
+    assert 'workflow_dispatch' in trigger
     assert d['concurrency']=={'group':'canonical-continuous-training-single-writer','cancel-in-progress':False}
     assert d['permissions']=={'contents':'read'}
     assert 'CONNECTOME_TRAINING_PAUSED' in d['jobs']['train-and-evaluate']['if']
@@ -17,6 +18,20 @@ def test_ten_minute_single_writer_with_read_only_pr_jobs():
     assert "github.event_name != 'pull_request'" in publish['if']
     assert "github.ref == 'refs/heads/main'" in publish['if']
     assert publish['needs']=='train-and-evaluate'
+    loop=d['jobs']['continue-loop']
+    assert loop['needs']==['train-and-evaluate','publish']
+    assert loop['permissions']=={'actions':'write','contents':'read'}
+    assert loop['timeout-minutes']==5
+    assert "github.event_name != 'pull_request'" in loop['if']
+    assert "github.ref == 'refs/heads/main'" in loop['if']
+    assert "CONNECTOME_TRAINING_PAUSED" in loop['if']
+    assert "needs.train-and-evaluate.result == 'success'" in loop['if']
+    assert "needs.publish.result == 'success'" in loop['if'] and "needs.publish.result == 'skipped'" in loop['if']
+    loop_raw=str(loop)
+    assert 'sleep 120' in loop_raw
+    assert 'status=queued' in loop_raw and 'status=in_progress' in loop_raw
+    assert 'GITHUB_RUN_ID' in loop_raw
+    assert '/dispatches' in loop_raw and 'ref=main' in loop_raw
     assert all(j['timeout-minutes']<=25 for j in d['jobs'].values())
     assert d['env']['TRAINING_TAG']=='combat-training-v1'
     assert d['env']['SEED_TAG']=='canonical-training-latest'
