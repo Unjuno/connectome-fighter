@@ -55,6 +55,8 @@ jobs:
 
   train-and-evaluate:
     needs: contract
+    outputs:
+      accepted_update: ${{ steps.acceptance.outputs.accepted_update }}
     if: vars.CONNECTOME_TRAINING_PAUSED != 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -83,7 +85,12 @@ jobs:
       - name: Real frozen baseline, full training round, and frozen updated evaluation
         run: |
           python scripts/combat_training_run.py --runtime-root "$RUNTIME_ROOT" --source-archive runs/combat/source.tar.gz --out runs/combat --timeout-seconds 1050
+      - name: Read strict paired acceptance decision
+        id: acceptance
+        run: |
+          echo "accepted_update=$(python -c "import json; print(str(bool(json.load(open('runs/combat/result.json')).get('accepted_update'))).lower())")" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
+        if: steps.acceptance.outputs.accepted_update == 'true'
         with:
           name: combat-candidate-publication-${{ github.run_id }}
           path: runs/combat/publish
@@ -106,6 +113,7 @@ jobs:
             runs/combat/asset-audit.json
             runs/combat/dependencies.json
             runs/combat/update.json
+            runs/combat/acceptance.json
             runs/combat/*.log
             runs/combat/*.txt
             runs/combat/evidence
@@ -119,7 +127,7 @@ jobs:
 
   publish:
     needs: train-and-evaluate
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.CONNECTOME_TRAINING_PAUSED != 'true'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.CONNECTOME_TRAINING_PAUSED != 'true' && needs.train-and-evaluate.outputs.accepted_update == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 8
     permissions:
