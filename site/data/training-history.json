@@ -1053,12 +1053,46 @@
         "potentiated_edges": 0
       },
       "updated_at": "2026-09-17T23:52:27.534745+00:00"
+    },
+    {
+      "auto_promotion": false,
+      "character": "GARNET",
+      "generation": 34,
+      "interpretation_boundary": "Experimental R2e candidate using the held-out-selected EMA-residual P1 readout. One paired seed measures a local change, not general fighting strength or biological validity.",
+      "match_status": "COMPLETED_WITH_VALIDATED_EXPERIMENTAL_READOUT_TRACES",
+      "matches": 34,
+      "model": "KC-MBON-valence-depression-v0",
+      "opponent": "ZEN",
+      "reward_id": "R2e-combat-v1",
+      "served_by_vercel": false,
+      "signal_summary": {
+        "decision_windows": 60,
+        "negative": 3,
+        "nonzero": 7,
+        "positive": 4,
+        "sum": -2.021875
+      },
+      "source_kind": "combat-training-v1",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/35289317097",
+      "state_sha256": "258a2d992e1f274a3d7be517552c8e9150bddd569b9f8d122219eab8542f8135",
+      "status": "candidate-only-not-arena-approved",
+      "update_summary": {
+        "changed_approach_edges": 6357,
+        "changed_avoidance_edges": 4359,
+        "changed_edges": 10716,
+        "depressed_edges": 10716,
+        "max_multiplier": 1.0,
+        "mean_multiplier": 0.9899242652848395,
+        "min_multiplier": 0.9149698615074158,
+        "potentiated_edges": 0
+      },
+      "updated_at": "2026-09-18T00:04:33.122267+00:00"
     }
   ],
-  "entry_count": 31,
+  "entry_count": 32,
   "interpretation_boundary": "This ledger records GitHub research-candidate updates only. Entries are not arena approval, not proof of improved fighting performance, and are never served by Vercel without a separate promotion gate.",
   "kind": "canonical-continuous-training-history",
-  "latest_generation": 33,
-  "latest_state_sha256": "14795b56f8c85038a192fbec4c8f495b7687c8ea956ac935e63dd980b9088294",
+  "latest_generation": 34,
+  "latest_state_sha256": "258a2d992e1f274a3d7be517552c8e9150bddd569b9f8d122219eab8542f8135",
   "schema_version": 1
 }
