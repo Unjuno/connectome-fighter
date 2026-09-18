@@ -27,11 +27,12 @@ For equal initial state, terminal-corrected potential differences telescope to t
 
 | Clock | Configuration |
 |---|---|
-| CI wake-up request | Every ten minutes, at minutes 3/13/23/33/43/53 UTC |
-| Neural action decision | Every 60 FightingICE frames, unchanged in this first reward experiment |
+| Training-cycle request | After a successful main run, wait 120 seconds and request exactly one next `workflow_dispatch` if no sibling run is queued or active |
+| Watchdog | Hourly at minute 17 UTC; schedule is recovery-only because GitHub scheduled events are best effort |
+| Neural action decision | Every 60 FightingICE frames |
 | Weight update | Once after one completed 3600-frame-maximum training round, outside gameplay |
 
-The GitHub schedule is best effort: jobs may be delayed or dropped. The single-writer concurrency group never cancels a running update. A pending request may be superseded. The system resumes the latest verified checkpoint rather than replaying missed time slots. No guaranteed ten-minute completion or spending increase is claimed.
+The lane remains single-writer and never cancels a running update. The self-dispatch request is bounded to one successor and checks queued/in-progress sibling runs before dispatching. The hourly schedule is only a watchdog for a stopped chain; GitHub may delay or drop scheduled events. This targets a practical roughly five-to-ten-minute cycle with the current measured runtime, but it is not a throughput guarantee and it does not replay missed wall-clock slots.
 
 Set repository variable `CONNECTOME_TRAINING_PAUSED=true` or disable the workflow to stop further scheduled training/publication. This does not cancel an already running read-only computation. No billing changes are made. Logs/artifacts have three-day retention; published candidate/video assets persist for audit.
 
@@ -43,13 +44,15 @@ Set repository variable `CONNECTOME_TRAINING_PAUSED=true` or disable the workflo
 4. Collect one full training round against a baseline ZEN/LUD/NEZ rotation. Derive fresh training seeds from the inherited generation, separate from fixed evaluation seeds.
 5. Apply audited R2e signals to existing eligible KC-to-MBON edges. Preserve topology, sign, learning rate 0.01, eligibility decay 0.9, and multiplier bounds 0.8–1.0.
 6. Materialize the updated state and repeat the same frozen evaluation. Neither evaluation updates weights.
-7. Main-branch publication, in a separate write-authorized job, exposes the new candidate and both actual videos. PR jobs never publish. Video URLs are run-addressed and existing bytes cannot be replaced. Update the three public status records and append-only history together.
+7. Compute the fixed-pair acceptance utility from the R2e terminal term, normalized net damage and any applicable winning-KO bonus. The candidate must strictly improve this utility on the identical ZEN seeds 800101/20202. A non-improving proposal is recorded as rejected evidence and is not published as a new generation.
+8. Main-branch publication, in a separate write-authorized job, exposes only an accepted candidate and both actual videos. PR jobs never publish. Video URLs are run-addressed and existing bytes cannot be replaced. Update the three public status records and append-only history together.
+9. After an accepted publication or a clean rejection, the main workflow may request one successor run after the bounded hold. Rejected generations do not advance the checkpoint, and the next attempt uses a deterministic run-ID seed salt so it does not repeat the same training trace.
 
 The trainer workflow is now named `combat-candidate-training`. Legacy `canonical-continuous-training` workflow-run consumers are not triggered; this cycle owns its evaluations and history, avoiding competing automatic publishers. Old manual R2d evaluation workflows remain historical tools, not the new automatic lane.
 
 ## Assessment before claiming improvement
 
-A before/after result on one reused seed is a local regression indicator, not held-out generalization. The next assessment must include independent seeds, baseline and archived opponents, role/character effects, win rate, damage differential, KO completion time conditional on winning, no-damage draws, and uncertainty intervals. A large terminal reward does not prove effective credit assignment. If contact remains rare, test action-decision interval and fixed sensor/motor routing as separate interventions rather than silently changing several variables together.
+The strict before/after gate prevents publishing a local regression on the fixed evaluation, but passing it is still only a local regression check, not held-out generalization. The next assessment must include independent seeds, baseline and archived opponents, role/character effects, win rate, damage differential, KO completion time conditional on winning, no-damage draws, and uncertainty intervals. A large terminal reward does not prove effective credit assignment. If contact remains rare, test action-decision interval and fixed sensor/motor routing as separate interventions rather than silently changing several variables together.
 
 **H:** R2e-trained candidates improve held-out combat metrics relative to their inherited R2d checkpoint under matched evaluation conditions.
 
