@@ -1087,12 +1087,46 @@
         "potentiated_edges": 0
       },
       "updated_at": "2026-09-18T00:04:33.122267+00:00"
+    },
+    {
+      "auto_promotion": false,
+      "character": "GARNET",
+      "generation": 35,
+      "interpretation_boundary": "Experimental R2e candidate using the held-out-selected EMA-residual P1 readout. One paired seed measures a local change, not general fighting strength or biological validity.",
+      "match_status": "COMPLETED_WITH_VALIDATED_EXPERIMENTAL_READOUT_TRACES",
+      "matches": 35,
+      "model": "KC-MBON-valence-depression-v0",
+      "opponent": "LUD",
+      "reward_id": "R2e-combat-v1",
+      "served_by_vercel": false,
+      "signal_summary": {
+        "decision_windows": 60,
+        "negative": 6,
+        "nonzero": 13,
+        "positive": 7,
+        "sum": -2.121875
+      },
+      "source_kind": "combat-training-v1",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/35290335760",
+      "state_sha256": "c2bf9aa549ac403d4eb73d24ca35f7f4a49fa6a5b3bb2bfae1d43d369a0e89bd",
+      "status": "candidate-only-not-arena-approved",
+      "update_summary": {
+        "changed_approach_edges": 6853,
+        "changed_avoidance_edges": 4437,
+        "changed_edges": 11290,
+        "depressed_edges": 11290,
+        "max_multiplier": 1.0,
+        "mean_multiplier": 0.9883784345476389,
+        "min_multiplier": 0.8951680660247803,
+        "potentiated_edges": 0
+      },
+      "updated_at": "2026-09-18T00:19:15.753974+00:00"
     }
   ],
-  "entry_count": 32,
+  "entry_count": 33,
   "interpretation_boundary": "This ledger records GitHub research-candidate updates only. Entries are not arena approval, not proof of improved fighting performance, and are never served by Vercel without a separate promotion gate.",
   "kind": "canonical-continuous-training-history",
-  "latest_generation": 34,
-  "latest_state_sha256": "258a2d992e1f274a3d7be517552c8e9150bddd569b9f8d122219eab8542f8135",
+  "latest_generation": 35,
+  "latest_state_sha256": "c2bf9aa549ac403d4eb73d24ca35f7f4a49fa6a5b3bb2bfae1d43d369a0e89bd",
   "schema_version": 1
 }
