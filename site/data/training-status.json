@@ -25,7 +25,7 @@
       "damage_taken_hp": 0,
       "decision_count": 60,
       "elapsed_frame": 3600,
-      "elapsed_seconds": 60,
+      "elapsed_seconds": 60.0,
       "ended_by": "TIME_LIMIT",
       "no_damage_draw": false,
       "p1_hp": 400,
@@ -49,7 +49,7 @@
       "damage_taken_hp": 0,
       "decision_count": 60,
       "elapsed_frame": 3600,
-      "elapsed_seconds": 60,
+      "elapsed_seconds": 60.0,
       "ended_by": "TIME_LIMIT",
       "no_damage_draw": false,
       "p1_hp": 400,
@@ -73,7 +73,7 @@
       "damage_taken_hp": 0,
       "decision_count": 60,
       "elapsed_frame": 3600,
-      "elapsed_seconds": 60,
+      "elapsed_seconds": 60.0,
       "ended_by": "TIME_LIMIT",
       "no_damage_draw": false,
       "p1_hp": 400,
@@ -107,6 +107,12 @@
   "readout_mode": "ema-residual",
   "reward_id": "R2e-combat-v1",
   "schedule_minutes": null,
+  "schedule_contract": {
+    "mode": "bounded-self-chain-with-hourly-watchdog",
+    "self_chain_hold_seconds": 120,
+    "watchdog_cron": "17 * * * *",
+    "guaranteed_interval": false
+  },
   "schema_version": 1,
   "served_by_vercel": false,
   "signal_summary": {
@@ -128,16 +134,10 @@
     "changed_avoidance_edges": 4384,
     "changed_edges": 10585,
     "depressed_edges": 10585,
-    "max_multiplier": 1,
+    "max_multiplier": 1.0,
     "mean_multiplier": 0.984638172034321,
     "min_multiplier": 0.8413891792297363,
     "potentiated_edges": 0
   },
-  "updated_at": "2026-09-20T06:23:23.405070+00:00",
-  "schedule_contract": {
-    "mode": "bounded-self-chain-with-hourly-watchdog",
-    "self_chain_hold_seconds": 120,
-    "watchdog_cron": "17 * * * *",
-    "guaranteed_interval": false
-  }
+  "updated_at": "2026-09-20T06:23:23.405070+00:00"
 }
