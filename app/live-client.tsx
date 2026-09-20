@@ -121,16 +121,19 @@ export function LiveClient() {
         </article>
         <article className="ob-panel ob-history-card">
           <span className="ob-step-number">C</span><span className="ob-kicker">SCHEDULED UPDATE GATE</span><h3>{gate?.accepted_update === true ? 'UPDATE ACCEPTED' : gate?.accepted_update === false ? 'UPDATE REJECTED' : 'NOT YET RECORDED'}</h3><p>{gate?.reason || 'Published candidates before this gate do not have a paired acceptance record.'}</p>
-          <div className="ob-data-pair"><span>Paired utility</span><strong>{metric(gate?.before_utility, 5)} → {metric(gate?.after_utility, 5)}</strong></div>
+          <div className="ob-data-pair"><span>{typeof gate?.pair_count === 'number' ? 'Validation mean utility' : 'Paired utility'}</span><strong>{metric(gate?.before_utility, 5)} → {metric(gate?.after_utility, 5)}</strong></div>
           <div className="ob-data-pair"><span>Utility delta</span><strong>{signed(gate?.utility_delta, 5)}</strong></div>
+          {typeof gate?.pair_count === 'number' ? <div className="ob-data-pair"><span>Validation pairs improved</span><strong>{metric(gate?.improved_pairs)}/{metric(gate?.pair_count)}</strong></div> : null}
+          {typeof gate?.outcome_regressions === 'number' ? <div className="ob-data-pair"><span>Outcome regressions</span><strong>{metric(gate?.outcome_regressions)}</strong></div> : null}
           <div className="ob-data-pair"><span>Parent → candidate</span><strong>Gen {metric(gate?.parent_generation)} → {metric(gate?.proposed_generation)}</strong></div>
           <div className="ob-data-pair"><span>Changed connections</span><strong>{metric(training?.update_summary?.changed_edges)}</strong></div>
-          <small>Same-seed frozen evaluation · publication requires strict improvement</small>
+          <small>{typeof gate?.pair_count === 'number' ? 'Fixed ZEN/LUD/NEZ validation · no outcome-class regression allowed' : 'Same-seed frozen evaluation · publication requires strict improvement'}</small>
         </article>
       </div>
       <details className="ob-evaluation-details"><summary>Inspect current gate and earlier search evidence</summary>
         <p>Readout: <code>{control?.readout_contract || training?.readout_contract || 'Not recorded'}</code> · mode <code>{training?.readout_mode || control?.readout_mode || 'Not recorded'}</code> · policy_pixel_access=false</p>
         <p>Current scheduled gate: utility {metric(gate?.before_utility, 5)} → {metric(gate?.after_utility, 5)} ({signed(gate?.utility_delta, 5)}). Protocol: <code>{gate?.protocol || 'Not recorded'}</code>.</p>
+        {typeof gate?.pair_count === 'number' ? <p>Validation coverage: {metric(gate?.improved_pairs)}/{metric(gate?.pair_count)} pairs improved · required {metric(gate?.required_improved_pairs)} · outcome regressions {metric(gate?.outcome_regressions)}. This fixed suite is a publication gate, not independent generalization evidence.</p> : null}
         {typeof training?.source_run_url === 'string' ? <p><a href={training.source_run_url}>Open current candidate Actions run ↗</a></p> : null}
         <p>Earlier paired-search pilot, parent: dealt {metric(search?.combat_before?.damage_dealt_hp)} HP / took {metric(search?.combat_before?.damage_taken_hp)} HP / score {metric(search?.combat_before?.score, 5)}.<br />Proposal: dealt {metric(search?.combat_proposal?.damage_dealt_hp)} HP / took {metric(search?.combat_proposal?.damage_taken_hp)} HP / score {metric(search?.combat_proposal?.score, 5)}.</p>
         <p>Earlier pilot accepted update: {search?.accepted_update === true ? 'YES' : search?.accepted_update === false ? 'NO' : '—'}. Reward coefficients changed in that experiment: {search?.reward_coefficients_changed === false ? 'NO' : '—'}.</p>
