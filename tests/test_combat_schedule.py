@@ -45,6 +45,12 @@ def test_actual_pipeline_contains_both_frozen_evaluations_and_no_promotion():
     assert "'--decision-interval','60'" in source and "'-f','3600'" in source
     assert "'--readout-mode-p1',READOUT_MODE" in source and "'--readout-mode-p2','canonical'" in source
     assert "READOUT_MODE = 'ema-residual'" in source and "READOUT_CONTRACT = 'malecns-temporal-readout-v1'" in source
+    assert "'schedule_minutes':None" in source
+    assert "'mode': 'bounded-self-chain-with-hourly-watchdog'" in source
+    assert "'self_chain_hold_seconds': 120" in source
+    assert "'watchdog_cron': '17 * * * *'" in source
+    assert "'guaranteed_interval': False" in source
+    assert "'schedule_minutes':10" not in source
     assert "'auto_promotion':False" in source and "'served_by_vercel':False" in source
     publisher=(ROOT/'scripts/publish_combat_candidate.py').read_text()
     assert 'upload_immutable' in publisher and 'immutable publication collision' in publisher
