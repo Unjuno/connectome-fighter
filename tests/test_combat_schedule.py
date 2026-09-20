@@ -11,7 +11,9 @@ def test_self_chaining_single_writer_with_hourly_watchdog_and_read_only_pr_jobs(
     assert d['name']=='combat-candidate-training'
     assert trigger['schedule']==[{'cron':'17 * * * *'}]
     assert 'workflow_dispatch' in trigger
-    assert d['concurrency']=={'group':'canonical-continuous-training-single-writer','cancel-in-progress':False}
+    concurrency=d['concurrency'];assert concurrency['cancel-in-progress'] is False
+    assert 'canonical-continuous-training-single-writer' in concurrency['group']
+    assert 'pull_request.number' in concurrency['group'] and 'combat-training-pr-' in concurrency['group']
     assert d['permissions']=={'contents':'read'}
     assert 'CONNECTOME_TRAINING_PAUSED' in d['jobs']['train-and-evaluate']['if']
     publish=d['jobs']['publish'];assert publish['permissions']=={'contents':'write'}
