@@ -28,6 +28,12 @@ REPO = 'Unjuno/connectome-fighter'
 READOUT_MODE = 'ema-residual'
 READOUT_CONTRACT = 'malecns-temporal-readout-v1'
 MATCH_STATUS = 'COMPLETED_WITH_VALIDATED_EXPERIMENTAL_READOUT_TRACES'
+SCHEDULE_CONTRACT = {
+    'mode': 'bounded-self-chain-with-hourly-watchdog',
+    'self_chain_hold_seconds': 120,
+    'watchdog_cron': '17 * * * *',
+    'guaranteed_interval': False,
+}
 
 
 def sha(path):
@@ -220,7 +226,7 @@ else:
                 'readout_mode':READOUT_MODE,'readout_contract':READOUT_CONTRACT,
                 'match_status':MATCH_STATUS,'signal_summary':update['signals'],'update_summary':update['updates'],
                 'parent_generation':generation,'parent_reward_id':parent['reward_id'],'parent_state_sha256':parent['state_sha256'],
-                'archive_file':archive_name,'archive_sha256':archive_sha,'schedule_minutes':10,
+                'archive_file':archive_name,'archive_sha256':archive_sha,'schedule_minutes':None,'schedule_contract':SCHEDULE_CONTRACT,
                 'actual_pipeline_seconds':time.monotonic()-clock,'training_seed':train_seed,'training_seed_p2':train_seed_p2,
                 'training_attempt_salt':attempt_salt,'accepted_update':True,'acceptance_gate':gate,
                 'combat_metrics':{'before':before,'training':training,'after':after},
