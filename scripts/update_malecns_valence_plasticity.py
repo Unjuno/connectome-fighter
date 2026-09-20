@@ -156,7 +156,8 @@ def main()->int:
     finish_match(state)
     state_meta=save_state(args.state,state,cfg)
     after=state.multipliers.astype(np.float64); before64=before.astype(np.float64)
-    changed=np.flatnonzero(np.abs(after-before64)>1e-12)
+    absolute_delta=np.abs(after-before64)
+    changed=np.flatnonzero(absolute_delta>1e-12)
     approach=(channels=='approach_associated'); avoidance=(channels=='avoidance_associated')
     bound_tol=1e-7
     at_lower_bound=int(np.count_nonzero(after<=cfg.multiplier_min+bound_tol))
@@ -179,6 +180,9 @@ def main()->int:
             'min_multiplier':float(after.min()),'mean_multiplier':float(after.mean()),'max_multiplier':float(after.max()),
             'at_lower_bound_edges':at_lower_bound,'at_upper_bound_edges':at_upper_bound,
             'at_lower_bound_fraction':float(at_lower_bound/len(after)),'at_upper_bound_fraction':float(at_upper_bound/len(after)),
+            'mean_abs_multiplier_delta':float(absolute_delta.mean()),
+            'max_abs_multiplier_delta':float(absolute_delta.max()),
+            'mean_abs_changed_multiplier_delta':float(absolute_delta[changed].mean()) if len(changed) else 0.0,
         },
         'state':state_meta,
         'event_metrics':event_metrics,
