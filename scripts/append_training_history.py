@@ -62,6 +62,7 @@ def compact_entry(status: dict[str, Any]) -> dict[str, Any]:
         "reward_id": status.get("reward_id"),
         "signal_summary": status.get("signal_summary") or {},
         "update_summary": status.get("update_summary") or {},
+        "acceptance_gate": status.get("acceptance_gate") or {},
         "status": status.get("status"),
         "served_by_vercel": False,
         "auto_promotion": False,
