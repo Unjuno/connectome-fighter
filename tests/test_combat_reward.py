@@ -3,7 +3,7 @@ import copy
 import json
 from pathlib import Path
 import pytest
-from connectome_fighter.combat_reward import paired_evaluation_gate, paired_evaluation_utility, reward_sequence, validate_config
+from connectome_fighter.combat_reward import paired_evaluation_gate, paired_evaluation_suite_gate, paired_evaluation_utility, reward_sequence, validate_config
 
 ROOT = Path(__file__).resolve().parents[1]
 CFG = json.loads((ROOT/'configs/reward_r2e_combat_v1.json').read_text())
@@ -136,3 +136,56 @@ def test_paired_utility_matches_terminal_plus_net_damage_for_timeout_win():
 def test_paired_utility_rejects_inconsistent_damage():
     bad=evaluation();bad['damage_dealt_hp']=0
     with pytest.raises(ValueError): paired_evaluation_utility(bad,CFG)
+
+
+def suite_case(case_id, before, after, opponent='ZEN', seed=1):
+    return {'case_id':case_id,'opponent':opponent,'seed_p1':800000+seed,'seed_p2':30000+seed,'before':before,'after':after}
+
+
+def test_suite_gate_accepts_broad_two_of_three_improvement():
+    base=evaluation(400,360)
+    cases=[
+        suite_case('zen',base,evaluation(400,350),'ZEN',1),
+        suite_case('lud',base,evaluation(400,355),'LUD',2),
+        suite_case('nez',base,copy.deepcopy(base),'NEZ',3),
+    ]
+    gate=paired_evaluation_suite_gate(cases,CFG)
+    assert gate['accepted_update'] is True
+    assert gate['improved_pairs']==2
+    assert gate['required_improved_pairs']==2
+    assert gate['outcome_regressions']==0
+    assert gate['utility_delta'] > 0
+
+
+def test_suite_gate_rejects_single_large_improvement():
+    flat=evaluation(400,360)
+    cases=[
+        suite_case('zen',evaluation(300,400),evaluation(400,300),'ZEN',1),
+        suite_case('lud',flat,copy.deepcopy(flat),'LUD',2),
+        suite_case('nez',flat,copy.deepcopy(flat),'NEZ',3),
+    ]
+    gate=paired_evaluation_suite_gate(cases,CFG)
+    assert gate['accepted_update'] is False
+    assert gate['improved_pairs']==1
+    assert gate['utility_delta'] > 0
+
+
+def test_suite_gate_rejects_outcome_regression_even_with_positive_mean():
+    cases=[
+        suite_case('zen',evaluation(400,395),evaluation(400,400),'ZEN',1),
+        suite_case('lud',evaluation(300,400),evaluation(400,300),'LUD',2),
+        suite_case('nez',evaluation(300,400),evaluation(400,300),'NEZ',3),
+    ]
+    gate=paired_evaluation_suite_gate(cases,CFG)
+    assert gate['accepted_update'] is False
+    assert gate['outcome_regressions']==1
+    assert gate['utility_delta'] > 0
+
+
+def test_suite_gate_requires_unique_cases_and_three_pairs():
+    base=evaluation(400,360)
+    with pytest.raises(ValueError):
+        paired_evaluation_suite_gate([suite_case('a',base,base),suite_case('b',base,base)],CFG)
+    duplicate=[suite_case('same',base,base,'ZEN',1),suite_case('same',base,base,'LUD',2),suite_case('c',base,base,'NEZ',3)]
+    with pytest.raises(ValueError):
+        paired_evaluation_suite_gate(duplicate,CFG)

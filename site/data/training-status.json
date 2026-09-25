@@ -106,7 +106,13 @@
   "readout_contract": "malecns-temporal-readout-v1",
   "readout_mode": "ema-residual",
   "reward_id": "R2e-combat-v1",
-  "schedule_minutes": 10,
+  "schedule_minutes": null,
+  "schedule_contract": {
+    "mode": "bounded-self-chain-with-hourly-watchdog",
+    "self_chain_hold_seconds": 120,
+    "watchdog_cron": "17 * * * *",
+    "guaranteed_interval": false
+  },
   "schema_version": 1,
   "served_by_vercel": false,
   "signal_summary": {

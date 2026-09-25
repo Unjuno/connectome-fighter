@@ -30,7 +30,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: canonical-continuous-training-single-writer
+  group: ${{ github.event_name == 'pull_request' && format('combat-training-pr-{0}', github.event.pull_request.number) || 'canonical-continuous-training-single-writer' }}
   cancel-in-progress: false
 
 env:

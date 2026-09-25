@@ -40,19 +40,20 @@ Set repository variable `CONNECTOME_TRAINING_PAUSED=true` or disable the workflo
 
 1. Pin GitHub release asset IDs, byte digests and sizes for runtime and source checkpoint.
 2. On first use, explicitly fork R2d-v0 into R2e without changing inherited weights or the old release. Preserve parent metadata and config identity. Subsequent runs resume `combat-training-v1`.
-3. Evaluate the unmodified candidate against ZEN with fixed seeds 800101/20202 and record actual ScreenData.
-4. Collect one full training round against a baseline ZEN/LUD/NEZ rotation. Derive fresh training seeds from the inherited generation, separate from fixed evaluation seeds.
-5. Apply audited R2e signals to existing eligible KC-to-MBON edges. Preserve topology, sign, learning rate 0.01, eligibility decay 0.9, and multiplier bounds 0.8–1.0.
-6. Materialize the updated state and repeat the same frozen evaluation. Neither evaluation updates weights.
-7. Compute the fixed-pair acceptance utility from the R2e terminal term, normalized net damage and any applicable winning-KO bonus. The candidate must strictly improve this utility on the identical ZEN seeds 800101/20202. A non-improving proposal is recorded as rejected evidence and is not published as a new generation.
-8. Main-branch publication, in a separate write-authorized job, exposes only an accepted candidate and both actual videos. PR jobs never publish. Video URLs are run-addressed and existing bytes cannot be replaced. Update the three public status records and append-only history together.
-9. After an accepted publication or a clean rejection, the main workflow may request one successor run after the bounded hold. Rejected generations do not advance the checkpoint, and the next attempt uses a deterministic run-ID seed salt so it does not repeat the same training trace.
+3. Evaluate the unmodified candidate against the legacy ZEN comparability anchor at seeds 800101/20202 and record actual ScreenData. This anchor remains useful for the public replay but is no longer the candidate-selection gate.
+4. Evaluate the unmodified candidate on the fixed validation suite: ZEN 810101/31001, LUD 810202/31002, and NEZ 810303/31003. These seeds are separate from the rotating training seeds and from the legacy replay anchor.
+5. Collect one full training round against the baseline ZEN/LUD/NEZ rotation. Derive fresh training seeds from the inherited generation and GitHub run ID.
+6. Apply audited R2e signals to existing eligible KC-to-MBON edges. Preserve topology, sign, reward coefficients, learning rate 0.01, eligibility decay 0.9, decision interval 60, and multiplier bounds 0.8–1.0.
+7. Materialize the updated state and repeat the same three validation cases plus the legacy ZEN comparability anchor. None of these evaluations updates weights.
+8. Compute R2e terminal-plus-net-damage utility for every validation pair. Publication requires all of the following: positive mean paired utility change, strict improvement on at least two of the three opponents, and no regression in win/draw/loss outcome class on any opponent. The legacy 800101/20202 ZEN replay is excluded from this acceptance decision.
+9. Main-branch publication, in a separate write-authorized job, exposes only an accepted candidate and the two legacy-anchor videos. PR jobs never publish. Video URLs are run-addressed and existing bytes cannot be replaced. The training status also records the three-opponent before/after validation evidence.
+10. After an accepted publication or a clean rejection, the main workflow may request one successor run after the bounded hold. Rejected generations do not advance the checkpoint, and the next attempt uses a deterministic run-ID seed salt so it does not repeat the same training trace.
 
 The trainer workflow is now named `combat-candidate-training`. Legacy `canonical-continuous-training` workflow-run consumers are not triggered; this cycle owns its evaluations and history, avoiding competing automatic publishers. Old manual R2d evaluation workflows remain historical tools, not the new automatic lane.
 
 ## Assessment before claiming improvement
 
-The strict before/after gate prevents publishing a local regression on the fixed evaluation, but passing it is still only a local regression check, not held-out generalization. The next assessment must include independent seeds, baseline and archived opponents, role/character effects, win rate, damage differential, KO completion time conditional on winning, no-damage draws, and uncertainty intervals. A large terminal reward does not prove effective credit assignment. If contact remains rare, test action-decision interval and fixed sensor/motor routing as separate interventions rather than silently changing several variables together.
+The three-opponent before/after gate reduces selection pressure toward one fixed ZEN seed, but it remains a small deterministic validation suite and therefore is not held-out generalization evidence. The next assessment must use an independent seed set that never participates in publication decisions, plus baseline and archived opponents, role/character effects, win rate, damage differential, KO completion time conditional on winning, no-damage draws, and uncertainty intervals. A large terminal reward does not prove effective credit assignment. If contact remains rare, test action-decision interval and fixed sensor/motor routing as separate interventions rather than silently changing several variables together.
 
 **H:** R2e-trained candidates improve held-out combat metrics relative to their inherited R2d checkpoint under matched evaluation conditions.
 

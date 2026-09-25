@@ -11,7 +11,9 @@ def test_self_chaining_single_writer_with_hourly_watchdog_and_read_only_pr_jobs(
     assert d['name']=='combat-candidate-training'
     assert trigger['schedule']==[{'cron':'17 * * * *'}]
     assert 'workflow_dispatch' in trigger
-    assert d['concurrency']=={'group':'canonical-continuous-training-single-writer','cancel-in-progress':False}
+    concurrency=d['concurrency'];assert concurrency['cancel-in-progress'] is False
+    assert 'canonical-continuous-training-single-writer' in concurrency['group']
+    assert 'pull_request.number' in concurrency['group'] and 'combat-training-pr-' in concurrency['group']
     assert d['permissions']=={'contents':'read'}
     assert 'CONNECTOME_TRAINING_PAUSED' in d['jobs']['train-and-evaluate']['if']
     publish=d['jobs']['publish'];assert publish['permissions']=={'contents':'write'}
@@ -45,6 +47,20 @@ def test_actual_pipeline_contains_both_frozen_evaluations_and_no_promotion():
     assert "'--decision-interval','60'" in source and "'-f','3600'" in source
     assert "'--readout-mode-p1',READOUT_MODE" in source and "'--readout-mode-p2','canonical'" in source
     assert "READOUT_MODE = 'ema-residual'" in source and "READOUT_CONTRACT = 'malecns-temporal-readout-v1'" in source
+    assert "paired_evaluation_suite_gate" in source
+    assert "'case_id':'zen-validation-v1','opponent':'ZEN','seed_p1':810101,'seed_p2':31001" in source
+    assert "'case_id':'lud-validation-v1','opponent':'LUD','seed_p1':810202,'seed_p2':31002" in source
+    assert "'case_id':'nez-validation-v1','opponent':'NEZ','seed_p1':810303,'seed_p2':31003" in source
+    assert "'protocol':'fixed-three-opponent-validation-v1'" in source
+    assert "validation_before=evaluate_suite('validation-before',before_adapter)" in source
+    assert "validation_after=evaluate_suite('validation-after',after_adapter)" in source
+    assert "LEGACY_EVALUATION = {'opponent':'ZEN','seed_p1':800101,'seed_p2':20202}" in source
+    assert "'schedule_minutes':None" in source
+    assert "'mode': 'bounded-self-chain-with-hourly-watchdog'" in source
+    assert "'self_chain_hold_seconds': 120" in source
+    assert "'watchdog_cron': '17 * * * *'" in source
+    assert "'guaranteed_interval': False" in source
+    assert "'schedule_minutes':10" not in source
     assert "'auto_promotion':False" in source and "'served_by_vercel':False" in source
     publisher=(ROOT/'scripts/publish_combat_candidate.py').read_text()
     assert 'upload_immutable' in publisher and 'immutable publication collision' in publisher

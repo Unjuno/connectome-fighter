@@ -21,13 +21,25 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'src'))
-from connectome_fighter.combat_reward import paired_evaluation_gate
+from connectome_fighter.combat_reward import paired_evaluation_suite_gate
 
 REWARD = 'R2e-combat-v1'
 REPO = 'Unjuno/connectome-fighter'
 READOUT_MODE = 'ema-residual'
 READOUT_CONTRACT = 'malecns-temporal-readout-v1'
 MATCH_STATUS = 'COMPLETED_WITH_VALIDATED_EXPERIMENTAL_READOUT_TRACES'
+SCHEDULE_CONTRACT = {
+    'mode': 'bounded-self-chain-with-hourly-watchdog',
+    'self_chain_hold_seconds': 120,
+    'watchdog_cron': '17 * * * *',
+    'guaranteed_interval': False,
+}
+LEGACY_EVALUATION = {'opponent':'ZEN','seed_p1':800101,'seed_p2':20202}
+VALIDATION_SUITE = (
+    {'case_id':'zen-validation-v1','opponent':'ZEN','seed_p1':810101,'seed_p2':31001},
+    {'case_id':'lud-validation-v1','opponent':'LUD','seed_p1':810202,'seed_p2':31002},
+    {'case_id':'nez-validation-v1','opponent':'NEZ','seed_p1':810303,'seed_p2':31003},
+)
 
 
 def sha(path):
@@ -161,18 +173,27 @@ else:
                 'no_damage_draw':hps==[400,400], 'decision_count':len(transitions),
                 'readout_mode':READOUT_MODE,'readout_contract':READOUT_CONTRACT,
                 'requested_action_counts':dict(Counter(str(t['action']) for t in transitions))}
+    def evaluate_suite(prefix,adapter):
+        rows=[]
+        for case in VALIDATION_SUITE:
+            metrics=match(f"{prefix}-{case['case_id']}",adapter,case['opponent'],case['seed_p1'],case['seed_p2'])
+            rows.append({**case,'metrics':metrics})
+        return rows
     started=now();clock=time.monotonic()
     run_id=os.environ.get('GITHUB_RUN_ID','local');run_url=f'https://github.com/{REPO}/actions/runs/{run_id}'
     write(out/'environment.json',{'started_at':started,'tested_commit':os.environ.get('GITHUB_SHA'),
           'python':sys.version,'runtime_manifest':manifest,'reward':REWARD,'game_frames':3600,'decision_interval_frames':60,
           'readout_mode_p1':READOUT_MODE,'readout_mode_p2':'canonical','readout_contract':READOUT_CONTRACT,
-          'evaluation_seeds':[800101,20202],'synthetic_neural_fixture':False,'candidate_only':True,'auto_promotion':False,
-          'pipeline':'paired-before/train/paired-after/strict-acceptance-gate','training_seed_strategy':'generation-plus-github-run-id-salt','source_archive_sha256':sha(args.source_archive),
+          'legacy_evaluation':LEGACY_EVALUATION,'acceptance_validation_suite':VALIDATION_SUITE,
+          'synthetic_neural_fixture':False,'candidate_only':True,'auto_promotion':False,
+          'pipeline':'legacy-anchor-before/validation-suite-before/train/validation-suite-after/legacy-anchor-after/robust-acceptance-gate',
+          'training_seed_strategy':'generation-plus-github-run-id-salt','source_archive_sha256':sha(args.source_archive),
           'selected_dependency_descriptor':json.loads((out/'dependencies.json').read_text()) if (out/'dependencies.json').exists() else None})
     result={'status':'FAIL','accepted_update':False,'reward_id':REWARD,'source_run_url':run_url,'readout_mode':READOUT_MODE,'readout_contract':READOUT_CONTRACT}
     try:
         frozen=sha(state)
-        before=match('before',before_adapter,'ZEN',800101,20202,video=True)
+        before=match('before',before_adapter,LEGACY_EVALUATION['opponent'],LEGACY_EVALUATION['seed_p1'],LEGACY_EVALUATION['seed_p2'],video=True)
+        validation_before=evaluate_suite('validation-before',before_adapter)
         assert sha(state)==frozen
         generation=int(metadata['generation']);opponents=('ZEN','LUD','NEZ');opponent=opponents[generation%3]
         try: attempt_salt=int(run_id)%100000
@@ -185,13 +206,22 @@ else:
         update=json.loads((out/'update.json').read_text());assert update['status']=='PASS'
         assert update['updates']['potentiated_edges']==0 and update['invariants']['topology_changed'] is False and update['invariants']['sign_changed'] is False
         after_adapter=materialize('after-adapter');after_hash=sha(state)
-        after=match('after',after_adapter,'ZEN',800101,20202,video=True)
+        validation_after=evaluate_suite('validation-after',after_adapter)
+        after=match('after',after_adapter,LEGACY_EVALUATION['opponent'],LEGACY_EVALUATION['seed_p1'],LEGACY_EVALUATION['seed_p2'],video=True)
         assert sha(state)==after_hash
         assert before_source=={str(f.relative_to(source)):sha(f) for f in source.rglob('*') if f.is_file()}
         meta=json.loads(state.with_suffix('.npz.json').read_text());assert meta['generation']==generation+1
         reward_config=json.loads((ROOT/'configs/reward_r2e_combat_v1.json').read_text())
-        gate=paired_evaluation_gate(before,after,reward_config)
-        gate.update({'protocol':'same-seed-frozen-before-after-v1','seed_p1':800101,'seed_p2':20202,
+        gate_cases=[]
+        for before_case,after_case in zip(validation_before,validation_after,strict=True):
+            assert before_case['case_id']==after_case['case_id']
+            gate_cases.append({
+                'case_id':before_case['case_id'],'opponent':before_case['opponent'],
+                'seed_p1':before_case['seed_p1'],'seed_p2':before_case['seed_p2'],
+                'before':before_case['metrics'],'after':after_case['metrics'],
+            })
+        gate=paired_evaluation_suite_gate(gate_cases,reward_config)
+        gate.update({'protocol':'fixed-three-opponent-validation-v1',
                      'parent_generation':generation,'proposed_generation':meta['generation'],
                      'parent_state_sha256':parent['state_sha256'],'proposed_state_sha256':after_hash})
         write(out/'acceptance.json',gate)
@@ -199,6 +229,7 @@ else:
             result={'status':'REJECTED','accepted_update':False,'reward_id':REWARD,'source_run_url':run_url,
                     'generation':generation,'proposed_generation':meta['generation'],'readout_mode':READOUT_MODE,
                     'readout_contract':READOUT_CONTRACT,'before':before,'training':training,'after':after,
+                    'validation_before':validation_before,'validation_after':validation_after,
                     'acceptance_gate':gate,'changed_edges':update['updates']['changed_edges'],
                     'parent_state_sha256':parent['state_sha256'],'proposed_state_sha256':after_hash,
                     'training_seed':train_seed,'training_seed_p2':train_seed_p2,'training_attempt_salt':attempt_salt,
@@ -220,11 +251,12 @@ else:
                 'readout_mode':READOUT_MODE,'readout_contract':READOUT_CONTRACT,
                 'match_status':MATCH_STATUS,'signal_summary':update['signals'],'update_summary':update['updates'],
                 'parent_generation':generation,'parent_reward_id':parent['reward_id'],'parent_state_sha256':parent['state_sha256'],
-                'archive_file':archive_name,'archive_sha256':archive_sha,'schedule_minutes':10,
+                'archive_file':archive_name,'archive_sha256':archive_sha,'schedule_minutes':None,'schedule_contract':SCHEDULE_CONTRACT,
                 'actual_pipeline_seconds':time.monotonic()-clock,'training_seed':train_seed,'training_seed_p2':train_seed_p2,
                 'training_attempt_salt':attempt_salt,'accepted_update':True,'acceptance_gate':gate,
-                'combat_metrics':{'before':before,'training':training,'after':after},
-                'interpretation_boundary':'Experimental R2e candidate using the held-out-selected EMA-residual P1 readout. One paired seed measures a local change, not general fighting strength or biological validity.'}
+                'combat_metrics':{'before':before,'training':training,'after':after,
+                                  'validation_before':validation_before,'validation_after':validation_after},
+                'interpretation_boundary':'Experimental R2e candidate using the held-out-selected EMA-residual P1 readout. Publication now requires improvement across a small fixed ZEN/LUD/NEZ validation suite; this is still not proof of general fighting strength or biological validity.'}
         write(publish/'training-manifest.json',status);write(publish/'training-status.json',status)
         video_tag=f'combat-evaluation-{run_id}'
         for phase,metrics,g in [('before',before,generation),('after',after,meta['generation'])]:
@@ -241,12 +273,14 @@ else:
                         'evaluated_at':now(),'source_training_run_url':run_url,'comparison_phase':phase,
                         'evaluation':{'protocol':'fixed-full-round-v2','rounds':1,'fixed_opponent':True,'seed_p1':800101,'seed_p2':20202,'round_frame_limit':3600,'nominal_game_fps':60,'configured_round_limit_seconds':60,'decision_interval_frames':60},
                         'result':metrics,'video':{'asset_url':f'https://github.com/{REPO}/releases/download/{video_tag}/{phase}.mp4','codec':'h264','width':960,'height':640,'fps':10,'duration_seconds':duration,'bytes':video.stat().st_size,'sha256':sha(video)},
-                        'interpretation_boundary':'Actual frozen before/after evaluation using the held-out-selected EMA-residual P1 readout on the same fixed seed; not held-out generalization, proof of improvement, or production LIVE.'}
+                        'interpretation_boundary':'Actual frozen before/after legacy ZEN comparability anchor using the held-out-selected EMA-residual P1 readout. Candidate acceptance uses a separate fixed ZEN/LUD/NEZ validation suite; this replay is not proof of generalization or production LIVE.'}
             write(publish/('evaluation-status.json' if phase=='after' else 'evaluation-previous.json'),evaluation)
         write(publish/'publication.json',{'video_tag':video_tag,'checkpoint_tag':'combat-training-v1','archive_file':archive_name,'generation':meta['generation'],'source_run_id':run_id,'source_commit':os.environ.get('GITHUB_SHA')})
         result={'status':'PASS','accepted_update':True,'reward_id':REWARD,'source_run_url':run_url,'generation':meta['generation'],
                 'readout_mode':READOUT_MODE,'readout_contract':READOUT_CONTRACT,
-                'before':before,'training':training,'after':after,'acceptance_gate':gate,'changed_edges':update['updates']['changed_edges'],
+                'before':before,'training':training,'after':after,
+                'validation_before':validation_before,'validation_after':validation_after,
+                'acceptance_gate':gate,'changed_edges':update['updates']['changed_edges'],
                 'training_seed':train_seed,'training_seed_p2':train_seed_p2,'training_attempt_salt':attempt_salt,
                 'new_state_sha256':after_hash,'parent_state_sha256':parent['state_sha256'],
                 'auto_promotion':False,'pipeline_seconds':time.monotonic()-clock}
