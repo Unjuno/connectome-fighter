@@ -22,6 +22,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'src'))
 from connectome_fighter.combat_reward import paired_evaluation_suite_gate
+from connectome_fighter.combat_curriculum import training_curriculum
 
 REWARD = 'R2e-combat-v1'
 REPO = 'Unjuno/connectome-fighter'
@@ -74,6 +75,7 @@ def main():
     args=p.parse_args()
     if os.environ.get('CI')!='true' or os.environ.get('VERCEL'): p.error('standalone CI only')
     if not 180<=args.timeout_seconds<=1200: p.error('timeout must be 180..1200 seconds')
+    curriculum=training_curriculum(os.environ.get('GITHUB_RUN_NUMBER'))
     runtime=args.runtime_root.resolve();out=args.out.resolve();out.mkdir(parents=True,exist_ok=True)
     deadline=time.monotonic()+args.timeout_seconds
     manifest=json.loads((runtime/'manifest.json').read_text())
@@ -185,17 +187,19 @@ else:
           'python':sys.version,'runtime_manifest':manifest,'reward':REWARD,'game_frames':3600,'decision_interval_frames':60,
           'readout_mode_p1':READOUT_MODE,'readout_mode_p2':'canonical','readout_contract':READOUT_CONTRACT,
           'legacy_evaluation':LEGACY_EVALUATION,'acceptance_validation_suite':VALIDATION_SUITE,
+          'training_curriculum':curriculum,
           'synthetic_neural_fixture':False,'candidate_only':True,'auto_promotion':False,
           'pipeline':'legacy-anchor-before/validation-suite-before/train/validation-suite-after/legacy-anchor-after/robust-acceptance-gate',
           'training_seed_strategy':'generation-plus-github-run-id-salt','source_archive_sha256':sha(args.source_archive),
           'selected_dependency_descriptor':json.loads((out/'dependencies.json').read_text()) if (out/'dependencies.json').exists() else None})
     result={'status':'FAIL','accepted_update':False,'reward_id':REWARD,'source_run_url':run_url,'readout_mode':READOUT_MODE,'readout_contract':READOUT_CONTRACT}
+    update=None
     try:
         frozen=sha(state)
         before=match('before',before_adapter,LEGACY_EVALUATION['opponent'],LEGACY_EVALUATION['seed_p1'],LEGACY_EVALUATION['seed_p2'],video=True)
         validation_before=evaluate_suite('validation-before',before_adapter)
         assert sha(state)==frozen
-        generation=int(metadata['generation']);opponents=('ZEN','LUD','NEZ');opponent=opponents[generation%3]
+        generation=int(metadata['generation']);opponent=curriculum['opponent']
         try: attempt_salt=int(run_id)%100000
         except ValueError: attempt_salt=0
         train_seed=900001+generation*101+attempt_salt
@@ -234,7 +238,6 @@ else:
                     'parent_state_sha256':parent['state_sha256'],'proposed_state_sha256':after_hash,
                     'training_seed':train_seed,'training_seed_p2':train_seed_p2,'training_attempt_salt':attempt_salt,
                     'auto_promotion':False,'pipeline_seconds':time.monotonic()-clock}
-            print(json.dumps(result,indent=2))
             return 0
         publish=out/'publish';publish.mkdir()
         package=out/'package';(package/'state').mkdir(parents=True)
@@ -254,6 +257,7 @@ else:
                 'archive_file':archive_name,'archive_sha256':archive_sha,'schedule_minutes':None,'schedule_contract':SCHEDULE_CONTRACT,
                 'actual_pipeline_seconds':time.monotonic()-clock,'training_seed':train_seed,'training_seed_p2':train_seed_p2,
                 'training_attempt_salt':attempt_salt,'accepted_update':True,'acceptance_gate':gate,
+                'training_curriculum':curriculum,
                 'combat_metrics':{'before':before,'training':training,'after':after,
                                   'validation_before':validation_before,'validation_after':validation_after},
                 'interpretation_boundary':'Experimental R2e candidate using the held-out-selected EMA-residual P1 readout. Publication now requires improvement across a small fixed ZEN/LUD/NEZ validation suite; this is still not proof of general fighting strength or biological validity.'}
@@ -284,9 +288,13 @@ else:
                 'training_seed':train_seed,'training_seed_p2':train_seed_p2,'training_attempt_salt':attempt_salt,
                 'new_state_sha256':after_hash,'parent_state_sha256':parent['state_sha256'],
                 'auto_promotion':False,'pipeline_seconds':time.monotonic()-clock}
-        print(json.dumps(result,indent=2))
     finally:
+        result['training_curriculum']=curriculum
+        if update is not None:
+            result['signal_summary']=update.get('signals',{})
+            result['update_summary']=update.get('updates',{})
         result['finished_at']=now();write(out/'result.json',result)
+        print(json.dumps(result,indent=2))
     return 0
 
 if __name__=='__main__':raise SystemExit(main())
