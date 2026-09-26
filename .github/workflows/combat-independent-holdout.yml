@@ -1,0 +1,74 @@
+name: combat-independent-holdout
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/combat-independent-holdout.yml'
+      - 'scripts/evaluate_combat_holdout.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: combat-independent-holdout
+  cancel-in-progress: false
+
+env:
+  CI: 'true'
+  RUNTIME_ROOT: /home/vercel-sandbox/connectome-runtime/arena-runtime
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile holdout evaluator
+        run: python -m py_compile scripts/evaluate_combat_holdout.py
+      - name: Install official-renderer dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fontconfig fonts-dejavu-core ffmpeg
+      - name: Fetch pinned runtime and archived Gen42/Gen43 checkpoints
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p runs/holdout
+          gh release download arena-runtime-latest --pattern arena-runtime.tar.gz --dir runs/holdout
+          gh release download combat-training-v1 \
+            --pattern 'garnet-g000042-779613039c766ac7.tar.gz' \
+            --pattern 'garnet-g000043-c7a3ae2c0b12e37e.tar.gz' \
+            --dir runs/holdout
+          echo '0b2f9452cd18dbd8e3ec1d4280aa1e9354441411a1f4dce98b9e08434c07dcab  runs/holdout/garnet-g000042-779613039c766ac7.tar.gz' | sha256sum -c -
+          echo 'f32685c33c4be3040edc2a4f421f2db3c415603bce949bdbc4cecf8017fa89b5  runs/holdout/garnet-g000043-c7a3ae2c0b12e37e.tar.gz' | sha256sum -c -
+          sudo mkdir -p "$(dirname "$RUNTIME_ROOT")"
+          sudo chown -R "$(id -u):$(id -g)" /home/vercel-sandbox
+          tar -xzf runs/holdout/arena-runtime.tar.gz -C "$(dirname "$RUNTIME_ROOT")"
+          cp -r src scripts configs "$RUNTIME_ROOT/repo/"
+      - name: Run independent no-learning Gen42 versus Gen43 holdout
+        run: |
+          python scripts/evaluate_combat_holdout.py \
+            --runtime-root "$RUNTIME_ROOT" \
+            --candidate gen42 runs/holdout/garnet-g000042-779613039c766ac7.tar.gz \
+            --candidate gen43 runs/holdout/garnet-g000043-c7a3ae2c0b12e37e.tar.gz \
+            --out runs/holdout/result --timeout-seconds 1200
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gen42-gen43-independent-holdout
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            runs/holdout/result/independent-holdout.json
+            runs/holdout/result/*.log
+            runs/holdout/result/matches/*/status.json
+            runs/holdout/result/matches/*/p1.jsonl
