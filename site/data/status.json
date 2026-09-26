@@ -960,40 +960,56 @@
       "nonzero_reward_rounds": 1,
       "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/36255771965",
       "updated_at": "2026-09-26T16:37:00Z"
+    },
+    {
+      "action_rates": {
+        "A": 0.011458333333333333,
+        "B": 0.6541666666666667,
+        "BACKWARD": 0.171875,
+        "C": 0.026041666666666668,
+        "DOWN": 0.11041666666666666,
+        "FORWARD": 0.015625,
+        "UP": 0.010416666666666666
+      },
+      "independent_rounds": 48,
+      "nonzero_reward_rate": 0.020833333333333332,
+      "nonzero_reward_rounds": 1,
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/36272455929",
+      "updated_at": "2026-09-26T21:23:54Z"
     }
   ],
   "latest_match": {
     "replay_url": "./data/replay-latest.json",
-    "run_id": "baseline-r63-lud-nez-LUD-NEZ",
-    "winner": "LUD"
+    "run_id": "baseline-r64-zen-nez-ZEN-NEZ",
+    "winner": "NEZ"
   },
   "metrics": {
     "action_counts": {
-      "A": 9,
-      "B": 564,
-      "BACKWARD": 244,
-      "C": 42,
-      "DOWN": 77,
-      "FORWARD": 10,
-      "UP": 14
+      "A": 11,
+      "B": 628,
+      "BACKWARD": 165,
+      "C": 25,
+      "DOWN": 106,
+      "FORWARD": 15,
+      "UP": 10
     },
     "action_rates": {
-      "A": 0.009375,
-      "B": 0.5875,
-      "BACKWARD": 0.25416666666666665,
-      "C": 0.04375,
-      "DOWN": 0.08020833333333334,
-      "FORWARD": 0.010416666666666666,
-      "UP": 0.014583333333333334
+      "A": 0.011458333333333333,
+      "B": 0.6541666666666667,
+      "BACKWARD": 0.171875,
+      "C": 0.026041666666666668,
+      "DOWN": 0.11041666666666666,
+      "FORWARD": 0.015625,
+      "UP": 0.010416666666666666
     },
     "characters": {
       "GARNET": {
         "action_counts": {
-          "A": 4,
-          "B": 160,
-          "BACKWARD": 43,
-          "C": 10,
-          "DOWN": 21,
+          "A": 6,
+          "B": 167,
+          "BACKWARD": 27,
+          "C": 6,
+          "DOWN": 32,
           "FORWARD": 2
         },
         "decisions": 240,
@@ -1004,13 +1020,29 @@
       },
       "LUD": {
         "action_counts": {
-          "A": 2,
-          "B": 159,
-          "BACKWARD": 42,
-          "C": 12,
-          "DOWN": 19,
-          "FORWARD": 4,
-          "UP": 2
+          "A": 1,
+          "B": 156,
+          "BACKWARD": 41,
+          "C": 6,
+          "DOWN": 25,
+          "FORWARD": 5,
+          "UP": 6
+        },
+        "decisions": 240,
+        "draws": 24,
+        "losses": 0,
+        "rounds": 24,
+        "wins": 0
+      },
+      "NEZ": {
+        "action_counts": {
+          "A": 3,
+          "B": 158,
+          "BACKWARD": 44,
+          "C": 4,
+          "DOWN": 28,
+          "FORWARD": 2,
+          "UP": 1
         },
         "decisions": 240,
         "draws": 23,
@@ -1018,35 +1050,19 @@
         "rounds": 24,
         "wins": 1
       },
-      "NEZ": {
+      "ZEN": {
         "action_counts": {
-          "A": 2,
-          "B": 119,
-          "BACKWARD": 83,
-          "C": 4,
-          "DOWN": 22,
-          "FORWARD": 3,
-          "UP": 7
+          "A": 1,
+          "B": 147,
+          "BACKWARD": 53,
+          "C": 9,
+          "DOWN": 21,
+          "FORWARD": 6,
+          "UP": 3
         },
         "decisions": 240,
         "draws": 23,
         "losses": 1,
-        "rounds": 24,
-        "wins": 0
-      },
-      "ZEN": {
-        "action_counts": {
-          "A": 1,
-          "B": 126,
-          "BACKWARD": 76,
-          "C": 16,
-          "DOWN": 15,
-          "FORWARD": 1,
-          "UP": 5
-        },
-        "decisions": 240,
-        "draws": 24,
-        "losses": 0,
         "rounds": 24,
         "wins": 0
       }
@@ -1070,10 +1086,10 @@
     "win": 1.0
   },
   "schema_version": 4,
-  "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/36255771965",
+  "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/36272455929",
   "spatial_visualization": {
     "available": false,
     "policy_access": false
   },
-  "updated_at": "2026-09-26T16:37:00Z"
+  "updated_at": "2026-09-26T21:23:54Z"
 }
