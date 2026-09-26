@@ -29,29 +29,29 @@
     },
     "R1_terminal_sign_plus_margin": {
       "decision_reward": {
-        "max_abs": 1.0375,
+        "max_abs": 1.0125,
         "mean": 0.0,
-        "mean_abs": 0.0021614583333333334,
+        "mean_abs": 0.0021093749999999997,
         "n": 960,
         "negative": 1,
         "nonzero": 2,
         "nonzero_rate": 0.0020833333333333333,
         "p95_abs": 0.0,
         "positive": 1,
-        "std": 0.04735517945096749
+        "std": 0.04621409078949839
       },
       "definition": "all decision rewards 0 except final = sign(margin)+margin/max_hp",
       "round_return": {
-        "max_abs": 1.0375,
+        "max_abs": 1.0125,
         "mean": 0.0,
-        "mean_abs": 0.021614583333333336,
+        "mean_abs": 0.021093749999999998,
         "n": 96,
         "negative": 1,
         "nonzero": 2,
         "nonzero_rate": 0.020833333333333332,
         "p95_abs": 0.0,
         "positive": 1,
-        "std": 0.1497502260710592
+        "std": 0.146141786888624
       }
     },
     "R2_damage_local_plus_terminal_grid": {
@@ -63,26 +63,26 @@
           "decision_reward": {
             "max_abs": 0.25,
             "mean": 0.0,
-            "mean_abs": 0.0008854166666666667,
+            "mean_abs": 0.00078125,
             "n": 960,
-            "negative": 4,
-            "nonzero": 8,
-            "nonzero_rate": 0.008333333333333333,
+            "negative": 3,
+            "nonzero": 6,
+            "nonzero_rate": 0.00625,
             "p95_abs": 0.0,
-            "positive": 4,
-            "std": 0.012342761036332186
+            "positive": 3,
+            "std": 0.012129938856674698
           },
           "round_return": {
-            "max_abs": 0.325,
+            "max_abs": 0.275,
             "mean": 0.0,
-            "mean_abs": 0.0067708333333333336,
+            "mean_abs": 0.005729166666666667,
             "n": 96,
             "negative": 1,
             "nonzero": 2,
             "nonzero_rate": 0.020833333333333332,
             "p95_abs": 0.0,
             "positive": 1,
-            "std": 0.046909709371657095
+            "std": 0.03969283100678678
           },
           "terminal_bonus": 0.25
         },
@@ -92,26 +92,26 @@
           "decision_reward": {
             "max_abs": 0.5,
             "mean": 0.0,
-            "mean_abs": 0.0014062500000000002,
+            "mean_abs": 0.0013020833333333333,
             "n": 960,
-            "negative": 4,
-            "nonzero": 8,
-            "nonzero_rate": 0.008333333333333333,
+            "negative": 3,
+            "nonzero": 6,
+            "nonzero_rate": 0.00625,
             "p95_abs": 0.0,
-            "positive": 4,
-            "std": 0.023301689852884062
+            "positive": 3,
+            "std": 0.0231896618489073
           },
           "round_return": {
-            "max_abs": 0.575,
+            "max_abs": 0.525,
             "mean": 0.0,
-            "mean_abs": 0.011979166666666666,
+            "mean_abs": 0.010937500000000001,
             "n": 96,
             "negative": 1,
             "nonzero": 2,
             "nonzero_rate": 0.020833333333333332,
             "p95_abs": 0.0,
             "positive": 1,
-            "std": 0.0829941011960087
+            "std": 0.07577722283113839
           },
           "terminal_bonus": 0.5
         },
@@ -121,26 +121,26 @@
           "decision_reward": {
             "max_abs": 1.0,
             "mean": 0.0,
-            "mean_abs": 0.002447916666666667,
+            "mean_abs": 0.00234375,
             "n": 960,
-            "negative": 4,
-            "nonzero": 8,
-            "nonzero_rate": 0.008333333333333333,
+            "negative": 3,
+            "nonzero": 6,
+            "nonzero_rate": 0.00625,
             "p95_abs": 0.0,
-            "positive": 4,
-            "std": 0.04588538710744413
+            "positive": 3,
+            "std": 0.0458285982402546
           },
           "round_return": {
-            "max_abs": 1.075,
+            "max_abs": 1.025,
             "mean": 0.0,
-            "mean_abs": 0.022395833333333334,
+            "mean_abs": 0.021354166666666664,
             "n": 96,
             "negative": 1,
             "nonzero": 2,
             "nonzero_rate": 0.020833333333333332,
             "p95_abs": 0.0,
             "positive": 1,
-            "std": 0.1551628848447119
+            "std": 0.1479460064798416
           },
           "terminal_bonus": 1.0
         },
@@ -150,26 +150,26 @@
           "decision_reward": {
             "max_abs": 0.25,
             "mean": 0.0,
-            "mean_abs": 0.0012500000000000002,
+            "mean_abs": 0.0010416666666666667,
             "n": 960,
-            "negative": 4,
-            "nonzero": 8,
-            "nonzero_rate": 0.008333333333333333,
+            "negative": 3,
+            "nonzero": 6,
+            "nonzero_rate": 0.00625,
             "p95_abs": 0.0,
-            "positive": 4,
-            "std": 0.01479019945774904
+            "positive": 3,
+            "std": 0.014068285846778444
           },
           "round_return": {
-            "max_abs": 0.4,
+            "max_abs": 0.30000000000000004,
             "mean": 0.0,
-            "mean_abs": 0.008333333333333333,
+            "mean_abs": 0.006250000000000001,
             "n": 96,
             "negative": 1,
             "nonzero": 2,
             "nonzero_rate": 0.020833333333333332,
             "p95_abs": 0.0,
             "positive": 1,
-            "std": 0.05773502691896258
+            "std": 0.04330127018922194
           },
           "terminal_bonus": 0.25
         },
@@ -179,26 +179,26 @@
           "decision_reward": {
             "max_abs": 0.5,
             "mean": 0.0,
-            "mean_abs": 0.0017708333333333335,
+            "mean_abs": 0.0015625,
             "n": 960,
-            "negative": 4,
-            "nonzero": 8,
-            "nonzero_rate": 0.008333333333333333,
+            "negative": 3,
+            "nonzero": 6,
+            "nonzero_rate": 0.00625,
             "p95_abs": 0.0,
-            "positive": 4,
-            "std": 0.024685522072664372
+            "positive": 3,
+            "std": 0.024259877713349396
           },
           "round_return": {
-            "max_abs": 0.65,
+            "max_abs": 0.55,
             "mean": 0.0,
-            "mean_abs": 0.013541666666666667,
+            "mean_abs": 0.011458333333333334,
             "n": 96,
             "negative": 1,
             "nonzero": 2,
             "nonzero_rate": 0.020833333333333332,
             "p95_abs": 0.0,
             "positive": 1,
-            "std": 0.09381941874331419
+            "std": 0.07938566201357355
           },
           "terminal_bonus": 0.5
         },
@@ -208,26 +208,26 @@
           "decision_reward": {
             "max_abs": 1.0,
             "mean": 0.0,
-            "mean_abs": 0.0028125000000000003,
+            "mean_abs": 0.0026041666666666665,
             "n": 960,
-            "negative": 4,
-            "nonzero": 8,
-            "nonzero_rate": 0.008333333333333333,
+            "negative": 3,
+            "nonzero": 6,
+            "nonzero_rate": 0.00625,
             "p95_abs": 0.0,
-            "positive": 4,
-            "std": 0.046603379705768125
+            "positive": 3,
+            "std": 0.0463793236978146
           },
           "round_return": {
-            "max_abs": 1.15,
+            "max_abs": 1.05,
             "mean": 0.0,
-            "mean_abs": 0.02395833333333333,
+            "mean_abs": 0.021875000000000002,
             "n": 96,
             "negative": 1,
             "nonzero": 2,
             "nonzero_rate": 0.020833333333333332,
             "p95_abs": 0.0,
             "positive": 1,
-            "std": 0.1659882023920174
+            "std": 0.15155444566227677
           },
           "terminal_bonus": 1.0
         },
@@ -237,14 +237,43 @@
           "decision_reward": {
             "max_abs": 0.375,
             "mean": 0.0,
+            "mean_abs": 0.0018229166666666667,
+            "n": 960,
+            "negative": 3,
+            "nonzero": 6,
+            "nonzero_rate": 0.00625,
+            "p95_abs": 0.0,
+            "positive": 3,
+            "std": 0.02352414539715878
+          },
+          "round_return": {
+            "max_abs": 0.375,
+            "mean": 0.0,
+            "mean_abs": 0.0078125,
+            "n": 96,
+            "negative": 1,
+            "nonzero": 2,
+            "nonzero_rate": 0.020833333333333332,
+            "p95_abs": 0.0,
+            "positive": 1,
+            "std": 0.05412658773652741
+          },
+          "terminal_bonus": 0.25
+        },
+        {
+          "damage_unit_hp": 10.0,
+          "damage_weight_per_damage_unit": 0.25,
+          "decision_reward": {
+            "max_abs": 0.5,
+            "mean": 0.0,
             "mean_abs": 0.00234375,
             "n": 960,
-            "negative": 4,
-            "nonzero": 8,
-            "nonzero_rate": 0.008333333333333333,
+            "negative": 3,
+            "nonzero": 6,
+            "nonzero_rate": 0.00625,
             "p95_abs": 0.0,
-            "positive": 4,
-            "std": 0.02614562582918986
+            "positive": 3,
+            "std": 0.03072475250781797
           },
           "round_return": {
             "max_abs": 0.625,
@@ -258,35 +287,6 @@
             "positive": 1,
             "std": 0.09021097956087902
           },
-          "terminal_bonus": 0.25
-        },
-        {
-          "damage_unit_hp": 10.0,
-          "damage_weight_per_damage_unit": 0.25,
-          "decision_reward": {
-            "max_abs": 0.5,
-            "mean": 0.0,
-            "mean_abs": 0.002864583333333333,
-            "n": 960,
-            "negative": 4,
-            "nonzero": 8,
-            "nonzero_rate": 0.008333333333333333,
-            "p95_abs": 0.0,
-            "positive": 4,
-            "std": 0.03277527650531724
-          },
-          "round_return": {
-            "max_abs": 0.875,
-            "mean": 0.0,
-            "mean_abs": 0.018229166666666668,
-            "n": 96,
-            "negative": 1,
-            "nonzero": 2,
-            "nonzero_rate": 0.020833333333333332,
-            "p95_abs": 0.0,
-            "positive": 1,
-            "std": 0.12629537138523064
-          },
           "terminal_bonus": 0.5
         },
         {
@@ -295,26 +295,26 @@
           "decision_reward": {
             "max_abs": 1.0,
             "mean": 0.0,
-            "mean_abs": 0.00390625,
+            "mean_abs": 0.0033854166666666668,
             "n": 960,
-            "negative": 4,
-            "nonzero": 8,
-            "nonzero_rate": 0.008333333333333333,
+            "negative": 3,
+            "nonzero": 6,
+            "nonzero_rate": 0.00625,
             "p95_abs": 0.0,
-            "positive": 4,
-            "std": 0.051348989766109326
+            "positive": 3,
+            "std": 0.05006506183624131
           },
           "round_return": {
-            "max_abs": 1.375,
+            "max_abs": 1.125,
             "mean": 0.0,
-            "mean_abs": 0.028645833333333332,
+            "mean_abs": 0.0234375,
             "n": 96,
             "negative": 1,
             "nonzero": 2,
             "nonzero_rate": 0.020833333333333332,
             "p95_abs": 0.0,
             "positive": 1,
-            "std": 0.19846415503393386
+            "std": 0.16237976320958225
           },
           "terminal_bonus": 1.0
         },
@@ -324,26 +324,26 @@
           "decision_reward": {
             "max_abs": 0.75,
             "mean": 0.0,
-            "mean_abs": 0.004166666666666667,
+            "mean_abs": 0.003125,
             "n": 960,
-            "negative": 4,
-            "nonzero": 8,
-            "nonzero_rate": 0.008333333333333333,
+            "negative": 3,
+            "nonzero": 6,
+            "nonzero_rate": 0.00625,
             "p95_abs": 0.0,
-            "positive": 4,
-            "std": 0.04841229182759271
+            "positive": 3,
+            "std": 0.042695628191498324
           },
           "round_return": {
-            "max_abs": 1.0,
+            "max_abs": 0.5,
             "mean": 0.0,
-            "mean_abs": 0.020833333333333332,
+            "mean_abs": 0.010416666666666666,
             "n": 96,
             "negative": 1,
             "nonzero": 2,
             "nonzero_rate": 0.020833333333333332,
             "p95_abs": 0.0,
             "positive": 1,
-            "std": 0.14433756729740643
+            "std": 0.07216878364870322
           },
           "terminal_bonus": 0.25
         },
@@ -353,14 +353,43 @@
           "decision_reward": {
             "max_abs": 0.75,
             "mean": 0.0,
+            "mean_abs": 0.0036458333333333334,
+            "n": 960,
+            "negative": 3,
+            "nonzero": 6,
+            "nonzero_rate": 0.00625,
+            "p95_abs": 0.0,
+            "positive": 3,
+            "std": 0.04704829079431756
+          },
+          "round_return": {
+            "max_abs": 0.75,
+            "mean": 0.0,
+            "mean_abs": 0.015625,
+            "n": 96,
+            "negative": 1,
+            "nonzero": 2,
+            "nonzero_rate": 0.020833333333333332,
+            "p95_abs": 0.0,
+            "positive": 1,
+            "std": 0.10825317547305482
+          },
+          "terminal_bonus": 0.5
+        },
+        {
+          "damage_unit_hp": 10.0,
+          "damage_weight_per_damage_unit": 0.5,
+          "decision_reward": {
+            "max_abs": 1.0,
+            "mean": 0.0,
             "mean_abs": 0.0046875,
             "n": 960,
-            "negative": 4,
-            "nonzero": 8,
-            "nonzero_rate": 0.008333333333333333,
+            "negative": 3,
+            "nonzero": 6,
+            "nonzero_rate": 0.00625,
             "p95_abs": 0.0,
-            "positive": 4,
-            "std": 0.05229125165837972
+            "positive": 3,
+            "std": 0.06144950501563594
           },
           "round_return": {
             "max_abs": 1.25,
@@ -374,35 +403,6 @@
             "positive": 1,
             "std": 0.18042195912175804
           },
-          "terminal_bonus": 0.5
-        },
-        {
-          "damage_unit_hp": 10.0,
-          "damage_weight_per_damage_unit": 0.5,
-          "decision_reward": {
-            "max_abs": 1.0,
-            "mean": 0.0,
-            "mean_abs": 0.005729166666666666,
-            "n": 960,
-            "negative": 4,
-            "nonzero": 8,
-            "nonzero_rate": 0.008333333333333333,
-            "p95_abs": 0.0,
-            "positive": 4,
-            "std": 0.06555055301063448
-          },
-          "round_return": {
-            "max_abs": 1.75,
-            "mean": 0.0,
-            "mean_abs": 0.036458333333333336,
-            "n": 96,
-            "negative": 1,
-            "nonzero": 2,
-            "nonzero_rate": 0.020833333333333332,
-            "p95_abs": 0.0,
-            "positive": 1,
-            "std": 0.2525907427704613
-          },
           "terminal_bonus": 1.0
         },
         {
@@ -411,26 +411,26 @@
           "decision_reward": {
             "max_abs": 1.5,
             "mean": 0.0,
-            "mean_abs": 0.0078125,
+            "mean_abs": 0.005729166666666666,
             "n": 960,
-            "negative": 4,
-            "nonzero": 8,
-            "nonzero_rate": 0.008333333333333333,
+            "negative": 3,
+            "nonzero": 6,
+            "nonzero_rate": 0.00625,
             "p95_abs": 0.0,
-            "positive": 4,
-            "std": 0.09478594305064438
+            "positive": 3,
+            "std": 0.08307250848907036
           },
           "round_return": {
-            "max_abs": 1.75,
+            "max_abs": 0.75,
             "mean": 0.0,
-            "mean_abs": 0.036458333333333336,
+            "mean_abs": 0.015625,
             "n": 96,
             "negative": 1,
             "nonzero": 2,
             "nonzero_rate": 0.020833333333333332,
             "p95_abs": 0.0,
             "positive": 1,
-            "std": 0.2525907427704613
+            "std": 0.10825317547305482
           },
           "terminal_bonus": 0.25
         },
@@ -440,26 +440,26 @@
           "decision_reward": {
             "max_abs": 1.5,
             "mean": 0.0,
-            "mean_abs": 0.008333333333333333,
+            "mean_abs": 0.00625,
             "n": 960,
-            "negative": 4,
-            "nonzero": 8,
-            "nonzero_rate": 0.008333333333333333,
+            "negative": 3,
+            "nonzero": 6,
+            "nonzero_rate": 0.00625,
             "p95_abs": 0.0,
-            "positive": 4,
-            "std": 0.09682458365518543
+            "positive": 3,
+            "std": 0.08539125638299665
           },
           "round_return": {
-            "max_abs": 2.0,
+            "max_abs": 1.0,
             "mean": 0.0,
-            "mean_abs": 0.041666666666666664,
+            "mean_abs": 0.020833333333333332,
             "n": 96,
             "negative": 1,
             "nonzero": 2,
             "nonzero_rate": 0.020833333333333332,
             "p95_abs": 0.0,
             "positive": 1,
-            "std": 0.28867513459481287
+            "std": 0.14433756729740643
           },
           "terminal_bonus": 0.5
         },
@@ -469,26 +469,26 @@
           "decision_reward": {
             "max_abs": 1.5,
             "mean": 0.0,
-            "mean_abs": 0.009375,
+            "mean_abs": 0.007291666666666667,
             "n": 960,
-            "negative": 4,
-            "nonzero": 8,
-            "nonzero_rate": 0.008333333333333333,
+            "negative": 3,
+            "nonzero": 6,
+            "nonzero_rate": 0.00625,
             "p95_abs": 0.0,
-            "positive": 4,
-            "std": 0.10458250331675945
+            "positive": 3,
+            "std": 0.09409658158863513
           },
           "round_return": {
-            "max_abs": 2.5,
+            "max_abs": 1.5,
             "mean": 0.0,
-            "mean_abs": 0.052083333333333336,
+            "mean_abs": 0.03125,
             "n": 96,
             "negative": 1,
             "nonzero": 2,
             "nonzero_rate": 0.020833333333333332,
             "p95_abs": 0.0,
             "positive": 1,
-            "std": 0.3608439182435161
+            "std": 0.21650635094610965
           },
           "terminal_bonus": 1.0
         }
@@ -514,41 +514,41 @@
   "learning_performed": false,
   "observed": {
     "action_counts_by_id": {
-      "1": 22,
-      "2": 242,
-      "3": 23,
-      "4": 62,
-      "5": 3,
-      "6": 573,
-      "7": 35
+      "1": 10,
+      "2": 244,
+      "3": 14,
+      "4": 77,
+      "5": 9,
+      "6": 564,
+      "7": 42
     },
     "damage_component_units": {
       "max_abs": 1.5,
       "mean": 0.0,
-      "mean_abs": 0.007291666666666667,
+      "mean_abs": 0.005208333333333333,
       "n": 960,
-      "negative": 3,
-      "nonzero": 6,
-      "nonzero_rate": 0.00625,
+      "negative": 2,
+      "nonzero": 4,
+      "nonzero_rate": 0.004166666666666667,
       "p95_abs": 0.0,
-      "positive": 3,
-      "std": 0.09409658158863513
+      "positive": 2,
+      "std": 0.08228507357554792
     },
-    "damage_window_rate": 0.00625,
-    "damage_windows_per_brain": 6,
+    "damage_window_rate": 0.004166666666666667,
+    "damage_windows_per_brain": 4,
     "final_hp_margin": {
-      "max_abs": 15.0,
+      "max_abs": 5.0,
       "mean": 0.0,
-      "mean_abs": 0.3125,
+      "mean_abs": 0.10416666666666667,
       "n": 96,
       "negative": 1,
       "nonzero": 2,
       "nonzero_rate": 0.020833333333333332,
       "p95_abs": 0.0,
       "positive": 1,
-      "std": 2.165063509461097
+      "std": 0.7216878364870322
     },
-    "rounds_with_any_damage_signal_per_brain": 4,
+    "rounds_with_any_damage_signal_per_brain": 2,
     "terminal_outcomes": {
       "max_abs": 1.0,
       "mean": 0.0,
@@ -563,7 +563,7 @@
     }
   },
   "schema_version": 1,
-  "source_baseline_run_id": 36239262894,
-  "source_baseline_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/36239262894",
+  "source_baseline_run_id": 36255771965,
+  "source_baseline_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/36255771965",
   "status": "PASS"
 }
