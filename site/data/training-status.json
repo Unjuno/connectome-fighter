@@ -1,64 +1,88 @@
 {
   "acceptance_gate": {
     "accepted_update": true,
-    "after_utility": 2.1333333333333333,
-    "before_utility": 2.120833333333333,
+    "after_utility": 2.15,
+    "before_utility": 2.1333333333333333,
     "cases": [
       {
         "after_outcome": 1,
-        "after_utility": 2.175,
+        "after_utility": 2.05,
         "before_outcome": 1,
-        "before_utility": 2.0625,
+        "before_utility": 2.175,
         "case_id": "zen-validation-v1",
         "opponent": "ZEN",
         "seed_p1": 810101,
         "seed_p2": 31001,
-        "utility_delta": 0.11249999999999982
+        "utility_delta": -0.125
       },
       {
         "after_outcome": 1,
-        "after_utility": 2.075,
+        "after_utility": 2.1875,
         "before_outcome": 1,
-        "before_utility": 2.1625,
+        "before_utility": 2.075,
         "case_id": "lud-validation-v1",
         "opponent": "LUD",
         "seed_p1": 810202,
         "seed_p2": 31002,
-        "utility_delta": -0.08749999999999991
+        "utility_delta": 0.11249999999999982
       },
       {
         "after_outcome": 1,
-        "after_utility": 2.15,
+        "after_utility": 2.2125,
         "before_outcome": 1,
-        "before_utility": 2.1375,
+        "before_utility": 2.15,
         "case_id": "nez-validation-v1",
         "opponent": "NEZ",
         "seed_p1": 810303,
         "seed_p2": 31003,
-        "utility_delta": 0.012499999999999734
+        "utility_delta": 0.0625
       }
     ],
     "improved_pairs": 2,
     "nondegrading_pairs": 2,
     "outcome_regressions": 0,
     "pair_count": 3,
-    "parent_generation": 44,
-    "parent_state_sha256": "013d648958955bb933aa0213b9035c48c0121cccd3880c57d953db7259aafcf5",
-    "proposed_generation": 45,
-    "proposed_state_sha256": "b954f56c204e1d028fea295789e74c51728e9635364277c553e140280c173a75",
+    "parent_generation": 45,
+    "parent_state_sha256": "b954f56c204e1d028fea295789e74c51728e9635364277c553e140280c173a75",
+    "proposed_generation": 46,
+    "proposed_state_sha256": "c43090fca91b763a1ea97316ce8ab3837bab8aff8c861df55063d1a35d60fbe6",
     "protocol": "fixed-three-opponent-validation-v1",
     "reason": "multi-opponent validation mean improved, at least two thirds of pairs improved, and no outcome class regressed",
     "required_improved_pairs": 2,
-    "utility_delta": 0.012500000000000178
+    "utility_delta": 0.016666666666666607
   },
   "accepted_update": true,
-  "actual_pipeline_seconds": 619.8437734209999,
-  "archive_file": "garnet-g000045-b954f56c204e1d02.tar.gz",
-  "archive_sha256": "396fa54e95ddd91ab12e8155085c1e46c59574a11ba556f81682e535f2740540",
+  "actual_pipeline_seconds": 618.259823812,
+  "archive_file": "garnet-g000046-c43090fca91b763a.tar.gz",
+  "archive_sha256": "16ba7a4e9cb576b5db7c26bd62c499b52e5cc1c77f0154f441ade3c36ed647b9",
   "auto_promotion": false,
   "character": "GARNET",
   "combat_metrics": {
     "after": {
+      "damage_dealt_hp": 15,
+      "damage_taken_hp": 0,
+      "decision_count": 60,
+      "elapsed_frame": 3600,
+      "elapsed_seconds": 60.0,
+      "ended_by": "TIME_LIMIT",
+      "no_damage_draw": false,
+      "p1_hp": 400,
+      "p2_hp": 385,
+      "readout_contract": "malecns-temporal-readout-v1",
+      "readout_mode": "ema-residual",
+      "requested_action_counts": {
+        "0": 2,
+        "1": 6,
+        "2": 8,
+        "3": 4,
+        "4": 11,
+        "5": 7,
+        "6": 14,
+        "7": 8
+      },
+      "winner": "GARNET"
+    },
+    "before": {
       "damage_dealt_hp": 65,
       "damage_taken_hp": 10,
       "decision_count": 60,
@@ -82,8 +106,8 @@
       },
       "winner": "GARNET"
     },
-    "before": {
-      "damage_dealt_hp": 30,
+    "training": {
+      "damage_dealt_hp": 65,
       "damage_taken_hp": 10,
       "decision_count": 60,
       "elapsed_frame": 3600,
@@ -91,46 +115,114 @@
       "ended_by": "TIME_LIMIT",
       "no_damage_draw": false,
       "p1_hp": 390,
-      "p2_hp": 370,
+      "p2_hp": 335,
       "readout_contract": "malecns-temporal-readout-v1",
       "readout_mode": "ema-residual",
       "requested_action_counts": {
-        "0": 4,
-        "1": 3,
+        "0": 2,
+        "1": 7,
         "2": 9,
-        "3": 6,
-        "4": 7,
+        "3": 4,
+        "4": 9,
         "5": 6,
         "6": 16,
-        "7": 9
-      },
-      "winner": "GARNET"
-    },
-    "training": {
-      "damage_dealt_hp": 50,
-      "damage_taken_hp": 10,
-      "decision_count": 60,
-      "elapsed_frame": 3600,
-      "elapsed_seconds": 60.0,
-      "ended_by": "TIME_LIMIT",
-      "no_damage_draw": false,
-      "p1_hp": 390,
-      "p2_hp": 350,
-      "readout_contract": "malecns-temporal-readout-v1",
-      "readout_mode": "ema-residual",
-      "requested_action_counts": {
-        "0": 3,
-        "1": 6,
-        "2": 10,
-        "3": 5,
-        "4": 7,
-        "5": 7,
-        "6": 15,
         "7": 7
       },
       "winner": "GARNET"
     },
     "validation_after": [
+      {
+        "case_id": "zen-validation-v1",
+        "metrics": {
+          "damage_dealt_hp": 40,
+          "damage_taken_hp": 20,
+          "decision_count": 60,
+          "elapsed_frame": 3600,
+          "elapsed_seconds": 60.0,
+          "ended_by": "TIME_LIMIT",
+          "no_damage_draw": false,
+          "p1_hp": 380,
+          "p2_hp": 360,
+          "readout_contract": "malecns-temporal-readout-v1",
+          "readout_mode": "ema-residual",
+          "requested_action_counts": {
+            "0": 1,
+            "1": 6,
+            "2": 11,
+            "3": 3,
+            "4": 11,
+            "5": 4,
+            "6": 17,
+            "7": 7
+          },
+          "winner": "GARNET"
+        },
+        "opponent": "ZEN",
+        "seed_p1": 810101,
+        "seed_p2": 31001
+      },
+      {
+        "case_id": "lud-validation-v1",
+        "metrics": {
+          "damage_dealt_hp": 75,
+          "damage_taken_hp": 0,
+          "decision_count": 60,
+          "elapsed_frame": 3600,
+          "elapsed_seconds": 60.0,
+          "ended_by": "TIME_LIMIT",
+          "no_damage_draw": false,
+          "p1_hp": 400,
+          "p2_hp": 325,
+          "readout_contract": "malecns-temporal-readout-v1",
+          "readout_mode": "ema-residual",
+          "requested_action_counts": {
+            "0": 1,
+            "1": 6,
+            "2": 7,
+            "3": 2,
+            "4": 11,
+            "5": 6,
+            "6": 18,
+            "7": 9
+          },
+          "winner": "GARNET"
+        },
+        "opponent": "LUD",
+        "seed_p1": 810202,
+        "seed_p2": 31002
+      },
+      {
+        "case_id": "nez-validation-v1",
+        "metrics": {
+          "damage_dealt_hp": 95,
+          "damage_taken_hp": 10,
+          "decision_count": 60,
+          "elapsed_frame": 3600,
+          "elapsed_seconds": 60.0,
+          "ended_by": "TIME_LIMIT",
+          "no_damage_draw": false,
+          "p1_hp": 390,
+          "p2_hp": 305,
+          "readout_contract": "malecns-temporal-readout-v1",
+          "readout_mode": "ema-residual",
+          "requested_action_counts": {
+            "0": 1,
+            "1": 5,
+            "2": 10,
+            "3": 5,
+            "4": 7,
+            "5": 9,
+            "6": 15,
+            "7": 8
+          },
+          "winner": "GARNET"
+        },
+        "opponent": "NEZ",
+        "seed_p1": 810303,
+        "seed_p2": 31003
+      }
+    ],
+    "validation_before": [
       {
         "case_id": "zen-validation-v1",
         "metrics": {
@@ -221,110 +313,18 @@
         "seed_p1": 810303,
         "seed_p2": 31003
       }
-    ],
-    "validation_before": [
-      {
-        "case_id": "zen-validation-v1",
-        "metrics": {
-          "damage_dealt_hp": 35,
-          "damage_taken_hp": 10,
-          "decision_count": 60,
-          "elapsed_frame": 3600,
-          "elapsed_seconds": 60.0,
-          "ended_by": "TIME_LIMIT",
-          "no_damage_draw": false,
-          "p1_hp": 390,
-          "p2_hp": 365,
-          "readout_contract": "malecns-temporal-readout-v1",
-          "readout_mode": "ema-residual",
-          "requested_action_counts": {
-            "0": 2,
-            "1": 6,
-            "2": 13,
-            "3": 4,
-            "4": 8,
-            "5": 6,
-            "6": 14,
-            "7": 7
-          },
-          "winner": "GARNET"
-        },
-        "opponent": "ZEN",
-        "seed_p1": 810101,
-        "seed_p2": 31001
-      },
-      {
-        "case_id": "lud-validation-v1",
-        "metrics": {
-          "damage_dealt_hp": 65,
-          "damage_taken_hp": 0,
-          "decision_count": 60,
-          "elapsed_frame": 3600,
-          "elapsed_seconds": 60.0,
-          "ended_by": "TIME_LIMIT",
-          "no_damage_draw": false,
-          "p1_hp": 400,
-          "p2_hp": 335,
-          "readout_contract": "malecns-temporal-readout-v1",
-          "readout_mode": "ema-residual",
-          "requested_action_counts": {
-            "0": 4,
-            "1": 5,
-            "2": 5,
-            "3": 4,
-            "4": 10,
-            "5": 6,
-            "6": 20,
-            "7": 6
-          },
-          "winner": "GARNET"
-        },
-        "opponent": "LUD",
-        "seed_p1": 810202,
-        "seed_p2": 31002
-      },
-      {
-        "case_id": "nez-validation-v1",
-        "metrics": {
-          "damage_dealt_hp": 55,
-          "damage_taken_hp": 0,
-          "decision_count": 60,
-          "elapsed_frame": 3600,
-          "elapsed_seconds": 60.0,
-          "ended_by": "TIME_LIMIT",
-          "no_damage_draw": false,
-          "p1_hp": 400,
-          "p2_hp": 345,
-          "readout_contract": "malecns-temporal-readout-v1",
-          "readout_mode": "ema-residual",
-          "requested_action_counts": {
-            "0": 1,
-            "1": 10,
-            "2": 10,
-            "3": 5,
-            "4": 7,
-            "5": 5,
-            "6": 15,
-            "7": 7
-          },
-          "winner": "GARNET"
-        },
-        "opponent": "NEZ",
-        "seed_p1": 810303,
-        "seed_p2": 31003
-      }
     ]
   },
-  "generation": 45,
+  "generation": 46,
   "interpretation_boundary": "Experimental R2e candidate using the held-out-selected EMA-residual P1 readout. Publication now requires improvement across a small fixed ZEN/LUD/NEZ validation suite; this is still not proof of general fighting strength or biological validity.",
   "kind": "canonical-continuous-training-candidate",
   "match_status": "COMPLETED_WITH_VALIDATED_EXPERIMENTAL_READOUT_TRACES",
-  "matches": 45,
+  "matches": 46,
   "model": "KC-MBON-valence-depression-v0",
-  "opponent": "NEZ",
-  "parent_generation": 44,
+  "opponent": "ZEN",
+  "parent_generation": 45,
   "parent_reward_id": "R2e-combat-v1",
-  "parent_state_sha256": "013d648958955bb933aa0213b9035c48c0121cccd3880c57d953db7259aafcf5",
+  "parent_state_sha256": "b954f56c204e1d028fea295789e74c51728e9635364277c553e140280c173a75",
   "readout_contract": "malecns-temporal-readout-v1",
   "readout_mode": "ema-residual",
   "reward_id": "R2e-combat-v1",
@@ -340,41 +340,41 @@
   "signal_summary": {
     "decision_windows": 60,
     "negative": 1,
-    "nonzero": 11,
-    "positive": 10,
-    "sum": 2.115625
+    "nonzero": 13,
+    "positive": 12,
+    "sum": 2.153125
   },
   "source_kind": "combat-training-v1",
-  "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/36252699479",
-  "state_sha256": "b954f56c204e1d028fea295789e74c51728e9635364277c553e140280c173a75",
+  "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/36314710743",
+  "state_sha256": "c43090fca91b763a1ea97316ce8ab3837bab8aff8c861df55063d1a35d60fbe6",
   "status": "candidate-only-not-arena-approved",
-  "training_attempt_salt": 99479,
+  "training_attempt_salt": 10743,
   "training_curriculum": {
     "depends_on_accepted_generation": false,
-    "opponent": "NEZ",
-    "opponent_index": 2,
+    "opponent": "ZEN",
+    "opponent_index": 0,
     "protocol": "workflow-attempt-round-robin-v1",
     "selection_source": "GITHUB_RUN_NUMBER",
-    "workflow_run_number": 1608
+    "workflow_run_number": 1702
   },
-  "training_seed": 1003924,
-  "training_seed_p2": 1002970,
+  "training_seed": 915289,
+  "training_seed_p2": 736865,
   "update_summary": {
-    "at_lower_bound_edges": 347,
-    "at_lower_bound_fraction": 0.010359445903988535,
-    "at_upper_bound_edges": 21460,
-    "at_upper_bound_fraction": 0.6406735132553141,
-    "changed_approach_edges": 6254,
-    "changed_avoidance_edges": 4097,
-    "changed_edges": 10351,
-    "depressed_edges": 10351,
-    "max_abs_multiplier_delta": 0.016307413578033447,
+    "at_lower_bound_edges": 445,
+    "at_lower_bound_fraction": 0.013285168378313828,
+    "at_upper_bound_edges": 21455,
+    "at_upper_bound_fraction": 0.6405242417005016,
+    "changed_approach_edges": 6140,
+    "changed_avoidance_edges": 4010,
+    "changed_edges": 10150,
+    "depressed_edges": 10150,
+    "max_abs_multiplier_delta": 0.015699148178100586,
     "max_multiplier": 1.0,
-    "mean_abs_changed_multiplier_delta": 0.002377742207023835,
-    "mean_abs_multiplier_delta": 0.0007347745875598196,
-    "mean_multiplier": 0.9797490511809354,
+    "mean_abs_changed_multiplier_delta": 0.002249013543716205,
+    "mean_abs_multiplier_delta": 0.0006814989093837916,
+    "mean_multiplier": 0.9790675522715515,
     "min_multiplier": 0.800000011920929,
     "potentiated_edges": 0
   },
-  "updated_at": "2026-09-26T15:50:58.251694+00:00"
+  "updated_at": "2026-09-27T11:18:29.475750+00:00"
 }
