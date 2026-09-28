@@ -7,15 +7,19 @@ type Json = Record<string, any>;
 type Envelope = { latest?: Json | null; previous?: Json | null; training?: Json | null };
 type ResearchEnvelope = { ready?: boolean; research?: Json | null };
 
-function videoUrl(evaluation: Json | null) {
+function directVideoUrl(evaluation: Json | null) {
   const raw = evaluation?.video?.asset_url;
   if (typeof raw !== 'string') return null;
   try {
     const url = new URL(raw);
-    if (url.protocol !== 'https:') return null;
-    url.searchParams.set('v', String(evaluation?.state_sha256 || evaluation?.generation || 'recording'));
-    return url.toString();
+    return url.protocol === 'https:' ? url.toString() : null;
   } catch { return null; }
+}
+
+function videoUrl(evaluation: Json | null, phase: 'latest' | 'previous') {
+  if (!directVideoUrl(evaluation)) return null;
+  const version = encodeURIComponent(String(evaluation?.state_sha256 || evaluation?.generation || 'recording'));
+  return `/api/evaluation-video?phase=${phase}&v=${version}`;
 }
 
 function completed(value: unknown): value is Json {
@@ -81,7 +85,9 @@ export function LiveClient() {
   const search = research?.paired_search;
   const gate = training?.acceptance_gate;
   const liveCompute = research?.live_compute_snapshot;
-  const video = videoUrl(selected);
+  const selectedPhase: 'latest' | 'previous' = previous && older ? 'previous' : 'latest';
+  const directVideo = directVideoUrl(selected);
+  const video = videoUrl(selected, selectedPhase);
   useEffect(() => setVideoError(false), [video]);
   const behind = typeof training?.generation === 'number' && typeof latest?.generation === 'number' && training.generation > latest.generation;
   const result = selected?.result;
@@ -90,7 +96,7 @@ export function LiveClient() {
   const media = <>
     <div className="ob-match"><strong className="p1">{selected?.character || 'GARNET'}</strong><span>VS</span><strong className="p2">{selected?.opponent || 'ZEN'}</strong></div>
     <div className="ob-score"><span>GEN {metric(selected?.generation)}</span><span>FIXED-CONDITION EVALUATION</span><span>1 ROUND</span></div>
-    <div className="ob-screen">{video && !videoError ? <video key={video} data-testid="evaluation-video" src={video} controls muted playsInline preload="metadata" onError={() => setVideoError(true)} aria-label={`Generation ${selected?.generation} recorded evaluation`} /> : <div className="ob-empty"><span className="ob-crosshair" aria-hidden="true">+</span><strong>{videoError ? 'Video could not be loaded' : 'Awaiting an evaluation video'}</strong><p>{videoError ? 'Check the connection to the published asset.' : 'A completed evaluation will appear here after publication.'}</p>{videoError ? <button type="button" className="ob-button" onClick={() => setVideoError(false)}>Reload video</button> : null}</div>}</div>
+    <div className="ob-screen">{video && !videoError ? <video key={video} data-testid="evaluation-video" src={video} controls muted playsInline preload="metadata" onError={() => setVideoError(true)} aria-label={`Generation ${selected?.generation} recorded evaluation`} /> : <div className="ob-empty"><span className="ob-crosshair" aria-hidden="true">+</span><strong>{videoError ? 'Video could not be loaded' : 'Awaiting an evaluation video'}</strong><p>{videoError ? 'The same-origin media proxy could not load the published recording.' : 'A completed evaluation will appear here after publication.'}</p>{videoError ? <div className="ob-controls"><button type="button" className="ob-button" onClick={() => setVideoError(false)}>Reload video</button>{directVideo ? <a className="ob-button" href={directVideo} target="_blank" rel="noreferrer">Open source MP4 ↗</a> : null}</div> : null}</div>}</div>
     <div className="ob-result"><div><span className="ob-kicker">FINAL RESULT</span><strong>{verdict}</strong></div><div><span className="p1">HP {metric(result?.p1_hp)}</span><i> / </i><span className="p2">{metric(result?.p2_hp)}</span><small>{result?.ended_by || '—'} · game {metric(result?.elapsed_seconds, 1)} s</small></div></div>
     <p className="ob-caption">Generation {metric(selected?.generation)} · {stamp(selected?.evaluated_at)} · video {metric(selected?.video?.duration_seconds, 1)} s<br />HP values describe the final recorded result, not the current playback frame.</p>
     <div className="ob-model-switch" role="group" aria-label="Select evaluation generation"><button className="ob-button" type="button" aria-pressed={!previous || !older} onClick={() => setPrevious(false)}>Latest completed Gen {metric(latest?.generation)}</button><button className="ob-button" type="button" aria-pressed={previous && Boolean(older)} disabled={!older} onClick={() => setPrevious(true)}>Previous Gen {metric(older?.generation)}</button></div>
