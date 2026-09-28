@@ -2,7 +2,7 @@
 
 Connectome Fighter is a cloud research testbed that connects the **MaleCNS v1.0 Drosophila connectome** to FightingICE through a pinned implementation of the Shiu et al. leaky integrate-and-fire dynamics. The project records real MaleCNS body-ID activity, keeps game I/O mappings explicit, and separates biological structure from project-defined reinforcement, plasticity, and embodiment assumptions.
 
-**Dedicated LIVE:** deployment target is configured through the repository variable `CONNECTOME_PUBLIC_BASE_URL`; no unrelated Vercel project is a valid Connectome target. · [Research ledger](https://unjuno.github.io/connectome-fighter/) · [Status](docs/STATUS.md) · [Roadmap](ROADMAP.md) · [Public surface contract](docs/PUBLIC_SURFACE_SPLIT.md)
+**Production viewer:** [https://connectome-fighter.vercel.app/](https://connectome-fighter.vercel.app/) · **Dedicated LIVE:** deployment target is configured through the repository variable `CONNECTOME_PUBLIC_BASE_URL`; no unrelated Vercel project is a valid Connectome target. · [Research ledger](https://unjuno.github.io/connectome-fighter/) · [Status](docs/STATUS.md) · [Roadmap](ROADMAP.md) · [Public surface contract](docs/PUBLIC_SURFACE_SPLIT.md)
 
 ## Canonical control path
 
