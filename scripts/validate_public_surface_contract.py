@@ -133,7 +133,7 @@ def main() -> int:
     require("app/live-client.tsx", "FROZEN EVALUATION", "candidate only", "policy_pixel_access=false", 'mode="replay"',
             "/api/evaluation-video?phase=", "Open source MP4")
     require("app/api/evaluation-video/route.ts", "github.com", "/Unjuno/connectome-fighter/releases/download/combat-evaluation-",
-            'request.headers.get("range")', '"Content-Range"', '"Content-Disposition", "inline"',
+            'request.headers.get("range")', '"content-range"', '"Content-Disposition", "inline"',
             '"Cache-Control", "private, no-store, max-age=0"')
     require("app/live/arena-client.tsx", FLYBODY_COMMIT, FLYBODY_ADAPTER,
             "SHA-256", "Awaiting aligned fresh input", "verified-held-input", 'mode="live"')
