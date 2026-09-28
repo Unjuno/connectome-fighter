@@ -122,7 +122,7 @@ await test('evaluation failure: explicit error state', async ({ page, state }) =
 await test('newer candidate does not relabel completed evaluation', async ({ page, state }) => {
   state.evaluation.training.generation = 10;
   await page.goto(base); assert.equal(await page.locator("html").getAttribute("lang"), "en"); await page.getByTestId('evaluation-video').waitFor();
-  assert((await page.getByTestId('evaluation-video').getAttribute('src')).includes('round-9'));
+  assert((await page.getByTestId('evaluation-video').getAttribute('src')).includes('phase=latest'));
   assert(await page.getByText(/Candidate is now Gen 10/).isVisible());
 });
 await test('non-candidate or unsafe evaluation is not presented', async ({ page, state }) => {
