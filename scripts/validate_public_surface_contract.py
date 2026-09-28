@@ -134,7 +134,8 @@ def main() -> int:
             "/api/evaluation-video?phase=", "Open source MP4")
     require("app/api/evaluation-video/route.ts", 'url.hostname !== "github.com"', "RELEASE_PATH",
             "combat-evaluation-", 'request.headers.get("range")', '"content-range"',
-            '"Content-Disposition", "inline"', '"Cache-Control", "private, no-store, max-age=0"')
+            '"Content-Type", "video/mp4"', '"Content-Disposition", "inline"',
+            '"Cache-Control", "private, no-store, max-age=0"')
     require("app/live/arena-client.tsx", FLYBODY_COMMIT, FLYBODY_ADAPTER,
             "SHA-256", "Awaiting aligned fresh input", "verified-held-input", 'mode="live"')
     require("app/observatory.tsx", "Official FightingICE screen", "RECORDED EVALUATION",
