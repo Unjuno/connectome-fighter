@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
     const value = upstream.headers.get(name);
     if (value) headers.set(name, value);
   }
-  headers.set("Content-Type", upstream.headers.get("content-type") || "video/mp4");
+  headers.set("Content-Type", "video/mp4");
   headers.set("Content-Disposition", "inline");
   headers.set("Cache-Control", "private, no-store, max-age=0");
   headers.set("X-Content-Type-Options", "nosniff");
