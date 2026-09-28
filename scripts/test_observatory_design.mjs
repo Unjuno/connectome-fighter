@@ -46,6 +46,9 @@ async function setup(viewport = { width: 1440, height: 1000 }) {
   await page.route('**/*', async route => {
     const url = new URL(route.request().url());
     if (url.origin === base && url.pathname === '/api/evaluation') { state.evaluationCalls++; return route.fulfill({ status: state.evalStatus, json: state.evaluation }); }
+    if (url.origin === base && url.pathname === '/api/evaluation-video') {
+      return route.fulfill({ contentType: 'video/mp4', body: videos, headers: { 'Accept-Ranges': 'bytes' } });
+    }
     if (url.origin === base && url.pathname === '/api/live') {
       state.controlCalls++;
       if (state.mode === 'capacity') return route.fulfill({ status: 503, headers: { 'Retry-After': '3600' }, json: { ready: false, status: 'capacity-blocked', capacity_blocked: true } });
@@ -90,9 +93,9 @@ await test('replay desktop: honest mode, playable fixture, generation switch, no
   assert(await page.getByText('RECORDED EVALUATION', { exact: true }).isVisible());
   await screenshot(page, 'replay-desktop');
   await page.getByRole('button', { name: 'Previous Gen 8', exact: true }).click();
-  assert((await page.getByTestId('evaluation-video').getAttribute('src')).includes('round-8'));
+  assert((await page.getByTestId('evaluation-video').getAttribute('src')).includes('phase=previous'));
   await page.getByRole('button', { name: 'Latest completed Gen 9', exact: true }).click();
-  assert((await page.getByTestId('evaluation-video').getAttribute('src')).includes('round-9'));
+  assert((await page.getByTestId('evaluation-video').getAttribute('src')).includes('phase=latest'));
   await page.getByRole('button', { name: 'Pause history updates', exact: true }).click();
   assert(await page.getByRole('button', { name: 'Resume history updates', exact: true }).isVisible());
   await noOverflow(page);
@@ -119,7 +122,7 @@ await test('evaluation failure: explicit error state', async ({ page, state }) =
 await test('newer candidate does not relabel completed evaluation', async ({ page, state }) => {
   state.evaluation.training.generation = 10;
   await page.goto(base); assert.equal(await page.locator("html").getAttribute("lang"), "en"); await page.getByTestId('evaluation-video').waitFor();
-  assert((await page.getByTestId('evaluation-video').getAttribute('src')).includes('round-9'));
+  assert((await page.getByTestId('evaluation-video').getAttribute('src')).includes('phase=latest'));
   assert(await page.getByText(/Candidate is now Gen 10/).isVisible());
 });
 await test('non-candidate or unsafe evaluation is not presented', async ({ page, state }) => {
