@@ -1942,12 +1942,105 @@
         "potentiated_edges": 0
       },
       "updated_at": "2026-09-29T00:44:13.606572+00:00"
+    },
+    {
+      "acceptance_gate": {
+        "accepted_update": true,
+        "after_utility": 2.158333333333333,
+        "before_utility": 2.154166666666667,
+        "cases": [
+          {
+            "after_outcome": 1,
+            "after_utility": 2.175,
+            "before_outcome": 1,
+            "before_utility": 2.15,
+            "case_id": "zen-validation-v1",
+            "opponent": "ZEN",
+            "seed_p1": 810101,
+            "seed_p2": 31001,
+            "utility_delta": 0.02499999999999991
+          },
+          {
+            "after_outcome": 1,
+            "after_utility": 2.1875,
+            "before_outcome": 1,
+            "before_utility": 2.0625,
+            "case_id": "lud-validation-v1",
+            "opponent": "LUD",
+            "seed_p1": 810202,
+            "seed_p2": 31002,
+            "utility_delta": 0.125
+          },
+          {
+            "after_outcome": 1,
+            "after_utility": 2.1125,
+            "before_outcome": 1,
+            "before_utility": 2.25,
+            "case_id": "nez-validation-v1",
+            "opponent": "NEZ",
+            "seed_p1": 810303,
+            "seed_p2": 31003,
+            "utility_delta": -0.13750000000000018
+          }
+        ],
+        "improved_pairs": 2,
+        "nondegrading_pairs": 2,
+        "outcome_regressions": 0,
+        "pair_count": 3,
+        "parent_generation": 47,
+        "parent_state_sha256": "b326e0941ca3edddf8ee6f9f99cb7956337392b91f5c7fe1f6503133f5281d39",
+        "proposed_generation": 48,
+        "proposed_state_sha256": "916906b4256ca577f97341622ed04a35a9a69ae0a921ab6099b7b9f1db9d6692",
+        "protocol": "fixed-three-opponent-validation-v1",
+        "reason": "multi-opponent validation mean improved, at least two thirds of pairs improved, and no outcome class regressed",
+        "required_improved_pairs": 2,
+        "utility_delta": 0.00416666666666643
+      },
+      "auto_promotion": false,
+      "character": "GARNET",
+      "generation": 48,
+      "interpretation_boundary": "Experimental R2e candidate using the held-out-selected EMA-residual P1 readout. Publication now requires improvement across a small fixed ZEN/LUD/NEZ validation suite; this is still not proof of general fighting strength or biological validity.",
+      "match_status": "COMPLETED_WITH_VALIDATED_EXPERIMENTAL_READOUT_TRACES",
+      "matches": 48,
+      "model": "KC-MBON-valence-depression-v0",
+      "opponent": "ZEN",
+      "reward_id": "R2e-combat-v1",
+      "served_by_vercel": false,
+      "signal_summary": {
+        "decision_windows": 60,
+        "negative": 1,
+        "nonzero": 3,
+        "positive": 2,
+        "sum": -0.234375
+      },
+      "source_kind": "combat-training-v1",
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/36646520486",
+      "state_sha256": "916906b4256ca577f97341622ed04a35a9a69ae0a921ab6099b7b9f1db9d6692",
+      "status": "candidate-only-not-arena-approved",
+      "update_summary": {
+        "at_lower_bound_edges": 519,
+        "at_lower_bound_fraction": 0.015494387389539049,
+        "at_upper_bound_edges": 21425,
+        "at_upper_bound_fraction": 0.6396286123716265,
+        "changed_approach_edges": 6388,
+        "changed_avoidance_edges": 3713,
+        "changed_edges": 10101,
+        "depressed_edges": 10101,
+        "max_abs_multiplier_delta": 0.0022014379501342773,
+        "max_multiplier": 1.0,
+        "mean_abs_changed_multiplier_delta": 0.0005358393068845148,
+        "mean_abs_multiplier_delta": 0.00016158684137928362,
+        "mean_multiplier": 0.9782754207122916,
+        "min_multiplier": 0.800000011920929,
+        "potentiated_edges": 0
+      },
+      "updated_at": "2026-09-29T23:52:20.165666+00:00"
     }
   ],
-  "entry_count": 45,
+  "entry_count": 46,
   "interpretation_boundary": "This ledger records GitHub research-candidate updates only. Entries are not arena approval, not proof of improved fighting performance, and are never served by Vercel without a separate promotion gate.",
   "kind": "canonical-continuous-training-history",
-  "latest_generation": 47,
-  "latest_state_sha256": "b326e0941ca3edddf8ee6f9f99cb7956337392b91f5c7fe1f6503133f5281d39",
+  "latest_generation": 48,
+  "latest_state_sha256": "916906b4256ca577f97341622ed04a35a9a69ae0a921ab6099b7b9f1db9d6692",
   "schema_version": 1
 }
