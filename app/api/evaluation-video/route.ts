@@ -4,17 +4,18 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const RAW_BASE = "https://raw.githubusercontent.com/Unjuno/connectome-fighter/main/site/data";
-const RELEASE_PATH = /^\/Unjuno\/connectome-fighter\/releases\/download\/combat-evaluation-\d+\/(?:before|after)\.mp4$/;
+const MP4_RELEASE_PATH = /^\/Unjuno\/connectome-fighter\/releases\/download\/(combat-evaluation-\d+)\/(before|after)\.mp4$/;
 const MAX_VIDEO_BYTES = 16 * 1024 * 1024;
 
 type JsonRecord = Record<string, any>;
 type ByteRange = { start: number; end: number } | null | "invalid";
+type VideoFormat = "mp4" | "webm";
 
 async function fetchJson(name: string): Promise<JsonRecord | null> {
   try {
     const response = await fetch(`${RAW_BASE}/${name}?t=${Date.now()}`, {
       cache: "no-store",
-      headers: { "User-Agent": "connectome-fighter-evaluation-video/2" },
+      headers: { "User-Agent": "connectome-fighter-evaluation-video/3" },
       signal: AbortSignal.timeout(8_000),
     });
     if (!response.ok) return null;
@@ -24,13 +25,17 @@ async function fetchJson(name: string): Promise<JsonRecord | null> {
   }
 }
 
-function publishedVideoUrl(evaluation: JsonRecord | null) {
+function publishedVideoUrl(evaluation: JsonRecord | null, format: VideoFormat) {
   const raw = evaluation?.video?.asset_url;
   if (typeof raw !== "string") return null;
   try {
     const url = new URL(raw);
     if (url.protocol !== "https:" || url.hostname !== "github.com") return null;
-    if (!RELEASE_PATH.test(url.pathname)) return null;
+    const match = MP4_RELEASE_PATH.exec(url.pathname);
+    if (!match) return null;
+    if (format === "webm") {
+      url.pathname = `/Unjuno/connectome-fighter/releases/download/${match[1]}/${match[2]}.webm`;
+    }
     return url;
   } catch {
     return null;
@@ -57,10 +62,10 @@ function parseSingleRange(raw: string | null, total: number): ByteRange {
   return { start, end: Math.min(requestedEnd, total - 1) };
 }
 
-function videoHeaders(total: number, upstream: Response) {
+function videoHeaders(total: number, upstream: Response, format: VideoFormat) {
   const headers = new Headers({
     "Accept-Ranges": "bytes",
-    "Content-Type": "video/mp4",
+    "Content-Type": format === "webm" ? "video/webm" : "video/mp4",
     "Content-Disposition": "inline",
     "Cache-Control": "private, no-store, max-age=0",
     "X-Content-Type-Options": "nosniff",
@@ -73,12 +78,14 @@ function videoHeaders(total: number, upstream: Response) {
   return headers;
 }
 
-async function loadVideo(source: URL) {
+async function loadVideo(source: URL, format: VideoFormat) {
   const upstream = await fetch(source, {
-    cache: "force-cache",
+    cache: "no-store",
     headers: {
-      Accept: "video/mp4,application/octet-stream;q=0.9,*/*;q=0.8",
-      "User-Agent": "connectome-fighter-evaluation-video/2",
+      Accept: format === "webm"
+        ? "video/webm,application/octet-stream;q=0.9,*/*;q=0.8"
+        : "video/mp4,application/octet-stream;q=0.9,*/*;q=0.8",
+      "User-Agent": "connectome-fighter-evaluation-video/3",
     },
     redirect: "follow",
     signal: AbortSignal.timeout(20_000),
@@ -93,35 +100,39 @@ async function loadVideo(source: URL) {
 
 async function serve(request: NextRequest, headOnly = false) {
   const phase = request.nextUrl.searchParams.get("phase") === "previous" ? "previous" : "latest";
+  const format: VideoFormat = request.nextUrl.searchParams.get("format") === "webm" ? "webm" : "mp4";
   const evaluation = await fetchJson(phase === "previous" ? "evaluation-previous.json" : "evaluation-status.json");
-  const source = publishedVideoUrl(evaluation);
+  const source = publishedVideoUrl(evaluation, format);
 
   if (!source) {
-    return Response.json({ ready: false, status: "evaluation-video-unavailable", phase }, { status: 404 });
+    return Response.json({ ready: false, status: "evaluation-video-unavailable", phase, format }, { status: 404 });
   }
 
   let loaded: Awaited<ReturnType<typeof loadVideo>>;
   try {
-    loaded = await loadVideo(source);
+    loaded = await loadVideo(source, format);
   } catch {
-    return Response.json({ ready: false, status: "evaluation-video-upstream-unreachable", phase }, { status: 502 });
+    return Response.json({ ready: false, status: "evaluation-video-upstream-unreachable", phase, format }, { status: 502 });
   }
 
   if (!loaded.upstream.ok || !loaded.buffer) {
+    const upstreamStatus = loaded.upstream.status;
     return Response.json(
       {
         ready: false,
-        status: loaded.upstream.ok ? "evaluation-video-invalid-size" : "evaluation-video-upstream-error",
+        status: upstreamStatus === 404 ? "evaluation-video-format-unavailable"
+          : loaded.upstream.ok ? "evaluation-video-invalid-size" : "evaluation-video-upstream-error",
         phase,
-        upstream_status: loaded.upstream.status,
+        format,
+        upstream_status: upstreamStatus,
       },
-      { status: 502 },
+      { status: upstreamStatus === 404 ? 404 : 502 },
     );
   }
 
   const total = loaded.buffer.byteLength;
   const range = parseSingleRange(request.headers.get("range"), total);
-  const headers = videoHeaders(total, loaded.upstream);
+  const headers = videoHeaders(total, loaded.upstream, format);
 
   if (range === "invalid") {
     headers.set("Content-Range", `bytes */${total}`);
