@@ -22,7 +22,8 @@ function png(phase = 1) {
   for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) { const k = y * (width * 3 + 1) + 1 + x * 3; pixels[k] = 20 + x % 50; pixels[k + 1] = 40 + (y + phase * 17) % 80; pixels[k + 2] = 50 + x % 90; }
   return Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), chunk('IHDR', header), chunk('IDAT', deflateSync(pixels)), chunk('IEND', Buffer.alloc(0))]);
 }
-const videos = await fs.readFile(path.join(out, 'engineering-fixture.mp4'));
+const videoMp4 = await fs.readFile(path.join(out, 'engineering-fixture.mp4'));
+const videoWebm = await fs.readFile(path.join(out, 'engineering-fixture.webm'));
 function evaluation(generation) { return { status: 'COMPLETED', candidate_only: true, auto_promotion: false, policy_pixel_access: false, character: 'GARNET', opponent: 'ZEN', generation, matches: generation, state_sha256: String(generation).repeat(64), evaluated_at: '2026-09-14T05:35:00Z', model: 'engineering-fixture', reward_id: 'fixture-not-a-reward-change', evaluation: { rounds: 1, protocol: 'fixed-full-round-v2', round_frame_limit: 3600, configured_round_limit_seconds: 60, seed_p1: 800101, seed_p2: 20202, decision_interval_frames: 60 }, result: { winner: 'DRAW', p1_hp: 400, p2_hp: 400, ended_by: 'TIME_LIMIT', elapsed_seconds: 60 }, video: { asset_url: `https://fixtures.invalid/round-${generation}.mp4`, duration_seconds: 1 } }; }
 function envelope() { return { ready: true, latest: evaluation(9), previous: evaluation(8), training: { generation: 9, matches: 9, update_summary: { changed_edges: 8819 }, updated_at: '2026-09-14T05:32:00Z' } }; }
 function runtime(phase, mode) {
@@ -47,7 +48,12 @@ async function setup(viewport = { width: 1440, height: 1000 }) {
     const url = new URL(route.request().url());
     if (url.origin === base && url.pathname === '/api/evaluation') { state.evaluationCalls++; return route.fulfill({ status: state.evalStatus, json: state.evaluation }); }
     if (url.origin === base && url.pathname === '/api/evaluation-video') {
-      return route.fulfill({ contentType: 'video/mp4', body: videos, headers: { 'Accept-Ranges': 'bytes' } });
+      const webm = url.searchParams.get('format') === 'webm';
+      return route.fulfill({
+        contentType: webm ? 'video/webm' : 'video/mp4',
+        body: webm ? videoWebm : videoMp4,
+        headers: { 'Accept-Ranges': 'bytes' },
+      });
     }
     if (url.origin === base && url.pathname === '/api/live') {
       state.controlCalls++;
@@ -62,7 +68,7 @@ async function setup(viewport = { width: 1440, height: 1000 }) {
       if (url.pathname.endsWith('.png')) return route.fulfill({ contentType: 'image/png', body: sample.bytes, headers: { 'Access-Control-Allow-Origin': '*' } });
       return route.abort();
     }
-    if (url.hostname === 'fixtures.invalid') return route.fulfill({ contentType: 'video/mp4', body: videos });
+    if (url.hostname === 'fixtures.invalid') return route.fulfill({ contentType: 'video/mp4', body: videoMp4 });
     if (url.origin !== base) return route.abort();
     return route.continue();
   });
@@ -87,15 +93,23 @@ await test('replay desktop: honest mode, playable fixture, generation switch, no
   await page.goto(base); assert.equal(await page.locator("html").getAttribute("lang"), "en");
   await page.getByTestId('evaluation-video').waitFor();
   await page.waitForFunction(() => document.querySelector('video')?.readyState >= 2);
+  const media = await page.getByTestId('evaluation-video').evaluate(video => ({
+    currentSrc: video.currentSrc,
+    h264: video.canPlayType('video/mp4; codecs="avc1.64001f"'),
+    vp9: video.canPlayType('video/webm; codecs="vp9"'),
+  }));
+  assert(media.currentSrc.includes('format=mp4') || media.currentSrc.includes('format=webm'), media);
+  if (!media.h264) assert(media.currentSrc.includes('format=webm'), 'Browser without H.264 support must select VP9 WebM');
+  assert(media.vp9, 'Browser fixture must support VP9 WebM fallback');
   assert.equal(await page.getByTestId('p1-image').count(), 0);
   assert.equal(await page.getByTestId('arena-snapshot').count(), 0);
   assert.equal(state.controlCalls, 0);
   assert(await page.getByText('RECORDED EVALUATION', { exact: true }).isVisible());
   await screenshot(page, 'replay-desktop');
   await page.getByRole('button', { name: 'Previous Gen 8', exact: true }).click();
-  assert((await page.getByTestId('evaluation-video').getAttribute('src')).includes('phase=previous'));
+  assert((await page.getByTestId('evaluation-video').locator('source[type^="video/webm"]').getAttribute('src')).includes('phase=previous'));
   await page.getByRole('button', { name: 'Latest completed Gen 9', exact: true }).click();
-  assert((await page.getByTestId('evaluation-video').getAttribute('src')).includes('phase=latest'));
+  assert((await page.getByTestId('evaluation-video').locator('source[type^="video/webm"]').getAttribute('src')).includes('phase=latest'));
   await page.getByRole('button', { name: 'Pause history updates', exact: true }).click();
   assert(await page.getByRole('button', { name: 'Resume history updates', exact: true }).isVisible());
   await noOverflow(page);
@@ -122,7 +136,7 @@ await test('evaluation failure: explicit error state', async ({ page, state }) =
 await test('newer candidate does not relabel completed evaluation', async ({ page, state }) => {
   state.evaluation.training.generation = 10;
   await page.goto(base); assert.equal(await page.locator("html").getAttribute("lang"), "en"); await page.getByTestId('evaluation-video').waitFor();
-  assert((await page.getByTestId('evaluation-video').getAttribute('src')).includes('phase=latest'));
+  assert((await page.getByTestId('evaluation-video').locator('source[type^="video/webm"]').getAttribute('src')).includes('phase=latest'));
   assert(await page.getByText(/Candidate is now Gen 10/).isVisible());
 });
 await test('non-candidate or unsafe evaluation is not presented', async ({ page, state }) => {

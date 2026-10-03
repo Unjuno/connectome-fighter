@@ -16,10 +16,10 @@ function directVideoUrl(evaluation: Json | null) {
   } catch { return null; }
 }
 
-function videoUrl(evaluation: Json | null, phase: 'latest' | 'previous') {
+function videoUrl(evaluation: Json | null, phase: 'latest' | 'previous', format: 'mp4' | 'webm') {
   if (!directVideoUrl(evaluation)) return null;
   const version = encodeURIComponent(String(evaluation?.state_sha256 || evaluation?.generation || 'recording'));
-  return `/api/evaluation-video?phase=${phase}&v=${version}`;
+  return `/api/evaluation-video?phase=${phase}&format=${format}&v=${version}`;
 }
 
 function completed(value: unknown): value is Json {
@@ -42,6 +42,7 @@ export function LiveClient() {
   const [previous, setPrevious] = useState(false);
   const [paused, setPaused] = useState(false);
   const [videoError, setVideoError] = useState(false);
+  const [videoDiagnostic, setVideoDiagnostic] = useState<string | null>(null);
 
   useEffect(() => {
     if (paused) return;
@@ -87,8 +88,12 @@ export function LiveClient() {
   const liveCompute = research?.live_compute_snapshot;
   const selectedPhase: 'latest' | 'previous' = previous && older ? 'previous' : 'latest';
   const directVideo = directVideoUrl(selected);
-  const video = videoUrl(selected, selectedPhase);
-  useEffect(() => setVideoError(false), [video]);
+  const videoMp4 = videoUrl(selected, selectedPhase, 'mp4');
+  const videoWebm = videoUrl(selected, selectedPhase, 'webm');
+  useEffect(() => {
+    setVideoError(false);
+    setVideoDiagnostic(null);
+  }, [videoMp4, videoWebm]);
   const behind = typeof training?.generation === 'number' && typeof latest?.generation === 'number' && training.generation > latest.generation;
   const result = selected?.result;
   const verdict = result?.winner === 'DRAW' ? 'DRAW' : typeof result?.winner === 'string' ? `${result.winner} WINS` : 'Result not recorded';
@@ -96,7 +101,17 @@ export function LiveClient() {
   const media = <>
     <div className="ob-match"><strong className="p1">{selected?.character || 'GARNET'}</strong><span>VS</span><strong className="p2">{selected?.opponent || 'ZEN'}</strong></div>
     <div className="ob-score"><span>GEN {metric(selected?.generation)}</span><span>FIXED-CONDITION EVALUATION</span><span>1 ROUND</span></div>
-    <div className="ob-screen">{video && !videoError ? <video key={video} data-testid="evaluation-video" src={video} controls muted playsInline preload="metadata" onError={() => setVideoError(true)} aria-label={`Generation ${selected?.generation} recorded evaluation`} /> : <div className="ob-empty"><span className="ob-crosshair" aria-hidden="true">+</span><strong>{videoError ? 'Video could not be loaded' : 'Awaiting an evaluation video'}</strong><p>{videoError ? 'The same-origin media proxy could not load the published recording.' : 'A completed evaluation will appear here after publication.'}</p>{videoError ? <div className="ob-controls"><button type="button" className="ob-button" onClick={() => setVideoError(false)}>Reload video</button>{directVideo ? <a className="ob-button" href={directVideo} target="_blank" rel="noreferrer">Open source MP4 ↗</a> : null}</div> : null}</div>}</div>
+    <div className="ob-screen">{videoMp4 && videoWebm && !videoError ? <video key={`${videoMp4}|${videoWebm}`} data-testid="evaluation-video" controls muted playsInline preload="metadata" onLoadedMetadata={() => setVideoDiagnostic(null)} onError={(event) => {
+      const element = event.currentTarget;
+      const h264 = element.canPlayType('video/mp4; codecs="avc1.64001f"') || 'unsupported';
+      const vp9 = element.canPlayType('video/webm; codecs="vp9"') || 'unsupported';
+      const code = element.error?.code ?? 'unknown';
+      setVideoDiagnostic(`media error ${code} · network ${element.networkState} · ready ${element.readyState} · H.264 ${h264} · VP9 ${vp9}`);
+      setVideoError(true);
+    }} aria-label={`Generation ${selected?.generation} recorded evaluation`}>
+      <source src={videoMp4} type='video/mp4; codecs="avc1.64001f"' />
+      <source src={videoWebm} type='video/webm; codecs="vp9"' />
+    </video> : <div className="ob-empty"><span className="ob-crosshair" aria-hidden="true">+</span><strong>{videoError ? 'Video could not be loaded' : 'Awaiting an evaluation video'}</strong><p>{videoError ? 'The same-origin media proxy could not load the published recording.' : 'A completed evaluation will appear here after publication.'}</p>{videoError && videoDiagnostic ? <small>{videoDiagnostic}</small> : null}{videoError ? <div className="ob-controls"><button type="button" className="ob-button" onClick={() => { setVideoError(false); setVideoDiagnostic(null); }}>Reload video</button>{directVideo ? <a className="ob-button" href={directVideo} target="_blank" rel="noreferrer">Open source MP4 ↗</a> : null}</div> : null}</div>}</div>
     <div className="ob-result"><div><span className="ob-kicker">FINAL RESULT</span><strong>{verdict}</strong></div><div><span className="p1">HP {metric(result?.p1_hp)}</span><i> / </i><span className="p2">{metric(result?.p2_hp)}</span><small>{result?.ended_by || '—'} · game {metric(result?.elapsed_seconds, 1)} s</small></div></div>
     <p className="ob-caption">Generation {metric(selected?.generation)} · {stamp(selected?.evaluated_at)} · video {metric(selected?.video?.duration_seconds, 1)} s<br />HP values describe the final recorded result, not the current playback frame.</p>
     <div className="ob-model-switch" role="group" aria-label="Select evaluation generation"><button className="ob-button" type="button" aria-pressed={!previous || !older} onClick={() => setPrevious(false)}>Latest completed Gen {metric(latest?.generation)}</button><button className="ob-button" type="button" aria-pressed={previous && Boolean(older)} disabled={!older} onClick={() => setPrevious(true)}>Previous Gen {metric(older?.generation)}</button></div>
