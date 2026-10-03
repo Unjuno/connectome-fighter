@@ -52,6 +52,7 @@ jobs:
           set -euo pipefail
           mkdir -p runs/observatory-design
           ffmpeg -hide_banner -loglevel error -y -f lavfi -i 'testsrc2=size=480x320:rate=10:duration=1' -c:v libx264 -pix_fmt yuv420p -movflags +faststart runs/observatory-design/engineering-fixture.mp4
+          ffmpeg -hide_banner -loglevel error -y -i runs/observatory-design/engineering-fixture.mp4 -an -c:v libvpx-vp9 -deadline good -cpu-used 2 -crf 34 -b:v 0 -pix_fmt yuv420p runs/observatory-design/engineering-fixture.webm
           npm start -- --hostname 127.0.0.1 > runs/observatory-design/next.log 2>&1 &
           server=$!
           trap 'kill "$server" 2>/dev/null || true' EXIT
