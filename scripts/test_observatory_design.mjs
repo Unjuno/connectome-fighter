@@ -98,18 +98,18 @@ await test('replay desktop: honest mode, playable fixture, generation switch, no
     h264: video.canPlayType('video/mp4; codecs="avc1.64001f"'),
     vp9: video.canPlayType('video/webm; codecs="vp9"'),
   }));
-  assert(media.currentSrc.includes('format=mp4') || media.currentSrc.includes('format=webm'), media);
-  if (!media.h264) assert(media.currentSrc.includes('format=webm'), 'Browser without H.264 support must select VP9 WebM');
-  assert(media.vp9, 'Browser fixture must support VP9 WebM fallback');
+  const expectedFormat = media.h264 ? 'mp4' : media.vp9 ? 'webm' : null;
+  assert(expectedFormat, 'Browser fixture must support at least one replay codec');
+  assert(media.currentSrc.includes(`format=${expectedFormat}`), media);
   assert.equal(await page.getByTestId('p1-image').count(), 0);
   assert.equal(await page.getByTestId('arena-snapshot').count(), 0);
   assert.equal(state.controlCalls, 0);
   assert(await page.getByText('RECORDED EVALUATION', { exact: true }).isVisible());
   await screenshot(page, 'replay-desktop');
   await page.getByRole('button', { name: 'Previous Gen 8', exact: true }).click();
-  assert((await page.getByTestId('evaluation-video').locator('source[type^="video/webm"]').getAttribute('src')).includes('phase=previous'));
+  assert((await page.getByTestId('evaluation-video').getAttribute('src')).includes('phase=previous'));
   await page.getByRole('button', { name: 'Latest completed Gen 9', exact: true }).click();
-  assert((await page.getByTestId('evaluation-video').locator('source[type^="video/webm"]').getAttribute('src')).includes('phase=latest'));
+  assert((await page.getByTestId('evaluation-video').getAttribute('src')).includes('phase=latest'));
   await page.getByRole('button', { name: 'Pause history updates', exact: true }).click();
   assert(await page.getByRole('button', { name: 'Resume history updates', exact: true }).isVisible());
   await noOverflow(page);
@@ -136,7 +136,7 @@ await test('evaluation failure: explicit error state', async ({ page, state }) =
 await test('newer candidate does not relabel completed evaluation', async ({ page, state }) => {
   state.evaluation.training.generation = 10;
   await page.goto(base); assert.equal(await page.locator("html").getAttribute("lang"), "en"); await page.getByTestId('evaluation-video').waitFor();
-  assert((await page.getByTestId('evaluation-video').locator('source[type^="video/webm"]').getAttribute('src')).includes('phase=latest'));
+  assert((await page.getByTestId('evaluation-video').getAttribute('src')).includes('phase=latest'));
   assert(await page.getByText(/Candidate is now Gen 10/).isVisible());
 });
 await test('non-candidate or unsafe evaluation is not presented', async ({ page, state }) => {
