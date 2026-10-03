@@ -1,0 +1,89 @@
+name: evaluation-video-webm-compat
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'site/data/evaluation-status.json'
+      - 'site/data/evaluation-previous.json'
+      - '.github/workflows/evaluation-video-webm-compat.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: evaluation-video-webm-compat
+  cancel-in-progress: true
+
+jobs:
+  transcode:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install video compatibility encoder
+        run: |
+          sudo apt-get update -qq
+          sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ffmpeg
+
+      - name: Publish VP9 WebM fallbacks for current recorded evaluations
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p runs/video-compat
+
+          transcode_record() {
+            local json_path="$1"
+            local url tag stem work
+            url="$(python - "$json_path" <<'PY'
+          import json, pathlib, sys
+          data=json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+          print(((data.get('video') or {}).get('asset_url')) or '')
+          PY
+          )"
+
+            if [[ ! "$url" =~ ^https://github.com/Unjuno/connectome-fighter/releases/download/(combat-evaluation-[0-9]+)/(before|after)\.mp4$ ]]; then
+              echo "No eligible published MP4 in $json_path"
+              return 0
+            fi
+
+            tag="${BASH_REMATCH[1]}"
+            stem="${BASH_REMATCH[2]}"
+            work="runs/video-compat/${tag}-${stem}"
+            mkdir -p "$work"
+
+            if gh release view "$tag" --json assets --jq '.assets[].name' | grep -Fxq "${stem}.webm"; then
+              echo "${tag}/${stem}.webm already exists"
+              return 0
+            fi
+
+            gh release download "$tag" --pattern "${stem}.mp4" --dir "$work" --clobber
+            ffmpeg -y -loglevel error -i "$work/${stem}.mp4" -an               -c:v libvpx-vp9 -deadline good -cpu-used 2 -crf 34 -b:v 0               -pix_fmt yuv420p -row-mt 1 "$work/${stem}.webm"
+
+            python - "$work/${stem}.webm" <<'PY'
+          import json, pathlib, subprocess, sys
+          path=pathlib.Path(sys.argv[1])
+          probe=json.loads(subprocess.check_output([
+              'ffprobe','-v','error','-select_streams','v:0',
+              '-show_entries','stream=codec_name,pix_fmt,width,height',
+              '-of','json',str(path),
+          ]))
+          stream=probe['streams'][0]
+          assert stream['codec_name']=='vp9', stream
+          assert stream['pix_fmt']=='yuv420p', stream
+          assert (int(stream['width']),int(stream['height']))==(960,640), stream
+          assert path.stat().st_size > 10_000
+          print({'file':str(path),'bytes':path.stat().st_size,'codec':'vp9','pix_fmt':'yuv420p'})
+          PY
+
+            gh release upload "$tag" "$work/${stem}.webm"
+            echo "Published ${tag}/${stem}.webm"
+          }
+
+          transcode_record site/data/evaluation-status.json
+          transcode_record site/data/evaluation-previous.json
