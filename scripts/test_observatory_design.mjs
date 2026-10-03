@@ -93,7 +93,14 @@ await test('replay desktop: honest mode, playable fixture, generation switch, no
   await page.goto(base); assert.equal(await page.locator("html").getAttribute("lang"), "en");
   await page.getByTestId('evaluation-video').waitFor();
   await page.waitForFunction(() => document.querySelector('video')?.readyState >= 2);
-  assert(await page.getByTestId('evaluation-video').evaluate(video => video.currentSrc.includes('format=webm')), 'Chromium fixture should select VP9 WebM when H.264 is unavailable');
+  const media = await page.getByTestId('evaluation-video').evaluate(video => ({
+    currentSrc: video.currentSrc,
+    h264: video.canPlayType('video/mp4; codecs="avc1.64001f"'),
+    vp9: video.canPlayType('video/webm; codecs="vp9"'),
+  }));
+  assert(media.currentSrc.includes('format=mp4') || media.currentSrc.includes('format=webm'), media);
+  if (!media.h264) assert(media.currentSrc.includes('format=webm'), 'Browser without H.264 support must select VP9 WebM');
+  assert(media.vp9, 'Browser fixture must support VP9 WebM fallback');
   assert.equal(await page.getByTestId('p1-image').count(), 0);
   assert.equal(await page.getByTestId('arena-snapshot').count(), 0);
   assert.equal(state.controlCalls, 0);
