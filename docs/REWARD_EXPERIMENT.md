@@ -158,9 +158,13 @@ control proposal and the Gen49 parent, improves at least 4/6 paired cases versus
 each, and causes no win/draw/loss outcome regression versus either.
 
 Both the winning and losing training traces must satisfy that rule before the
-gain can advance to a new confirmatory holdout. A mixed result is evidence that
-a single terminal gain is not yet robust enough. None of these results can
-publish a canonical checkpoint automatically.
+gain can advance to a new confirmatory holdout. The loss run 2312 contributes
+both to the rough gain calibration and to one treatment probe, so the two
+training traces are not themselves an independent hyperparameter-validation
+set. The separate six reward-selection seeds are the prospective behavioral
+selection evidence. A mixed result is evidence that a single terminal gain is
+not yet robust enough. None of these results can publish a canonical checkpoint
+automatically.
 
 The terminal-gain state is explicitly marked
 `canonical_training_eligible=false`. The experiment changes no topology,
