@@ -5,7 +5,6 @@ import json
 from pathlib import Path
 import numpy as np
 from connectome_fighter.valence_plasticity import ValencePlasticityConfig, load_state, save_state, sha256_file
-from connectome_fighter.combat_reward import REWARD_ID
 
 
 def config_from_json(raw: dict) -> ValencePlasticityConfig:
@@ -22,8 +21,8 @@ def config_from_json(raw: dict) -> ValencePlasticityConfig:
 def fork_reward(source: Path, destination: Path, old: ValencePlasticityConfig, new: ValencePlasticityConfig) -> dict:
     if source.resolve() == destination.resolve() or destination.exists():
         raise ValueError('fork destination must be new and separate')
-    if old.reward_id != 'R2d-v0' or new.reward_id != REWARD_ID or replace(new, reward_id=old.reward_id) != old:
-        raise ValueError('reward fork must preserve all plasticity parameters')
+    if old.reward_id == new.reward_id or replace(new, reward_id=old.reward_id) != old:
+        raise ValueError('reward fork must change only the reward identifier')
     meta = json.loads(source.with_suffix(source.suffix + '.json').read_text())
     source_hash, meta_hash = sha256_file(source), sha256_file(source.with_suffix(source.suffix + '.json'))
     state = load_state(source, expected_character='GARNET', n_candidates=int(meta['n_candidates']),
