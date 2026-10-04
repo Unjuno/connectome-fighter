@@ -112,3 +112,38 @@ The matched plasticity files for A and B differ from the existing smoke file onl
 Run **A vs B first** with matched compute. Use C only as the shaped reference condition.
 
 If A and B are both ineffective, then compare C rather than repeatedly adding ad-hoc action rewards. In particular, do not reward the `B` action or any other specific FightingICE action; earlier canonical baseline behavior already showed a strong action-frequency imbalance, so action-specific reward would confound the experiment.
+
+
+## Gen49 reward-credit counterfactual
+
+The current canonical research candidate is Gen49. The fixed three-opponent
+selection suite is already in the winning outcome class for ZEN, LUD, and NEZ,
+while recent one-match R2e proposals frequently regress that suite. In the
+rejected workflow run 2310, the training round was a zero-damage timeout draw.
+Its R2e signal summed to `-0.234375`; the negative terminal event caused
+depression on approach-associated KC→MBON candidates under the current
+depression-only mapping, and the resulting proposal regressed all three fixed
+validation cases.
+
+This motivates one isolated counterfactual, not a canonical reward change:
+
+- control: `R2e-combat-v1`, including zero-damage draw terminal reward `-0.25`;
+- treatment: `R2f-combat-nodamage-neutral-v0`, identical validated combat
+  coefficients except zero-damage draw terminal reward `0.0`;
+- parent: the immutable Gen49 checkpoint;
+- training reproduction: workflow run 2310's NEZ opponent and exact seeds;
+- readout, cadence, anatomy, LIF dynamics, interface, eligibility, learning
+  rate, multiplier bounds, and depression-only update direction remain fixed;
+- the R2e control proposal must reproduce the original run-2310 state hash
+  byte-for-byte before the treatment is interpreted.
+
+The first-stage evaluation intentionally reuses the existing ZEN/LUD/NEZ
+candidate-selection suite. It tests whether removing the negative zero-damage
+terminal event changes the update direction in the expected way. Because those
+seeds are already selection data, a favorable result is **not** generalization
+evidence and cannot authorize publication. It only justifies a separate test on
+new seeds.
+
+No action, attack button, movement direction, diversity, or survival reward is
+introduced. `R2f` remains a project-defined FightingICE engineering signal,
+not an identified endogenous Drosophila reinforcement pathway.
