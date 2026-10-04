@@ -1360,55 +1360,58 @@
       "nonzero_reward_rounds": 1,
       "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/37181704783",
       "updated_at": "2026-10-04T06:36:09Z"
+    },
+    {
+      "action_rates": {
+        "A": 0.0020833333333333333,
+        "B": 0.6020833333333333,
+        "BACKWARD": 0.246875,
+        "C": 0.025,
+        "DOWN": 0.09479166666666666,
+        "FORWARD": 0.010416666666666666,
+        "UP": 0.01875
+      },
+      "independent_rounds": 48,
+      "nonzero_reward_rate": 0.020833333333333332,
+      "nonzero_reward_rounds": 1,
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/37202529702",
+      "updated_at": "2026-10-04T12:39:21Z"
     }
   ],
   "latest_match": {
     "replay_url": "./data/replay-latest.json",
-    "run_id": "baseline-r88-garnet-nez-GARNET-NEZ",
-    "winner": "NEZ"
+    "run_id": "baseline-r89-zen-lud-ZEN-LUD",
+    "winner": "LUD"
   },
   "metrics": {
     "action_counts": {
-      "A": 7,
-      "B": 666,
-      "BACKWARD": 143,
-      "C": 19,
-      "DOWN": 109,
+      "A": 2,
+      "B": 578,
+      "BACKWARD": 237,
+      "C": 24,
+      "DOWN": 91,
       "FORWARD": 10,
-      "UP": 6
+      "UP": 18
     },
     "action_rates": {
-      "A": 0.007291666666666667,
-      "B": 0.69375,
-      "BACKWARD": 0.14895833333333333,
-      "C": 0.019791666666666666,
-      "DOWN": 0.11354166666666667,
+      "A": 0.0020833333333333333,
+      "B": 0.6020833333333333,
+      "BACKWARD": 0.246875,
+      "C": 0.025,
+      "DOWN": 0.09479166666666666,
       "FORWARD": 0.010416666666666666,
-      "UP": 0.00625
+      "UP": 0.01875
     },
     "characters": {
       "GARNET": {
         "action_counts": {
-          "B": 171,
-          "BACKWARD": 37,
-          "C": 5,
+          "A": 1,
+          "B": 130,
+          "BACKWARD": 68,
+          "C": 8,
           "DOWN": 25,
-          "FORWARD": 2
-        },
-        "decisions": 240,
-        "draws": 23,
-        "losses": 1,
-        "rounds": 24,
-        "wins": 0
-      },
-      "LUD": {
-        "action_counts": {
-          "B": 153,
-          "BACKWARD": 58,
-          "C": 4,
-          "DOWN": 22,
           "FORWARD": 2,
-          "UP": 1
+          "UP": 6
         },
         "decisions": 240,
         "draws": 24,
@@ -1416,15 +1419,14 @@
         "rounds": 24,
         "wins": 0
       },
-      "NEZ": {
+      "LUD": {
         "action_counts": {
-          "A": 7,
-          "B": 164,
-          "BACKWARD": 21,
-          "C": 7,
-          "DOWN": 36,
-          "FORWARD": 2,
-          "UP": 3
+          "B": 137,
+          "BACKWARD": 75,
+          "C": 3,
+          "DOWN": 18,
+          "FORWARD": 3,
+          "UP": 4
         },
         "decisions": 240,
         "draws": 23,
@@ -1432,18 +1434,33 @@
         "rounds": 24,
         "wins": 1
       },
-      "ZEN": {
+      "NEZ": {
         "action_counts": {
-          "B": 178,
-          "BACKWARD": 27,
-          "C": 3,
-          "DOWN": 26,
-          "FORWARD": 4,
-          "UP": 2
+          "B": 154,
+          "BACKWARD": 49,
+          "C": 7,
+          "DOWN": 19,
+          "FORWARD": 3,
+          "UP": 8
         },
         "decisions": 240,
         "draws": 24,
         "losses": 0,
+        "rounds": 24,
+        "wins": 0
+      },
+      "ZEN": {
+        "action_counts": {
+          "A": 1,
+          "B": 157,
+          "BACKWARD": 45,
+          "C": 6,
+          "DOWN": 29,
+          "FORWARD": 2
+        },
+        "decisions": 240,
+        "draws": 23,
+        "losses": 1,
         "rounds": 24,
         "wins": 0
       }
@@ -1467,10 +1484,10 @@
     "win": 1.0
   },
   "schema_version": 4,
-  "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/37181704783",
+  "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/37202529702",
   "spatial_visualization": {
     "available": false,
     "policy_access": false
   },
-  "updated_at": "2026-10-04T06:36:09Z"
+  "updated_at": "2026-10-04T12:39:21Z"
 }
