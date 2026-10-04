@@ -35,5 +35,25 @@ def test_counterfactual_is_pinned_and_cannot_publish():
     assert "'opponent': 'NEZ', 'seed_p1': 1000036, 'seed_p2': 990306" in source
     assert "'auto_promotion': False" in source
     assert "'canonical_learning_changed': False" in source
-    assert "advance-r2f-to-new-independent-seed-test" in source
-    assert "not independent generalization evidence" in source
+    assert "advance-r2f-to-confirmatory-independent-holdout" in source
+    assert "REWARD_SELECTION_SUITE" in source
+    for seed in (830111, 830112, 830211, 830212, 830311, 830312):
+        assert str(seed) in source
+    assert "reward_selection_common_objective" in source
+    assert "required_improved = 4" in source
+    assert "previously unused seeds" in source
+
+
+def test_reward_selection_seeds_do_not_reuse_known_training_validation_or_holdout_sets():
+    source = (ROOT / 'scripts/reward_credit_counterfactual.py').read_text()
+    new_seeds = {830111, 830112, 830211, 830212, 830311, 830312}
+    known = {
+        800101, 20202,
+        810101, 31001, 810202, 31002, 810303, 31003,
+        820111, 32011, 820112, 32012,
+        820211, 32021, 820212, 32022,
+        820311, 32031, 820312, 32032,
+        1000036, 990306,
+    }
+    assert new_seeds.isdisjoint(known)
+    assert source.count("reward-select-s") == 6
