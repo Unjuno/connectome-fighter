@@ -25,6 +25,9 @@ concurrency:
 env:
   CI: 'true'
   RUNTIME_ROOT: /home/vercel-sandbox/connectome-runtime/arena-runtime
+  RUNTIME_ASSET_ID: '568215636'
+  RUNTIME_SHA256: a5f03b13890dbe6b29ef5e646f885b92013610dc4f8c16b2a54b94393d8c73c4
+  PARENT_ASSET_ID: '599773615'
   PARENT_ARCHIVE: garnet-g000049-a5c2394d69eecba2.tar.gz
   PARENT_ARCHIVE_SHA256: 9f2b970836d634f6de4b67b0f6b98c3bc5f9d6de539156701a6e27f88cdc3671
   OMP_NUM_THREADS: '1'
@@ -49,7 +52,7 @@ jobs:
     needs: contract
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
         with:
@@ -57,21 +60,34 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Fetch verified canonical runtime
+      - name: Fetch pinned runtime and Gen49 parent bytes
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           mkdir -p runs/reward-credit/deps runs/reward-credit/parent
-          python scripts/fetch_combat_dependencies.py --out runs/reward-credit/deps
-          gh release download combat-training-v1             --pattern "$PARENT_ARCHIVE"             --dir runs/reward-credit/parent
+          gh api "repos/$GITHUB_REPOSITORY/releases/assets/$RUNTIME_ASSET_ID" \
+            -H 'Accept: application/octet-stream' > runs/reward-credit/deps/runtime.tar.gz
+          gh api "repos/$GITHUB_REPOSITORY/releases/assets/$PARENT_ASSET_ID" \
+            -H 'Accept: application/octet-stream' > "runs/reward-credit/parent/$PARENT_ARCHIVE"
+          echo "$RUNTIME_SHA256  runs/reward-credit/deps/runtime.tar.gz" | sha256sum -c -
           echo "$PARENT_ARCHIVE_SHA256  runs/reward-credit/parent/$PARENT_ARCHIVE" | sha256sum -c -
+          python - <<'PY'
+          import json, os, pathlib
+          pathlib.Path('runs/reward-credit/dependencies.json').write_text(json.dumps({
+              'runtime_asset_id': int(os.environ['RUNTIME_ASSET_ID']),
+              'runtime_sha256': os.environ['RUNTIME_SHA256'],
+              'parent_asset_id': int(os.environ['PARENT_ASSET_ID']),
+              'parent_archive': os.environ['PARENT_ARCHIVE'],
+              'parent_archive_sha256': os.environ['PARENT_ARCHIVE_SHA256'],
+          }, indent=2, sort_keys=True)+'\n')
+          PY
           sudo mkdir -p "$(dirname "$RUNTIME_ROOT")"
           sudo chown -R "$(id -u):$(id -g)" /home/vercel-sandbox
           tar -xzf runs/reward-credit/deps/runtime.tar.gz -C "$(dirname "$RUNTIME_ROOT")"
       - name: Reproduce run 2310 and test the isolated reward treatment
         run: |
-          python scripts/reward_credit_counterfactual.py             --runtime-root "$RUNTIME_ROOT"             --parent-archive "runs/reward-credit/parent/$PARENT_ARCHIVE"             --out runs/reward-credit/experiment             --timeout-seconds 1400
+          python scripts/reward_credit_counterfactual.py             --runtime-root "$RUNTIME_ROOT"             --parent-archive "runs/reward-credit/parent/$PARENT_ARCHIVE"             --out runs/reward-credit/experiment             --timeout-seconds 2400
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -79,6 +95,7 @@ jobs:
           retention-days: 14
           if-no-files-found: error
           path: |
+            runs/reward-credit/dependencies.json
             runs/reward-credit/experiment/result.json
             runs/reward-credit/experiment/update-r2e.json
             runs/reward-credit/experiment/update-r2f.json
