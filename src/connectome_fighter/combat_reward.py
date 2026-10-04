@@ -9,6 +9,8 @@ import math
 from typing import Any
 
 REWARD_ID = 'R2e-combat-v1'
+NO_DAMAGE_NEUTRAL_REWARD_ID = 'R2f-combat-nodamage-neutral-v0'
+SUPPORTED_REWARD_IDS = frozenset({REWARD_ID, NO_DAMAGE_NEUTRAL_REWARD_ID})
 
 
 def finite(value: Any, name: str) -> float:
@@ -24,12 +26,14 @@ def integer(value: Any, name: str, minimum: int = 0) -> int:
 
 
 def validate_config(config: dict) -> None:
-    if config.get('id') != REWARD_ID or config.get('schema_version') != 2:
+    reward_id = config.get('id')
+    if reward_id not in SUPPORTED_REWARD_IDS or config.get('schema_version') != 2:
         raise ValueError('combat reward version mismatch')
     if config.get('round_frame_limit') != 3600 or config.get('max_hp') != 400:
         raise ValueError('combat reward requires the 3600-frame / 400-HP protocol')
+    expected_no_damage_penalty = -0.25 if reward_id == REWARD_ID else 0.0
     expected = {'win': 2.0, 'loss': -2.0, 'ordinary_draw': -0.05,
-                'no_damage_draw_penalty': -0.25, 'early_ko_win_bonus': 0.25}
+                'no_damage_draw_penalty': expected_no_damage_penalty, 'early_ko_win_bonus': 0.25}
     if config.get('terminal') != expected:
         raise ValueError('coefficients changed without a reward version change')
     if config.get('damage_weight') != 1.0:
