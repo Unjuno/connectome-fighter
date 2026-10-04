@@ -1,0 +1,24 @@
+{
+  "schema_version": 2,
+  "id": "R2f-combat-nodamage-neutral-v0",
+  "status": "counterfactual-reward-credit-experiment-only",
+  "max_hp": 400,
+  "round_frame_limit": 3600,
+  "damage_weight": 1,
+  "terminal": {
+    "win": 2,
+    "loss": -2,
+    "ordinary_draw": -0.05,
+    "no_damage_draw_penalty": 0,
+    "early_ko_win_bonus": 0.25
+  },
+  "engagement_potential": {
+    "weight": 0.05,
+    "contact_band_px": 180,
+    "stage_width_px": 960,
+    "discount": 1,
+    "terminal_potential": 0
+  },
+  "specific_action_reward": false,
+  "interpretation_boundary": "Counterfactual FightingICE utility for a controlled reward-credit experiment. It differs from R2e-combat-v1 only by neutralizing the zero-damage draw terminal penalty. It is not an endogenous Drosophila reinforcement signal and is not authorized for canonical continuous learning."
+}
