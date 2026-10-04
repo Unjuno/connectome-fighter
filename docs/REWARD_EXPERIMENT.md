@@ -137,12 +137,19 @@ This motivates one isolated counterfactual, not a canonical reward change:
 - the R2e control proposal must reproduce the original run-2310 state hash
   byte-for-byte before the treatment is interpreted.
 
-The first-stage evaluation intentionally reuses the existing ZEN/LUD/NEZ
-candidate-selection suite. It tests whether removing the negative zero-damage
-terminal event changes the update direction in the expected way. Because those
-seeds are already selection data, a favorable result is **not** generalization
-evidence and cannot authorize publication. It only justifies a separate test on
-new seeds.
+The experiment has two evidence layers. First, the existing ZEN/LUD/NEZ
+candidate-selection suite is reused only to verify that the R2e control exactly
+reproduces run 2310 and to inspect the mechanism. Second, reward selection uses
+six previously unused deterministic cases: two each against ZEN, LUD, and NEZ.
+All three states (Gen49 parent, reproduced R2e proposal, and R2f treatment) are
+scored with the same canonical external evaluation utility.
+
+Those six cases become reward-selection data as soon as this experiment runs.
+They are therefore **not** a future independent holdout. R2f advances only if it
+strictly improves mean canonical utility versus both parent and R2e control,
+improves at least 4/6 paired cases versus each, and causes no win/draw/loss
+outcome regression. Passing that rule authorizes only a separate confirmatory
+holdout on new seeds; it never authorizes canonical publication.
 
 No action, attack button, movement direction, diversity, or survival reward is
 introduced. `R2f` remains a project-defined FightingICE engineering signal,
