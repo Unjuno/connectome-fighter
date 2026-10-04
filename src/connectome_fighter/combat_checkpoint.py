@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import numpy as np
 from connectome_fighter.valence_plasticity import ValencePlasticityConfig, load_state, save_state, sha256_file
+from connectome_fighter.combat_reward import SUPPORTED_REWARD_IDS
 
 
 def config_from_json(raw: dict) -> ValencePlasticityConfig:
@@ -21,6 +22,9 @@ def config_from_json(raw: dict) -> ValencePlasticityConfig:
 def fork_reward(source: Path, destination: Path, old: ValencePlasticityConfig, new: ValencePlasticityConfig) -> dict:
     if source.resolve() == destination.resolve() or destination.exists():
         raise ValueError('fork destination must be new and separate')
+    allowed_sources = {'R2d-v0', *SUPPORTED_REWARD_IDS}
+    if old.reward_id not in allowed_sources or new.reward_id not in SUPPORTED_REWARD_IDS:
+        raise ValueError('unsupported reward fork lineage')
     if old.reward_id == new.reward_id or replace(new, reward_id=old.reward_id) != old:
         raise ValueError('reward fork must change only the reward identifier')
     meta = json.loads(source.with_suffix(source.suffix + '.json').read_text())
