@@ -504,9 +504,10 @@ def main() -> int:
         'canonical_reward_changed': False,
         'terminal_signal_gain': TERMINAL_SIGNAL_GAIN,
         'calibration_rationale': (
-            'In source evidence from winning run 2314 and losing run 2312, the terminal +/-2 event accounted '
-            'for about 90.8% and 90.6% of the one-match mean multiplier depression. A gain of 0.1 makes the '
-            'terminal contribution approximately comparable to the accumulated nonterminal contribution.'
+            'In immutable main-branch evidence from winning run 2311 and losing run 2312, the terminal +/-2 '
+            'event accounted for about 89.66% and 90.62% of the one-match mean multiplier depression. '
+            'The per-trace terminal gains that would match accumulated nonterminal movement are about '
+            '0.115 and 0.104; 0.1 is a conservative rounded treatment rather than a fitted optimum.'
         ),
         'training_cases': TRAINING_CASES,
         'training_reproduction': training_results,
