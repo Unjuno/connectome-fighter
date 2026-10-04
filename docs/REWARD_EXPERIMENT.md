@@ -172,3 +172,20 @@ transmitter sign, action reward, policy readout, decision cadence, production
 LIVE configuration, or canonical continuous-learning settings. The
 reward-to-KC/MBON mapping remains a project-defined engineering interface, not
 an identified endogenous Drosophila reinforcement pathway.
+
+
+### Pre-registered confirmatory holdout
+
+If and only if both terminal-gain treatment probes satisfy the six-case
+reward-selection rule above, the next experiment must use this already-fixed
+fresh suite and must not substitute seeds after seeing the selection result:
+
+- ZEN: P1/P2 seeds `850111/35011` and `850112/35012`;
+- LUD: P1/P2 seeds `850211/35021` and `850212/35022`;
+- NEZ: P1/P2 seeds `850311/35031` and `850312/35032`.
+
+These cases are **not executed in this PR** and remain confirmatory holdout data
+until a later workflow evaluates them. The later test must preserve the same
+Gen49 parent, reproduced canonical controls, terminal gain, readout, cadence,
+and external canonical R2e evaluation utility. No seed replacement is allowed
+based on the outcome of the current six-case selection suite.
