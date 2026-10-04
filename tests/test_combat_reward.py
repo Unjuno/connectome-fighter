@@ -3,10 +3,11 @@ import copy
 import json
 from pathlib import Path
 import pytest
-from connectome_fighter.combat_reward import paired_evaluation_gate, paired_evaluation_suite_gate, paired_evaluation_utility, reward_sequence, validate_config
+from connectome_fighter.combat_reward import NO_DAMAGE_NEUTRAL_REWARD_ID, paired_evaluation_gate, paired_evaluation_suite_gate, paired_evaluation_utility, reward_sequence, validate_config
 
 ROOT = Path(__file__).resolve().parents[1]
 CFG = json.loads((ROOT/'configs/reward_r2e_combat_v1.json').read_text())
+NEUTRAL_CFG = json.loads((ROOT/'configs/reward_r2f_nodamage_neutral_v0.json').read_text())
 
 
 def trace(final=(400,400), elapsed=3600, positions=(500,400,300)):
@@ -21,6 +22,23 @@ def test_no_damage_draw_is_negative_despite_proximity_shaping():
     e = reward_sequence(trace(),0,CFG)
     assert e[-1]['terminal_reward'] == -.25
     assert sum(x['signal'] for x in e) < 0
+
+
+def test_no_damage_neutral_counterfactual_changes_only_the_stalemate_terminal():
+    validate_config(NEUTRAL_CFG)
+    assert NEUTRAL_CFG['id'] == NO_DAMAGE_NEUTRAL_REWARD_ID
+    base = copy.deepcopy(CFG)
+    treatment = copy.deepcopy(NEUTRAL_CFG)
+    for row in (base, treatment):
+        row.pop('status', None)
+        row.pop('interpretation_boundary', None)
+    base['id'] = treatment['id']
+    base['terminal']['no_damage_draw_penalty'] = 0.0
+    assert base == treatment
+    events = reward_sequence(trace(),0,NEUTRAL_CFG)
+    assert events[-1]['terminal_reward'] == 0.0
+    assert sum(x['signal'] for x in events) > 0.0
+    assert reward_sequence(trace((350,0),elapsed=1800),0,NEUTRAL_CFG) == reward_sequence(trace((350,0),elapsed=1800),0,CFG)
 
 
 def test_win_damage_and_early_ko_bonus():
