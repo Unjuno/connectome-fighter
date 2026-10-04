@@ -28,4 +28,5 @@ def test_exact_weights_fork_and_source_unchanged(tmp_path):
     np.testing.assert_array_equal(alt_state.multipliers,state.multipliers)
     with pytest.raises(ValueError): fork_reward(source,source,old,new)
     with pytest.raises(ValueError): fork_reward(source,tmp_path/'same.npz',old,old)
+    with pytest.raises(ValueError): fork_reward(source,tmp_path/'unknown.npz',old,replace(new,reward_id='unknown-reward'))
     with pytest.raises(ValueError): fork_reward(source,tmp_path/'bad.npz',old,replace(new,learning_rate=.02))
