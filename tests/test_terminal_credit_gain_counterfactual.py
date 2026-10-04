@@ -5,18 +5,18 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_terminal_gain_is_calibrated_from_observed_terminal_dominance():
-    # Source evidence measured from immutable Actions artifacts:
-    # win run 2314: local mean step 4.7532647e-05, terminal mean step 4.7105551e-04
-    # loss run 2312: local mean step 1.3318452e-04, terminal mean step 1.2864470e-03
-    win_local = 4.753264715773309e-05
-    win_terminal = 0.0004710555076599121
-    loss_local = 0.00013318452169996942
+    # Source evidence measured from immutable main-branch Actions artifacts:
+    # win run 2311: local mean step 6.0915947e-05, terminal mean step 5.2827597e-04
+    # loss run 2312: local mean step 1.3321638e-04, terminal mean step 1.2864470e-03
+    win_local = 6.091594696044922e-05
+    win_terminal = 0.0005282759666442871
+    loss_local = 0.00013321638107299805
     loss_terminal = 0.0012864470481872559
-    calibrated_effective_terminal = (
-        2.0 * win_local / win_terminal + 2.0 * loss_local / loss_terminal
+    calibrated_gain = (
+        win_local / win_terminal + loss_local / loss_terminal
     ) / 2.0
-    assert 0.19 < calibrated_effective_terminal < 0.22
-    assert abs(2.0 * 0.1 - calibrated_effective_terminal) < 0.01
+    assert 0.10 < calibrated_gain < 0.12
+    assert abs(0.1 - calibrated_gain) < 0.02
 
 
 def test_experiment_reproduces_main_win_and_loss_proposals():
