@@ -124,10 +124,10 @@ run 2312 lost its training round and also regressed that suite.
 Inspection of immutable training artifacts shows that the final R2e terminal
 outcome event dominates the one-match KC->MBON depression:
 
-- winning evidence: the terminal +2 event accounts for about 90.8% of the mean
-  multiplier decrease;
-- losing evidence: the terminal -2 event accounts for about 90.6% of the mean
-  multiplier decrease.
+- main-branch winning run 2311: the terminal +2 event accounts for about
+  89.66% of the mean multiplier decrease;
+- main-branch losing run 2312: the terminal -2 event accounts for about
+  90.62% of the mean multiplier decrease.
 
 The local damage and engagement events therefore provide only about one tenth
 of the total one-match weight movement in these examples. This suggests that
@@ -139,9 +139,10 @@ does not define a new reward. Instead, only the terminal outcome/finish
 component is multiplied by a gain of `0.1` before it reaches the experimental
 KC->MBON modulatory update. Damage and engagement-potential components remain at
 their canonical R2e values. The gain is calibrated from the observed source
-artifacts: reducing the terminal contribution by roughly tenfold makes its
-expected weight effect comparable to the accumulated nonterminal effect
-(`+/-2 -> effective +/-0.2`).
+artifacts. The per-trace gains that would make terminal movement comparable to
+the accumulated nonterminal movement are approximately 0.115 and 0.104. The
+predeclared `0.1` treatment is a conservative rounded value, not a fitted
+optimum (`+/-2 -> effective +/-0.2`).
 
 The experiment must first reproduce two immutable Gen49 control proposals
 byte-for-byte:
