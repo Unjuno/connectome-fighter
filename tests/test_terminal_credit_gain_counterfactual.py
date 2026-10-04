@@ -81,3 +81,10 @@ def test_terminal_gain_workflow_is_read_only_and_pinned():
     assert "PARENT_ASSET_ID: '599773615'" in workflow
     assert "PARENT_ARCHIVE_SHA256: 9f2b970836d634f6de4b67b0f6b98c3bc5f9d6de539156701a6e27f88cdc3671" in workflow
     assert "--timeout-seconds 3000" in workflow
+
+
+def test_confirmatory_holdout_is_not_consumed_by_selection_script():
+    source = (ROOT / 'scripts/terminal_credit_gain_counterfactual.py').read_text()
+    preregistered = {850111, 850112, 850211, 850212, 850311, 850312}
+    for seed in preregistered:
+        assert str(seed) not in source
