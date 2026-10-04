@@ -70,8 +70,8 @@ def plasticity_config(raw:dict,reward_id:str)->ValencePlasticityConfig:
 
 
 def reward_sequence(round_row:dict,side:int,reward_cfg:dict)->list[dict]:
-    if reward_cfg.get('id') == 'R2e-combat-v1':
-        from connectome_fighter.combat_reward import reward_sequence as combat_sequence
+    from connectome_fighter.combat_reward import SUPPORTED_REWARD_IDS, reward_sequence as combat_sequence
+    if reward_cfg.get('id') in SUPPORTED_REWARD_IDS:
         return combat_sequence(round_row, side, reward_cfg)
     ts=round_row.get('transitions') or []
     terminal=round_row.get('remaining_hps')
