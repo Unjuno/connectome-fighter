@@ -1344,58 +1344,56 @@
       "nonzero_reward_rounds": 1,
       "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/37155218665",
       "updated_at": "2026-10-03T21:36:59Z"
+    },
+    {
+      "action_rates": {
+        "A": 0.007291666666666667,
+        "B": 0.69375,
+        "BACKWARD": 0.14895833333333333,
+        "C": 0.019791666666666666,
+        "DOWN": 0.11354166666666667,
+        "FORWARD": 0.010416666666666666,
+        "UP": 0.00625
+      },
+      "independent_rounds": 48,
+      "nonzero_reward_rate": 0.020833333333333332,
+      "nonzero_reward_rounds": 1,
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/37181704783",
+      "updated_at": "2026-10-04T06:36:09Z"
     }
   ],
   "latest_match": {
     "replay_url": "./data/replay-latest.json",
-    "run_id": "baseline-r87-garnet-lud-GARNET-LUD",
-    "winner": "GARNET"
+    "run_id": "baseline-r88-garnet-nez-GARNET-NEZ",
+    "winner": "NEZ"
   },
   "metrics": {
     "action_counts": {
-      "A": 12,
-      "B": 631,
-      "BACKWARD": 182,
-      "C": 36,
-      "DOWN": 69,
-      "FORWARD": 11,
-      "UP": 19
+      "A": 7,
+      "B": 666,
+      "BACKWARD": 143,
+      "C": 19,
+      "DOWN": 109,
+      "FORWARD": 10,
+      "UP": 6
     },
     "action_rates": {
-      "A": 0.0125,
-      "B": 0.6572916666666667,
-      "BACKWARD": 0.18958333333333333,
-      "C": 0.0375,
-      "DOWN": 0.071875,
-      "FORWARD": 0.011458333333333333,
-      "UP": 0.019791666666666666
+      "A": 0.007291666666666667,
+      "B": 0.69375,
+      "BACKWARD": 0.14895833333333333,
+      "C": 0.019791666666666666,
+      "DOWN": 0.11354166666666667,
+      "FORWARD": 0.010416666666666666,
+      "UP": 0.00625
     },
     "characters": {
       "GARNET": {
         "action_counts": {
-          "A": 4,
-          "B": 162,
-          "BACKWARD": 33,
+          "B": 171,
+          "BACKWARD": 37,
           "C": 5,
-          "DOWN": 27,
-          "FORWARD": 8,
-          "UP": 1
-        },
-        "decisions": 240,
-        "draws": 23,
-        "losses": 0,
-        "rounds": 24,
-        "wins": 1
-      },
-      "LUD": {
-        "action_counts": {
-          "A": 2,
-          "B": 153,
-          "BACKWARD": 47,
-          "C": 11,
-          "DOWN": 14,
-          "FORWARD": 1,
-          "UP": 12
+          "DOWN": 25,
+          "FORWARD": 2
         },
         "decisions": 240,
         "draws": 23,
@@ -1403,15 +1401,14 @@
         "rounds": 24,
         "wins": 0
       },
-      "NEZ": {
+      "LUD": {
         "action_counts": {
-          "A": 1,
-          "B": 147,
-          "BACKWARD": 66,
-          "C": 11,
-          "DOWN": 11,
+          "B": 153,
+          "BACKWARD": 58,
+          "C": 4,
+          "DOWN": 22,
           "FORWARD": 2,
-          "UP": 2
+          "UP": 1
         },
         "decisions": 240,
         "draws": 24,
@@ -1419,14 +1416,30 @@
         "rounds": 24,
         "wins": 0
       },
+      "NEZ": {
+        "action_counts": {
+          "A": 7,
+          "B": 164,
+          "BACKWARD": 21,
+          "C": 7,
+          "DOWN": 36,
+          "FORWARD": 2,
+          "UP": 3
+        },
+        "decisions": 240,
+        "draws": 23,
+        "losses": 0,
+        "rounds": 24,
+        "wins": 1
+      },
       "ZEN": {
         "action_counts": {
-          "A": 5,
-          "B": 169,
-          "BACKWARD": 36,
-          "C": 9,
-          "DOWN": 17,
-          "UP": 4
+          "B": 178,
+          "BACKWARD": 27,
+          "C": 3,
+          "DOWN": 26,
+          "FORWARD": 4,
+          "UP": 2
         },
         "decisions": 240,
         "draws": 24,
@@ -1454,10 +1467,10 @@
     "win": 1.0
   },
   "schema_version": 4,
-  "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/37155218665",
+  "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/37181704783",
   "spatial_visualization": {
     "available": false,
     "policy_access": false
   },
-  "updated_at": "2026-10-03T21:36:59Z"
+  "updated_at": "2026-10-04T06:36:09Z"
 }
