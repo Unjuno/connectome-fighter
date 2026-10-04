@@ -57,3 +57,17 @@ def test_reward_selection_seeds_do_not_reuse_known_training_validation_or_holdou
     }
     assert new_seeds.isdisjoint(known)
     assert source.count("reward-select-s") == 6
+
+
+def test_counterfactual_workflow_is_read_only_and_pinned():
+    workflow = (ROOT / '.github/workflows/reward-credit-counterfactual.yml').read_text()
+    assert "permissions:\n  contents: read" in workflow
+    assert "contents: write" not in workflow
+    assert "/dispatches" not in workflow
+    assert "release upload" not in workflow
+    assert "vercel" not in workflow.lower()
+    assert "RUNTIME_ASSET_ID: '568215636'" in workflow
+    assert "RUNTIME_SHA256: a5f03b13890dbe6b29ef5e646f885b92013610dc4f8c16b2a54b94393d8c73c4" in workflow
+    assert "PARENT_ASSET_ID: '599773615'" in workflow
+    assert "PARENT_ARCHIVE_SHA256: 9f2b970836d634f6de4b67b0f6b98c3bc5f9d6de539156701a6e27f88cdc3671" in workflow
+    assert "--timeout-seconds 2400" in workflow
