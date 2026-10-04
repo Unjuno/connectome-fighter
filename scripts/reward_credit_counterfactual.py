@@ -3,9 +3,10 @@
 
 The experiment regenerates the exact no-damage training round from the frozen
 Gen49 parent, reproduces the canonical R2e proposal byte-for-byte, then changes
-only the reward identifier and zero-damage terminal penalty for R2f. Both
-proposals are evaluated on the existing fixed ZEN/LUD/NEZ selection suite.
-Nothing here publishes a checkpoint or changes canonical continuous learning.
+only the reward identifier and zero-damage terminal penalty for R2f. The
+existing fixed ZEN/LUD/NEZ suite is used only to reproduce run 2310. Reward
+selection uses a separate six-case suite with previously unused seeds. Nothing
+here publishes a checkpoint or changes canonical continuous learning.
 """
 from __future__ import annotations
 
@@ -26,7 +27,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
 
-from connectome_fighter.combat_reward import paired_evaluation_suite_gate
+from connectome_fighter.combat_reward import paired_evaluation_suite_gate, paired_evaluation_utility
 
 CANONICAL_REWARD = 'R2e-combat-v1'
 TREATMENT_REWARD = 'R2f-combat-nodamage-neutral-v0'
@@ -46,6 +47,14 @@ VALIDATION_SUITE = (
     {'case_id': 'nez-validation-v1', 'opponent': 'NEZ', 'seed_p1': 810303, 'seed_p2': 31003},
 )
 EXPECTED_CONTROL_GATE_DELTA = -0.10416666666666696
+REWARD_SELECTION_SUITE = (
+    {'case_id': 'zen-reward-select-s1', 'opponent': 'ZEN', 'seed_p1': 830111, 'seed_p2': 33011},
+    {'case_id': 'zen-reward-select-s2', 'opponent': 'ZEN', 'seed_p1': 830112, 'seed_p2': 33012},
+    {'case_id': 'lud-reward-select-s1', 'opponent': 'LUD', 'seed_p1': 830211, 'seed_p2': 33021},
+    {'case_id': 'lud-reward-select-s2', 'opponent': 'LUD', 'seed_p1': 830212, 'seed_p2': 33022},
+    {'case_id': 'nez-reward-select-s1', 'opponent': 'NEZ', 'seed_p1': 830311, 'seed_p2': 33031},
+    {'case_id': 'nez-reward-select-s2', 'opponent': 'NEZ', 'seed_p1': 830312, 'seed_p2': 33032},
+)
 
 
 def sha(path: str | Path) -> str:
@@ -83,13 +92,13 @@ def main() -> int:
     parser.add_argument('--runtime-root', type=Path, required=True)
     parser.add_argument('--parent-archive', type=Path, required=True)
     parser.add_argument('--out', type=Path, required=True)
-    parser.add_argument('--timeout-seconds', type=int, default=1400)
+    parser.add_argument('--timeout-seconds', type=int, default=2400)
     args = parser.parse_args()
 
     if os.environ.get('CI') != 'true' or os.environ.get('VERCEL'):
         parser.error('standalone CI only')
-    if not 600 <= args.timeout_seconds <= 1800:
-        parser.error('timeout must be 600..1800 seconds')
+    if not 1200 <= args.timeout_seconds <= 2700:
+        parser.error('timeout must be 1200..2700 seconds')
 
     runtime = args.runtime_root.resolve()
     out = args.out.resolve()
@@ -334,23 +343,28 @@ print(json.dumps(fork_reward(source,dest,old,new),sort_keys=True))
         'r2e_control': control_adapter,
         'r2f_no_damage_neutral': treatment_adapter,
     }
-    evaluations: dict[str, list[dict]] = {label: [] for label in adapters}
-    for case in VALIDATION_SUITE:
-        for label, adapter in adapters.items():
-            metrics = match(
-                f"{label}-{case['case_id']}",
-                adapter,
-                case['opponent'],
-                case['seed_p1'],
-                case['seed_p2'],
-            )
-            evaluations[label].append({**case, 'metrics': metrics})
 
+    def evaluate_suite(suite_name: str, suite: tuple[dict, ...]) -> dict[str, list[dict]]:
+        rows: dict[str, list[dict]] = {label: [] for label in adapters}
+        for case in suite:
+            for label, adapter in adapters.items():
+                metrics = match(
+                    f"{suite_name}-{label}-{case['case_id']}",
+                    adapter,
+                    case['opponent'],
+                    case['seed_p1'],
+                    case['seed_p2'],
+                )
+                rows[label].append({**case, 'metrics': metrics})
+        return rows
+
+    validation_evaluations = evaluate_suite('validation-replay', VALIDATION_SUITE)
+    reward_selection_evaluations = evaluate_suite('reward-selection', REWARD_SELECTION_SUITE)
     reward_config = json.loads(control_reward.read_text())
 
-    def gate(after_label: str) -> dict:
+    def gate(rows: dict[str, list[dict]], after_label: str) -> dict:
         cases = []
-        for before, after in zip(evaluations['parent'], evaluations[after_label], strict=True):
+        for before, after in zip(rows['parent'], rows[after_label], strict=True):
             cases.append({
                 'case_id': before['case_id'],
                 'opponent': before['opponent'],
@@ -361,18 +375,82 @@ print(json.dumps(fork_reward(source,dest,old,new),sort_keys=True))
             })
         return paired_evaluation_suite_gate(cases, reward_config)
 
-    control_gate = gate('r2e_control')
-    treatment_gate = gate('r2f_no_damage_neutral')
+    control_gate = gate(validation_evaluations, 'r2e_control')
+    treatment_gate = gate(validation_evaluations, 'r2f_no_damage_neutral')
     if abs(control_gate['utility_delta'] - EXPECTED_CONTROL_GATE_DELTA) > 1e-12:
         raise RuntimeError(f'run-2310 validation replay drifted: {control_gate}')
 
-    if treatment_gate['accepted_update']:
-        recommendation = 'advance-r2f-to-new-independent-seed-test'
+    def outcome(metrics: dict) -> int:
+        return 1 if metrics['p1_hp'] > metrics['p2_hp'] else -1 if metrics['p1_hp'] < metrics['p2_hp'] else 0
+
+    def aggregate(rows: list[dict]) -> dict:
+        utilities = [paired_evaluation_utility(row['metrics'], reward_config) for row in rows]
+        return {
+            'cases': len(rows),
+            'wins': sum(outcome(row['metrics']) > 0 for row in rows),
+            'losses': sum(outcome(row['metrics']) < 0 for row in rows),
+            'draws': sum(outcome(row['metrics']) == 0 for row in rows),
+            'no_damage_draws': sum(bool(row['metrics']['no_damage_draw']) for row in rows),
+            'damage_dealt_hp': sum(row['metrics']['damage_dealt_hp'] for row in rows),
+            'damage_taken_hp': sum(row['metrics']['damage_taken_hp'] for row in rows),
+            'net_hp': sum(row['metrics']['damage_dealt_hp'] - row['metrics']['damage_taken_hp'] for row in rows),
+            'mean_canonical_utility': sum(utilities) / len(utilities),
+            'canonical_utilities': utilities,
+        }
+
+    def paired_compare(before_label: str, after_label: str) -> dict:
+        before_rows = reward_selection_evaluations[before_label]
+        after_rows = reward_selection_evaluations[after_label]
+        cases = []
+        for before, after in zip(before_rows, after_rows, strict=True):
+            before_u = paired_evaluation_utility(before['metrics'], reward_config)
+            after_u = paired_evaluation_utility(after['metrics'], reward_config)
+            before_outcome = outcome(before['metrics'])
+            after_outcome = outcome(after['metrics'])
+            cases.append({
+                'case_id': before['case_id'],
+                'opponent': before['opponent'],
+                'before_utility': before_u,
+                'after_utility': after_u,
+                'utility_delta': after_u - before_u,
+                'before_outcome': before_outcome,
+                'after_outcome': after_outcome,
+            })
+        mean_delta = sum(row['utility_delta'] for row in cases) / len(cases)
+        return {
+            'before': before_label,
+            'after': after_label,
+            'pair_count': len(cases),
+            'mean_utility_delta': mean_delta,
+            'improved_pairs': sum(row['utility_delta'] > 1e-12 for row in cases),
+            'nondegrading_pairs': sum(row['utility_delta'] >= -1e-12 for row in cases),
+            'outcome_regressions': sum(row['after_outcome'] < row['before_outcome'] for row in cases),
+            'cases': cases,
+        }
+
+    selection_aggregate = {
+        label: aggregate(rows)
+        for label, rows in reward_selection_evaluations.items()
+    }
+    treatment_vs_control = paired_compare('r2e_control', 'r2f_no_damage_neutral')
+    treatment_vs_parent = paired_compare('parent', 'r2f_no_damage_neutral')
+    control_vs_parent = paired_compare('parent', 'r2e_control')
+    required_improved = 4
+    supports_followup = (
+        treatment_vs_control['mean_utility_delta'] > 1e-12
+        and treatment_vs_parent['mean_utility_delta'] > 1e-12
+        and treatment_vs_control['improved_pairs'] >= required_improved
+        and treatment_vs_parent['improved_pairs'] >= required_improved
+        and treatment_vs_control['outcome_regressions'] == 0
+        and treatment_vs_parent['outcome_regressions'] == 0
+    )
+    if supports_followup:
+        recommendation = 'advance-r2f-to-confirmatory-independent-holdout'
     elif (
-        treatment_gate['utility_delta'] > control_gate['utility_delta'] + 1e-12
-        and treatment_gate['outcome_regressions'] <= control_gate['outcome_regressions']
+        treatment_vs_control['mean_utility_delta'] > 1e-12
+        and treatment_vs_control['outcome_regressions'] == 0
     ):
-        recommendation = 'mechanism-improved-relative-to-r2e-but-did-not-beat-parent'
+        recommendation = 'r2f-improves-over-r2e-control-but-not-over-parent'
     else:
         recommendation = 'reject-r2f-for-this-counterfactual'
 
@@ -398,18 +476,36 @@ print(json.dumps(fork_reward(source,dest,old,new),sort_keys=True))
             'r2e_control': control_update,
             'r2f_no_damage_neutral': treatment_update,
         },
-        'validation_suite': VALIDATION_SUITE,
-        'evaluations': evaluations,
+        'validation_replay_suite': VALIDATION_SUITE,
+        'validation_replay_evaluations': validation_evaluations,
+        'reward_selection_suite': REWARD_SELECTION_SUITE,
+        'reward_selection_evaluations': reward_selection_evaluations,
+        'reward_selection_common_objective': 'R2e canonical paired evaluation utility; same external objective for parent, R2e control, and R2f treatment',
+        'reward_selection_aggregate': selection_aggregate,
+        'reward_selection_pairwise': {
+            'control_vs_parent': control_vs_parent,
+            'treatment_vs_control': treatment_vs_control,
+            'treatment_vs_parent': treatment_vs_parent,
+        },
+        'reward_selection_rule': {
+            'required_improved_pairs': required_improved,
+            'require_positive_mean_vs_control': True,
+            'require_positive_mean_vs_parent': True,
+            'require_zero_outcome_regressions_vs_control': True,
+            'require_zero_outcome_regressions_vs_parent': True,
+            'supports_followup': supports_followup,
+        },
         'canonical_gate_replay': control_gate,
         'treatment_gate_replay': treatment_gate,
         'recommendation': recommendation,
         'auto_promotion': False,
         'canonical_learning_changed': False,
         'interpretation_boundary': (
-            'This reuses the existing fixed ZEN/LUD/NEZ candidate-selection suite and therefore is a '
-            'mechanistic counterfactual, not independent generalization evidence. R2f is a project-defined '
-            'FightingICE reward treatment, not an endogenous Drosophila reinforcement pathway. A favorable '
-            'result only authorizes a separate test on new seeds; it does not authorize canonical publication.'
+            'The fixed ZEN/LUD/NEZ suite is used only to reproduce run 2310. Reward selection uses six '
+            'previously unused seeds, which become model-selection data after this experiment and are not a '
+            'future independent holdout. R2f is a project-defined FightingICE reward treatment, not an endogenous '
+            'Drosophila reinforcement pathway. A favorable result only authorizes a separate confirmatory holdout; '
+            'it does not authorize canonical publication.'
         ),
     }
     write(out / 'result.json', result)
