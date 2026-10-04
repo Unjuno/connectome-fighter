@@ -74,7 +74,8 @@ def test_terminal_gain_workflow_is_read_only_and_pinned():
     assert "contents: write" not in workflow
     assert "/dispatches" not in workflow
     assert "release upload" not in workflow
-    assert "vercel deploy" not in workflow.lower()\n    assert "vercel_token" not in workflow.lower()
+    assert "vercel deploy" not in workflow.lower()
+    assert "vercel_token" not in workflow.lower()
     assert "RUNTIME_ASSET_ID: '568215636'" in workflow
     assert "RUNTIME_SHA256: a5f03b13890dbe6b29ef5e646f885b92013610dc4f8c16b2a54b94393d8c73c4" in workflow
     assert "PARENT_ASSET_ID: '599773615'" in workflow
