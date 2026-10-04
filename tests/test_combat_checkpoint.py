@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from connectome_fighter.combat_checkpoint import fork_reward
 from connectome_fighter.valence_plasticity import ValencePlasticityConfig,initialize_state,save_state,load_state
-from connectome_fighter.combat_reward import REWARD_ID
+from connectome_fighter.combat_reward import NO_DAMAGE_NEUTRAL_REWARD_ID, REWARD_ID
 
 
 def test_exact_weights_fork_and_source_unchanged(tmp_path):
@@ -19,5 +19,13 @@ def test_exact_weights_fork_and_source_unchanged(tmp_path):
     result=load_state(dest,expected_character='GARNET',n_candidates=4,expected_candidate_sha256='a'*64,config=new)
     np.testing.assert_array_equal(result.multipliers,state.multipliers)
     with pytest.raises(ValueError): load_state(dest,expected_character='GARNET',n_candidates=4,expected_candidate_sha256='a'*64,config=old)
+    alt=replace(new,reward_id=NO_DAMAGE_NEUTRAL_REWARD_ID)
+    second=tmp_path/'counterfactual.npz'
+    second_receipt=fork_reward(dest,second,new,alt)
+    assert second_receipt['from_reward']==REWARD_ID
+    assert second_receipt['to_reward']==NO_DAMAGE_NEUTRAL_REWARD_ID
+    alt_state=load_state(second,expected_character='GARNET',n_candidates=4,expected_candidate_sha256='a'*64,config=alt)
+    np.testing.assert_array_equal(alt_state.multipliers,state.multipliers)
     with pytest.raises(ValueError): fork_reward(source,source,old,new)
+    with pytest.raises(ValueError): fork_reward(source,tmp_path/'same.npz',old,old)
     with pytest.raises(ValueError): fork_reward(source,tmp_path/'bad.npz',old,replace(new,learning_rate=.02))
