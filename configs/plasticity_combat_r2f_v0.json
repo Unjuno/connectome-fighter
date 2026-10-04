@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "KC-MBON-valence-depression-v0",
+  "status": "counterfactual-reward-credit-experiment-only",
+  "learning_rate_per_unit_modulatory_signal": 0.01,
+  "eligibility_decay_per_decision": 0.9,
+  "pair_count_cap": 25,
+  "normalization_percentile": 95,
+  "multiplier_min": 0.8,
+  "multiplier_max": 1,
+  "positive_signal_target": "avoidance_associated",
+  "negative_signal_target": "approach_associated",
+  "update_direction": "depression_only",
+  "reward_config": "R2f-combat-nodamage-neutral-v0",
+  "literature_basis": {
+    "doi": "10.7554/eLife.04580",
+    "summary": "Aso et al. 2014 reported avoidance-associated glutamatergic MBON activation and attraction-associated GABAergic/cholinergic MBON activation, with dopamine-dependent KC-MBON depression proposed to shift the MBON ensemble balance."
+  },
+  "interpretation_boundary": "All plasticity parameters are held identical to the canonical R2e combat candidate. Only the referenced reward identifier changes so the zero-damage terminal signal can be tested without changing learning rate, eligibility, bounds, topology, transmitter sign, or update direction."
+}
