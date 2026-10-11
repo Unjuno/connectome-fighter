@@ -5,128 +5,58 @@
     {
       "frame": 1,
       "p1": {
-        "action": "BACKWARD",
+        "action": "FORWARD",
         "brain": {
           "group_spike_counts": {
-            "A": 1,
-            "B": 4,
-            "BACKWARD": 4,
-            "C": 2,
-            "DOWN": 3,
-            "FORWARD": 1,
+            "A": 0,
+            "B": 2,
+            "BACKWARD": 1,
+            "C": 0,
+            "DOWN": 1,
+            "FORWARD": 3,
             "UP": 0
           },
           "membrane_summary": {
-            "g_max_mV": 105.38808859683435,
-            "g_mean_mV": -0.07453305089818722,
-            "g_min_mV": -277.16566476944325,
+            "g_max_mV": 464.62061226807265,
+            "g_mean_mV": 0.09088383055497688,
+            "g_min_mV": -439.55540254349467,
             "v_max_mV": 16.75,
-            "v_mean_mV": -51.99549115892637,
-            "v_min_mV": -112.4947264958623
+            "v_mean_mV": -52.00138639090821,
+            "v_min_mV": -166.1551909205277
           },
           "top_bodies": [
             {
-              "body_id": 1155010907,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 143082,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 815799,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 912413,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 814533,
-              "relative": 0.8571428571428571,
-              "spikes": 6
-            },
-            {
-              "body_id": 815963,
-              "relative": 0.8571428571428571,
-              "spikes": 6
-            },
-            {
-              "body_id": 823510,
-              "relative": 0.8571428571428571,
-              "spikes": 6
-            },
-            {
-              "body_id": 809839,
-              "relative": 0.8571428571428571,
-              "spikes": 6
-            },
-            {
-              "body_id": 804983,
-              "relative": 0.7142857142857143,
-              "spikes": 5
-            },
-            {
-              "body_id": 906485,
-              "relative": 0.7142857142857143,
-              "spikes": 5
-            },
-            {
-              "body_id": 214285,
-              "relative": 0.7142857142857143,
-              "spikes": 5
-            },
-            {
-              "body_id": 812955,
-              "relative": 0.7142857142857143,
-              "spikes": 5
-            }
-          ],
-          "total_spikes": 534
-        },
-        "hp": 400,
-        "speed_x": 0,
-        "speed_y": 0,
-        "x": 240,
-        "y": 537
-      },
-      "p2": {
-        "action": "B",
-        "brain": {
-          "group_spike_counts": {
-            "A": 2,
-            "B": 3,
-            "BACKWARD": 2,
-            "C": 0,
-            "DOWN": 1,
-            "FORWARD": 1,
-            "UP": 2
-          },
-          "membrane_summary": {
-            "g_max_mV": 137.8280489026845,
-            "g_mean_mV": -0.05882008813727306,
-            "g_min_mV": -309.094401228925,
-            "v_max_mV": -45.01679411608746,
-            "v_mean_mV": -52.00009287493654,
-            "v_min_mV": -110.03829468191597
-          },
-          "top_bodies": [
-            {
-              "body_id": 490080,
+              "body_id": 521399,
               "relative": 1.0,
               "spikes": 8
             },
             {
-              "body_id": 906312,
+              "body_id": 214285,
+              "relative": 1.0,
+              "spikes": 8
+            },
+            {
+              "body_id": 413665,
+              "relative": 1.0,
+              "spikes": 8
+            },
+            {
+              "body_id": 812302,
               "relative": 0.875,
               "spikes": 7
             },
             {
-              "body_id": 816735,
+              "body_id": 1155010907,
+              "relative": 0.75,
+              "spikes": 6
+            },
+            {
+              "body_id": 809976,
+              "relative": 0.75,
+              "spikes": 6
+            },
+            {
+              "body_id": 811824,
               "relative": 0.75,
               "spikes": 6
             },
@@ -136,47 +66,117 @@
               "spikes": 6
             },
             {
-              "body_id": 804911,
+              "body_id": 818347,
               "relative": 0.75,
               "spikes": 6
             },
             {
-              "body_id": 517276,
+              "body_id": 818406,
               "relative": 0.75,
               "spikes": 6
             },
             {
-              "body_id": 911856,
+              "body_id": 818827,
               "relative": 0.75,
               "spikes": 6
             },
             {
-              "body_id": 815217,
+              "body_id": 820120,
               "relative": 0.75,
+              "spikes": 6
+            }
+          ],
+          "total_spikes": 862
+        },
+        "hp": 400,
+        "speed_x": 0,
+        "speed_y": 0,
+        "x": 240,
+        "y": 537
+      },
+      "p2": {
+        "action": "BACKWARD",
+        "brain": {
+          "group_spike_counts": {
+            "A": 1,
+            "B": 3,
+            "BACKWARD": 4,
+            "C": 0,
+            "DOWN": 4,
+            "FORWARD": 0,
+            "UP": 0
+          },
+          "membrane_summary": {
+            "g_max_mV": 161.95219900706198,
+            "g_mean_mV": 0.040544209167402985,
+            "g_min_mV": -227.30567059774694,
+            "v_max_mV": 16.75,
+            "v_mean_mV": -51.9899302151927,
+            "v_min_mV": -103.51727070850364
+          },
+          "top_bodies": [
+            {
+              "body_id": 812502,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 821230,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 533959,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 809976,
+              "relative": 0.8571428571428571,
               "spikes": 6
             },
             {
-              "body_id": 806491,
-              "relative": 0.75,
+              "body_id": 157828,
+              "relative": 0.8571428571428571,
               "spikes": 6
             },
             {
-              "body_id": 818520,
-              "relative": 0.75,
+              "body_id": 421193662,
+              "relative": 0.8571428571428571,
               "spikes": 6
             },
             {
-              "body_id": 346302680,
-              "relative": 0.75,
+              "body_id": 818827,
+              "relative": 0.8571428571428571,
               "spikes": 6
             },
             {
-              "body_id": 123737608,
-              "relative": 0.625,
+              "body_id": 138625,
+              "relative": 0.8571428571428571,
+              "spikes": 6
+            },
+            {
+              "body_id": 816800,
+              "relative": 0.8571428571428571,
+              "spikes": 6
+            },
+            {
+              "body_id": 904571,
+              "relative": 0.8571428571428571,
+              "spikes": 6
+            },
+            {
+              "body_id": 912926,
+              "relative": 0.7142857142857143,
+              "spikes": 5
+            },
+            {
+              "body_id": 111529,
+              "relative": 0.7142857142857143,
               "spikes": 5
             }
           ],
-          "total_spikes": 638
+          "total_spikes": 573
         },
         "hp": 400,
         "speed_x": 0,
@@ -188,148 +188,53 @@
     {
       "frame": 61,
       "p1": {
-        "action": "C",
+        "action": "BACKWARD",
         "brain": {
           "group_spike_counts": {
-            "A": 24,
-            "B": 20,
-            "BACKWARD": 15,
-            "C": 27,
-            "DOWN": 23,
-            "FORWARD": 19,
-            "UP": 15
+            "A": 19,
+            "B": 26,
+            "BACKWARD": 32,
+            "C": 30,
+            "DOWN": 26,
+            "FORWARD": 24,
+            "UP": 25
           },
           "membrane_summary": {
-            "g_max_mV": 432.1624237550813,
-            "g_mean_mV": -0.3989114942809309,
-            "g_min_mV": -483.01554588542575,
-            "v_max_mV": 16.75,
-            "v_mean_mV": -52.269213982068266,
-            "v_min_mV": -195.771168874715
+            "g_max_mV": 521.0490342005914,
+            "g_mean_mV": -0.7818672248584142,
+            "g_min_mV": -482.6128227808675,
+            "v_max_mV": -45.002424071134286,
+            "v_mean_mV": -52.51016975901439,
+            "v_min_mV": -306.38951897380235
           },
           "top_bodies": [
             {
-              "body_id": 811335,
-              "relative": 1.0,
-              "spikes": 8
-            },
-            {
-              "body_id": 123771,
-              "relative": 0.75,
-              "spikes": 6
-            },
-            {
-              "body_id": 101968,
-              "relative": 0.75,
-              "spikes": 6
-            },
-            {
-              "body_id": 814526,
-              "relative": 0.75,
-              "spikes": 6
-            },
-            {
-              "body_id": 10140,
-              "relative": 0.75,
-              "spikes": 6
-            },
-            {
-              "body_id": 11342,
-              "relative": 0.625,
-              "spikes": 5
-            },
-            {
-              "body_id": 903484,
-              "relative": 0.625,
-              "spikes": 5
-            },
-            {
-              "body_id": 800571,
-              "relative": 0.625,
-              "spikes": 5
-            },
-            {
-              "body_id": 909116,
-              "relative": 0.625,
-              "spikes": 5
-            },
-            {
-              "body_id": 820120,
-              "relative": 0.625,
-              "spikes": 5
-            },
-            {
-              "body_id": 11379,
-              "relative": 0.625,
-              "spikes": 5
-            },
-            {
-              "body_id": 520916,
-              "relative": 0.625,
-              "spikes": 5
-            }
-          ],
-          "total_spikes": 2966
-        },
-        "hp": 400,
-        "speed_x": 0,
-        "speed_y": 0,
-        "x": 240,
-        "y": 537
-      },
-      "p2": {
-        "action": "FORWARD",
-        "brain": {
-          "group_spike_counts": {
-            "A": 23,
-            "B": 27,
-            "BACKWARD": 31,
-            "C": 32,
-            "DOWN": 31,
-            "FORWARD": 33,
-            "UP": 20
-          },
-          "membrane_summary": {
-            "g_max_mV": 378.4005061762026,
-            "g_mean_mV": -0.8324375402092912,
-            "g_min_mV": -495.81269209335665,
-            "v_max_mV": 16.155863458229323,
-            "v_mean_mV": -52.37810895247549,
-            "v_min_mV": -298.29079610904233
-          },
-          "top_bodies": [
-            {
-              "body_id": 10140,
+              "body_id": 11292,
               "relative": 1.0,
               "spikes": 7
             },
             {
-              "body_id": 11736,
+              "body_id": 10632,
               "relative": 1.0,
               "spikes": 7
             },
             {
-              "body_id": 11922,
+              "body_id": 11531,
               "relative": 1.0,
               "spikes": 7
             },
             {
-              "body_id": 11244,
+              "body_id": 10905,
               "relative": 1.0,
               "spikes": 7
             },
             {
-              "body_id": 11828,
+              "body_id": 10929,
               "relative": 1.0,
               "spikes": 7
             },
             {
-              "body_id": 11478,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 524238,
+              "body_id": 23401,
               "relative": 1.0,
               "spikes": 7
             },
@@ -339,7 +244,7 @@
               "spikes": 7
             },
             {
-              "body_id": 11744,
+              "body_id": 10977,
               "relative": 1.0,
               "spikes": 7
             },
@@ -349,17 +254,112 @@
               "spikes": 7
             },
             {
-              "body_id": 11620,
+              "body_id": 119792,
               "relative": 1.0,
               "spikes": 7
             },
             {
-              "body_id": 521399,
+              "body_id": 11099,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 12338,
               "relative": 1.0,
               "spikes": 7
             }
           ],
-          "total_spikes": 5495
+          "total_spikes": 6162
+        },
+        "hp": 400,
+        "speed_x": 4,
+        "speed_y": 0,
+        "x": 470,
+        "y": 537
+      },
+      "p2": {
+        "action": "BACKWARD",
+        "brain": {
+          "group_spike_counts": {
+            "A": 12,
+            "B": 10,
+            "BACKWARD": 23,
+            "C": 22,
+            "DOWN": 19,
+            "FORWARD": 16,
+            "UP": 18
+          },
+          "membrane_summary": {
+            "g_max_mV": 372.0534748540152,
+            "g_mean_mV": -0.4904575248403864,
+            "g_min_mV": -785.8635122188425,
+            "v_max_mV": 19.674410958026375,
+            "v_mean_mV": -52.28666752903318,
+            "v_min_mV": -277.49078867288165
+          },
+          "top_bodies": [
+            {
+              "body_id": 859509,
+              "relative": 1.0,
+              "spikes": 8
+            },
+            {
+              "body_id": 10929,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 11501,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 10140,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 10942,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 11736,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 804983,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 346302680,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 23854,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 214285,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 816869,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 11289,
+              "relative": 0.75,
+              "spikes": 6
+            }
+          ],
+          "total_spikes": 4380
         },
         "hp": 400,
         "speed_x": 0,
@@ -371,33 +371,28 @@
     {
       "frame": 121,
       "p1": {
-        "action": "FORWARD",
+        "action": "DOWN",
         "brain": {
           "group_spike_counts": {
-            "A": 27,
-            "B": 39,
-            "BACKWARD": 35,
-            "C": 32,
-            "DOWN": 35,
-            "FORWARD": 39,
-            "UP": 22
+            "A": 45,
+            "B": 49,
+            "BACKWARD": 42,
+            "C": 42,
+            "DOWN": 51,
+            "FORWARD": 50,
+            "UP": 33
           },
           "membrane_summary": {
-            "g_max_mV": 615.8038717988842,
-            "g_mean_mV": -1.2061989873836017,
-            "g_min_mV": -528.0878853726638,
-            "v_max_mV": 17.131117310322374,
-            "v_mean_mV": -52.76581121627055,
-            "v_min_mV": -426.10588183804424
+            "g_max_mV": 555.8962964710141,
+            "g_mean_mV": -1.4167952225481912,
+            "g_min_mV": -516.7573359266094,
+            "v_max_mV": -45.00001335590281,
+            "v_mean_mV": -53.165220906098476,
+            "v_min_mV": -436.70078734823187
           },
           "top_bodies": [
             {
-              "body_id": 821230,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 11870,
+              "body_id": 11922,
               "relative": 1.0,
               "spikes": 7
             },
@@ -407,295 +402,27 @@
               "spikes": 7
             },
             {
-              "body_id": 22276,
+              "body_id": 11837,
               "relative": 1.0,
               "spikes": 7
             },
             {
-              "body_id": 521935,
+              "body_id": 10305,
               "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 530777,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 10632,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 11292,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 529429,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 10463,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 11603,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 10977,
-              "relative": 1.0,
-              "spikes": 7
-            }
-          ],
-          "total_spikes": 7550
-        },
-        "hp": 400,
-        "speed_x": 0,
-        "speed_y": 0,
-        "x": 240,
-        "y": 537
-      },
-      "p2": {
-        "action": "BACKWARD",
-        "brain": {
-          "group_spike_counts": {
-            "A": 36,
-            "B": 38,
-            "BACKWARD": 43,
-            "C": 36,
-            "DOWN": 42,
-            "FORWARD": 33,
-            "UP": 26
-          },
-          "membrane_summary": {
-            "g_max_mV": 509.36511311510037,
-            "g_mean_mV": -1.6050376705107658,
-            "g_min_mV": -536.3537019661204,
-            "v_max_mV": 16.75,
-            "v_mean_mV": -53.16306110755975,
-            "v_min_mV": -431.1084490714786
-          },
-          "top_bodies": [
-            {
-              "body_id": 814343,
-              "relative": 1.0,
-              "spikes": 9
-            },
-            {
-              "body_id": 10977,
-              "relative": 0.8888888888888888,
-              "spikes": 8
-            },
-            {
-              "body_id": 11736,
-              "relative": 0.7777777777777778,
-              "spikes": 7
-            },
-            {
-              "body_id": 11870,
-              "relative": 0.7777777777777778,
-              "spikes": 7
-            },
-            {
-              "body_id": 11992,
-              "relative": 0.7777777777777778,
-              "spikes": 7
-            },
-            {
-              "body_id": 11478,
-              "relative": 0.7777777777777778,
-              "spikes": 7
-            },
-            {
-              "body_id": 530777,
-              "relative": 0.7777777777777778,
-              "spikes": 7
-            },
-            {
-              "body_id": 11744,
-              "relative": 0.7777777777777778,
-              "spikes": 7
-            },
-            {
-              "body_id": 11828,
-              "relative": 0.7777777777777778,
-              "spikes": 7
-            },
-            {
-              "body_id": 11725,
-              "relative": 0.7777777777777778,
-              "spikes": 7
-            },
-            {
-              "body_id": 10929,
-              "relative": 0.7777777777777778,
-              "spikes": 7
-            },
-            {
-              "body_id": 11975,
-              "relative": 0.7777777777777778,
-              "spikes": 7
-            }
-          ],
-          "total_spikes": 8799
-        },
-        "hp": 400,
-        "speed_x": -4,
-        "speed_y": 0,
-        "x": 490,
-        "y": 537
-      }
-    },
-    {
-      "frame": 181,
-      "p1": {
-        "action": "B",
-        "brain": {
-          "group_spike_counts": {
-            "A": 40,
-            "B": 46,
-            "BACKWARD": 32,
-            "C": 26,
-            "DOWN": 36,
-            "FORWARD": 30,
-            "UP": 29
-          },
-          "membrane_summary": {
-            "g_max_mV": 396.36681259446965,
-            "g_mean_mV": -1.1739915732513735,
-            "g_min_mV": -732.624460127878,
-            "v_max_mV": 16.75,
-            "v_mean_mV": -53.31831318144186,
-            "v_min_mV": -596.9788081441926
-          },
-          "top_bodies": [
-            {
-              "body_id": 823510,
-              "relative": 1.0,
-              "spikes": 11
-            },
-            {
-              "body_id": 12338,
-              "relative": 0.6363636363636364,
-              "spikes": 7
-            },
-            {
-              "body_id": 10540,
-              "relative": 0.6363636363636364,
-              "spikes": 7
-            },
-            {
-              "body_id": 521935,
-              "relative": 0.6363636363636364,
-              "spikes": 7
-            },
-            {
-              "body_id": 532655,
-              "relative": 0.6363636363636364,
-              "spikes": 7
-            },
-            {
-              "body_id": 11289,
-              "relative": 0.6363636363636364,
-              "spikes": 7
-            },
-            {
-              "body_id": 11620,
-              "relative": 0.6363636363636364,
-              "spikes": 7
-            },
-            {
-              "body_id": 10632,
-              "relative": 0.6363636363636364,
-              "spikes": 7
-            },
-            {
-              "body_id": 11725,
-              "relative": 0.6363636363636364,
-              "spikes": 7
-            },
-            {
-              "body_id": 11736,
-              "relative": 0.6363636363636364,
               "spikes": 7
             },
             {
               "body_id": 555318,
-              "relative": 0.6363636363636364,
-              "spikes": 7
-            },
-            {
-              "body_id": 11744,
-              "relative": 0.6363636363636364,
-              "spikes": 7
-            }
-          ],
-          "total_spikes": 8665
-        },
-        "hp": 400,
-        "speed_x": 4,
-        "speed_y": 0,
-        "x": 460,
-        "y": 537
-      },
-      "p2": {
-        "action": "DOWN",
-        "brain": {
-          "group_spike_counts": {
-            "A": 25,
-            "B": 33,
-            "BACKWARD": 30,
-            "C": 31,
-            "DOWN": 33,
-            "FORWARD": 23,
-            "UP": 17
-          },
-          "membrane_summary": {
-            "g_max_mV": 283.13476058680743,
-            "g_mean_mV": -1.4720145032735206,
-            "g_min_mV": -605.4284741189167,
-            "v_max_mV": 16.75,
-            "v_mean_mV": -53.412625836507154,
-            "v_min_mV": -509.4475540050687
-          },
-          "top_bodies": [
-            {
-              "body_id": 1155010907,
               "relative": 1.0,
               "spikes": 7
             },
             {
-              "body_id": 529429,
+              "body_id": 11828,
               "relative": 1.0,
               "spikes": 7
             },
             {
-              "body_id": 10905,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 11991,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 10929,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 11922,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 10942,
+              "body_id": 817043,
               "relative": 1.0,
               "spikes": 7
             },
@@ -705,32 +432,305 @@
               "spikes": 7
             },
             {
-              "body_id": 11783,
+              "body_id": 904216,
               "relative": 1.0,
               "spikes": 7
             },
             {
-              "body_id": 23401,
+              "body_id": 521935,
               "relative": 1.0,
               "spikes": 7
             },
             {
-              "body_id": 11725,
+              "body_id": 10540,
               "relative": 1.0,
               "spikes": 7
             },
             {
-              "body_id": 524238,
+              "body_id": 11991,
               "relative": 1.0,
               "spikes": 7
             }
           ],
-          "total_spikes": 8297
+          "total_spikes": 9123
         },
         "hp": 400,
         "speed_x": 0,
         "speed_y": 0,
-        "x": 512,
+        "x": 550,
+        "y": 537
+      },
+      "p2": {
+        "action": "FORWARD",
+        "brain": {
+          "group_spike_counts": {
+            "A": 29,
+            "B": 41,
+            "BACKWARD": 45,
+            "C": 39,
+            "DOWN": 41,
+            "FORWARD": 45,
+            "UP": 33
+          },
+          "membrane_summary": {
+            "g_max_mV": 250.02644968740955,
+            "g_mean_mV": -1.4793922072653134,
+            "g_min_mV": -655.8779030593424,
+            "v_max_mV": 16.75,
+            "v_mean_mV": -52.98060908511424,
+            "v_min_mV": -506.62223753500643
+          },
+          "top_bodies": [
+            {
+              "body_id": 815419,
+              "relative": 1.0,
+              "spikes": 8
+            },
+            {
+              "body_id": 11292,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 11975,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 11478,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 530777,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 11501,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 521935,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 532655,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 11523,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 11531,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 520787,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 336332,
+              "relative": 0.875,
+              "spikes": 7
+            }
+          ],
+          "total_spikes": 8929
+        },
+        "hp": 400,
+        "speed_x": 0,
+        "speed_y": 0,
+        "x": 720,
+        "y": 537
+      }
+    },
+    {
+      "frame": 181,
+      "p1": {
+        "action": "B",
+        "brain": {
+          "group_spike_counts": {
+            "A": 39,
+            "B": 48,
+            "BACKWARD": 31,
+            "C": 43,
+            "DOWN": 43,
+            "FORWARD": 29,
+            "UP": 24
+          },
+          "membrane_summary": {
+            "g_max_mV": 435.05597380868653,
+            "g_mean_mV": -1.2102998026115868,
+            "g_min_mV": -440.76816025240345,
+            "v_max_mV": 16.50963023266592,
+            "v_mean_mV": -53.48489399226682,
+            "v_min_mV": -562.2185973134175
+          },
+          "top_bodies": [
+            {
+              "body_id": 520002,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 11992,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 10632,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 11099,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 10650,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 10201,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 918582,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 11993,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 11501,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 10540,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 11517,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 11975,
+              "relative": 1.0,
+              "spikes": 7
+            }
+          ],
+          "total_spikes": 8462
+        },
+        "hp": 400,
+        "speed_x": 0,
+        "speed_y": 0,
+        "x": 448,
+        "y": 557
+      },
+      "p2": {
+        "action": "BACKWARD",
+        "brain": {
+          "group_spike_counts": {
+            "A": 24,
+            "B": 34,
+            "BACKWARD": 40,
+            "C": 38,
+            "DOWN": 29,
+            "FORWARD": 32,
+            "UP": 22
+          },
+          "membrane_summary": {
+            "g_max_mV": 437.13347361218746,
+            "g_mean_mV": -1.4379248054820437,
+            "g_min_mV": -416.5315110917289,
+            "v_max_mV": -45.000426227086,
+            "v_mean_mV": -53.42613136991054,
+            "v_min_mV": -562.2142913367043
+          },
+          "top_bodies": [
+            {
+              "body_id": 101968,
+              "relative": 1.0,
+              "spikes": 8
+            },
+            {
+              "body_id": 524238,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 10942,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 11262,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 11993,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 12111,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 23401,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 11620,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 11099,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 12338,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 10977,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 11991,
+              "relative": 0.875,
+              "spikes": 7
+            }
+          ],
+          "total_spikes": 8432
+        },
+        "hp": 400,
+        "speed_x": -4,
+        "speed_y": 0,
+        "x": 500,
         "y": 537
       }
     },
@@ -740,25 +740,401 @@
         "action": "B",
         "brain": {
           "group_spike_counts": {
-            "A": 33,
-            "B": 48,
-            "BACKWARD": 42,
-            "C": 37,
-            "DOWN": 38,
-            "FORWARD": 32,
-            "UP": 19
+            "A": 41,
+            "B": 56,
+            "BACKWARD": 43,
+            "C": 54,
+            "DOWN": 45,
+            "FORWARD": 39,
+            "UP": 24
           },
           "membrane_summary": {
-            "g_max_mV": 443.5048175890135,
-            "g_mean_mV": -1.430887972747654,
-            "g_min_mV": -510.0320619192621,
-            "v_max_mV": 16.435253985634937,
-            "v_mean_mV": -53.599535645645354,
-            "v_min_mV": -642.3669520420755
+            "g_max_mV": 437.89964653247387,
+            "g_mean_mV": -1.5379283659028697,
+            "g_min_mV": -640.6881294827346,
+            "v_max_mV": -45.0003008034292,
+            "v_mean_mV": -53.773425304798955,
+            "v_min_mV": -575.9636561612367
           },
           "top_bodies": [
             {
-              "body_id": 10209,
+              "body_id": 11744,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 10133,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 10140,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 521935,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 10905,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 11620,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 23401,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 19921,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 17325,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 532655,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 11828,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 28406,
+              "relative": 1.0,
+              "spikes": 7
+            }
+          ],
+          "total_spikes": 9191
+        },
+        "hp": 400,
+        "speed_x": 0,
+        "speed_y": 0,
+        "x": 376,
+        "y": 537
+      },
+      "p2": {
+        "action": "BACKWARD",
+        "brain": {
+          "group_spike_counts": {
+            "A": 22,
+            "B": 37,
+            "BACKWARD": 43,
+            "C": 42,
+            "DOWN": 29,
+            "FORWARD": 19,
+            "UP": 23
+          },
+          "membrane_summary": {
+            "g_max_mV": 418.3444143544941,
+            "g_mean_mV": -1.3776036375472565,
+            "g_min_mV": -450.88914857053095,
+            "v_max_mV": -45.0008745938875,
+            "v_mean_mV": -53.56312670226914,
+            "v_min_mV": -531.3272756318302
+          },
+          "top_bodies": [
+            {
+              "body_id": 814526,
+              "relative": 1.0,
+              "spikes": 8
+            },
+            {
+              "body_id": 11501,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 11531,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 11725,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 520787,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 10140,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 10929,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 10540,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 818520,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 529429,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 11744,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 10942,
+              "relative": 0.875,
+              "spikes": 7
+            }
+          ],
+          "total_spikes": 8772
+        },
+        "hp": 400,
+        "speed_x": 0,
+        "speed_y": 0,
+        "x": 433,
+        "y": 537
+      }
+    },
+    {
+      "frame": 301,
+      "p1": {
+        "action": "B",
+        "brain": {
+          "group_spike_counts": {
+            "A": 39,
+            "B": 59,
+            "BACKWARD": 44,
+            "C": 46,
+            "DOWN": 47,
+            "FORWARD": 33,
+            "UP": 25
+          },
+          "membrane_summary": {
+            "g_max_mV": 526.2696212180839,
+            "g_mean_mV": -1.3910078044766836,
+            "g_min_mV": -392.72395693708745,
+            "v_max_mV": 16.75,
+            "v_mean_mV": -53.805937679274436,
+            "v_min_mV": -567.6289064577206
+          },
+          "top_bodies": [
+            {
+              "body_id": 158307,
+              "relative": 1.0,
+              "spikes": 8
+            },
+            {
+              "body_id": 10942,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 10456,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 11783,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 11099,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 527470,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 10140,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 11725,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 11837,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 10977,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 10929,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 11922,
+              "relative": 0.875,
+              "spikes": 7
+            }
+          ],
+          "total_spikes": 8816
+        },
+        "hp": 400,
+        "speed_x": 0,
+        "speed_y": 0,
+        "x": 376,
+        "y": 537
+      },
+      "p2": {
+        "action": "B",
+        "brain": {
+          "group_spike_counts": {
+            "A": 24,
+            "B": 48,
+            "BACKWARD": 32,
+            "C": 33,
+            "DOWN": 33,
+            "FORWARD": 24,
+            "UP": 23
+          },
+          "membrane_summary": {
+            "g_max_mV": 330.8602404821146,
+            "g_mean_mV": -1.284168577428636,
+            "g_min_mV": -547.2543236674477,
+            "v_max_mV": 16.75,
+            "v_mean_mV": -53.571612103111256,
+            "v_min_mV": -561.4711116860954
+          },
+          "top_bodies": [
+            {
+              "body_id": 421193662,
+              "relative": 1.0,
+              "spikes": 8
+            },
+            {
+              "body_id": 11783,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 23401,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 10397,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 11523,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 521935,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 11870,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 10632,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 10140,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 11478,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 524238,
+              "relative": 0.875,
+              "spikes": 7
+            },
+            {
+              "body_id": 11379,
+              "relative": 0.875,
+              "spikes": 7
+            }
+          ],
+          "total_spikes": 8496
+        },
+        "hp": 400,
+        "speed_x": 0,
+        "speed_y": 0,
+        "x": 433,
+        "y": 537
+      }
+    },
+    {
+      "frame": 361,
+      "p1": {
+        "action": "B",
+        "brain": {
+          "group_spike_counts": {
+            "A": 40,
+            "B": 51,
+            "BACKWARD": 31,
+            "C": 46,
+            "DOWN": 43,
+            "FORWARD": 35,
+            "UP": 22
+          },
+          "membrane_summary": {
+            "g_max_mV": 624.8285119677521,
+            "g_mean_mV": -1.0891239090366411,
+            "g_min_mV": -363.45556155202325,
+            "v_max_mV": 16.75,
+            "v_mean_mV": -53.80977489646555,
+            "v_min_mV": -592.8948102862271
+          },
+          "top_bodies": [
+            {
+              "body_id": 11517,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 10650,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 524238,
               "relative": 1.0,
               "spikes": 7
             },
@@ -768,12 +1144,27 @@
               "spikes": 7
             },
             {
-              "body_id": 11342,
+              "body_id": 11992,
               "relative": 1.0,
               "spikes": 7
             },
             {
-              "body_id": 10133,
+              "body_id": 10977,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 10905,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 23401,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 520002,
               "relative": 1.0,
               "spikes": 7
             },
@@ -788,17 +1179,77 @@
               "spikes": 7
             },
             {
-              "body_id": 17325,
+              "body_id": 11531,
+              "relative": 1.0,
+              "spikes": 7
+            }
+          ],
+          "total_spikes": 8432
+        },
+        "hp": 385,
+        "speed_x": 0,
+        "speed_y": 0,
+        "x": 311,
+        "y": 537
+      },
+      "p2": {
+        "action": "B",
+        "brain": {
+          "group_spike_counts": {
+            "A": 27,
+            "B": 49,
+            "BACKWARD": 46,
+            "C": 45,
+            "DOWN": 40,
+            "FORWARD": 30,
+            "UP": 25
+          },
+          "membrane_summary": {
+            "g_max_mV": 573.9482849958742,
+            "g_mean_mV": -1.2623163344120458,
+            "g_min_mV": -619.5224834970177,
+            "v_max_mV": -45.00366005614607,
+            "v_mean_mV": -53.722556296526456,
+            "v_min_mV": -529.1926542801833
+          },
+          "top_bodies": [
+            {
+              "body_id": 11244,
               "relative": 1.0,
               "spikes": 7
             },
             {
-              "body_id": 18016,
+              "body_id": 11262,
               "relative": 1.0,
               "spikes": 7
             },
             {
-              "body_id": 10254,
+              "body_id": 11744,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 11828,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 918582,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 23854,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 817820,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 10977,
               "relative": 1.0,
               "spikes": 7
             },
@@ -808,478 +1259,27 @@
               "spikes": 7
             },
             {
-              "body_id": 520787,
+              "body_id": 11914,
               "relative": 1.0,
               "spikes": 7
             },
             {
-              "body_id": 12354,
+              "body_id": 11289,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 10463,
               "relative": 1.0,
               "spikes": 7
             }
           ],
-          "total_spikes": 8905
+          "total_spikes": 8354
         },
         "hp": 400,
         "speed_x": 0,
         "speed_y": 0,
-        "x": 530,
-        "y": 537
-      },
-      "p2": {
-        "action": "B",
-        "brain": {
-          "group_spike_counts": {
-            "A": 36,
-            "B": 47,
-            "BACKWARD": 37,
-            "C": 41,
-            "DOWN": 40,
-            "FORWARD": 30,
-            "UP": 27
-          },
-          "membrane_summary": {
-            "g_max_mV": 440.1662013035395,
-            "g_mean_mV": -1.308808401944179,
-            "g_min_mV": -733.0752852102662,
-            "v_max_mV": 16.75,
-            "v_mean_mV": -53.62377032408855,
-            "v_min_mV": -559.4664417534166
-          },
-          "top_bodies": [
-            {
-              "body_id": 123650,
-              "relative": 1.0,
-              "spikes": 8
-            },
-            {
-              "body_id": 11992,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 10209,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 10140,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 521935,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11478,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11501,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11523,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 10463,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11531,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11620,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 812919,
-              "relative": 0.875,
-              "spikes": 7
-            }
-          ],
-          "total_spikes": 8878
-        },
-        "hp": 390,
-        "speed_x": 0,
-        "speed_y": 0,
-        "x": 649,
-        "y": 557
-      }
-    },
-    {
-      "frame": 301,
-      "p1": {
-        "action": "B",
-        "brain": {
-          "group_spike_counts": {
-            "A": 33,
-            "B": 47,
-            "BACKWARD": 35,
-            "C": 43,
-            "DOWN": 35,
-            "FORWARD": 33,
-            "UP": 27
-          },
-          "membrane_summary": {
-            "g_max_mV": 611.8198520293686,
-            "g_mean_mV": -1.5931916429280486,
-            "g_min_mV": -695.5776283088064,
-            "v_max_mV": 16.75,
-            "v_mean_mV": -53.7230300904031,
-            "v_min_mV": -567.6157321578324
-          },
-          "top_bodies": [
-            {
-              "body_id": 113047,
-              "relative": 1.0,
-              "spikes": 8
-            },
-            {
-              "body_id": 11531,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 23477,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 814526,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11725,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 158307,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 10905,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11991,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 524238,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 18726,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11292,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 520002,
-              "relative": 0.875,
-              "spikes": 7
-            }
-          ],
-          "total_spikes": 8756
-        },
-        "hp": 385,
-        "speed_x": 0,
-        "speed_y": 0,
-        "x": 465,
-        "y": 537
-      },
-      "p2": {
-        "action": "BACKWARD",
-        "brain": {
-          "group_spike_counts": {
-            "A": 39,
-            "B": 50,
-            "BACKWARD": 50,
-            "C": 38,
-            "DOWN": 35,
-            "FORWARD": 32,
-            "UP": 27
-          },
-          "membrane_summary": {
-            "g_max_mV": 391.80745760617225,
-            "g_mean_mV": -1.4295929732257449,
-            "g_min_mV": -694.5193537062398,
-            "v_max_mV": 16.826578530332043,
-            "v_mean_mV": -53.77953806182929,
-            "v_min_mV": -614.3107059762043
-          },
-          "top_bodies": [
-            {
-              "body_id": 818292,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 11991,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 10977,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 10942,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 10929,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 10905,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 524238,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 532655,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 812302,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 10632,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 11725,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 10540,
-              "relative": 1.0,
-              "spikes": 7
-            }
-          ],
-          "total_spikes": 8745
-        },
-        "hp": 390,
-        "speed_x": 0,
-        "speed_y": 0,
-        "x": 649,
-        "y": 537
-      }
-    },
-    {
-      "frame": 361,
-      "p1": {
-        "action": "B",
-        "brain": {
-          "group_spike_counts": {
-            "A": 38,
-            "B": 56,
-            "BACKWARD": 37,
-            "C": 39,
-            "DOWN": 43,
-            "FORWARD": 34,
-            "UP": 33
-          },
-          "membrane_summary": {
-            "g_max_mV": 311.238470851331,
-            "g_mean_mV": -1.476493938654501,
-            "g_min_mV": -585.1398989105094,
-            "v_max_mV": 16.75,
-            "v_mean_mV": -53.84424174950516,
-            "v_min_mV": -559.7367065475407
-          },
-          "top_bodies": [
-            {
-              "body_id": 813478,
-              "relative": 1.0,
-              "spikes": 8
-            },
-            {
-              "body_id": 11783,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11828,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 10977,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11478,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11837,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 532655,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 10463,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11975,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11620,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11922,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11992,
-              "relative": 0.875,
-              "spikes": 7
-            }
-          ],
-          "total_spikes": 8844
-        },
-        "hp": 385,
-        "speed_x": 0,
-        "speed_y": 0,
-        "x": 465,
-        "y": 537
-      },
-      "p2": {
-        "action": "B",
-        "brain": {
-          "group_spike_counts": {
-            "A": 33,
-            "B": 48,
-            "BACKWARD": 31,
-            "C": 36,
-            "DOWN": 41,
-            "FORWARD": 33,
-            "UP": 20
-          },
-          "membrane_summary": {
-            "g_max_mV": 495.7495284124283,
-            "g_mean_mV": -1.27236591191048,
-            "g_min_mV": -666.1262072243252,
-            "v_max_mV": 16.75,
-            "v_mean_mV": -53.80520300264486,
-            "v_min_mV": -626.1055122457192
-          },
-          "top_bodies": [
-            {
-              "body_id": 904571,
-              "relative": 1.0,
-              "spikes": 8
-            },
-            {
-              "body_id": 11922,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 10140,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11478,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 10473,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 10169,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11342,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11523,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11531,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 10977,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11870,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11244,
-              "relative": 0.875,
-              "spikes": 7
-            }
-          ],
-          "total_spikes": 8548
-        },
-        "hp": 390,
-        "speed_x": 0,
-        "speed_y": 0,
-        "x": 649,
+        "x": 433,
         "y": 537
       }
     },
@@ -1289,65 +1289,35 @@
         "action": "B",
         "brain": {
           "group_spike_counts": {
-            "A": 35,
-            "B": 45,
-            "BACKWARD": 36,
-            "C": 43,
-            "DOWN": 41,
-            "FORWARD": 31,
-            "UP": 25
+            "A": 41,
+            "B": 60,
+            "BACKWARD": 42,
+            "C": 47,
+            "DOWN": 55,
+            "FORWARD": 36,
+            "UP": 24
           },
           "membrane_summary": {
-            "g_max_mV": 364.537530443332,
-            "g_mean_mV": -1.4510619865711032,
-            "g_min_mV": -766.721556242059,
-            "v_max_mV": -45.00034161272224,
-            "v_mean_mV": -53.77132815624594,
-            "v_min_mV": -537.7687655607464
+            "g_max_mV": 363.41872396343155,
+            "g_mean_mV": -1.7210449533711303,
+            "g_min_mV": -488.2316074219487,
+            "v_max_mV": 16.75,
+            "v_mean_mV": -53.82243740373253,
+            "v_min_mV": -590.6127235405743
           },
           "top_bodies": [
             {
-              "body_id": 11531,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 10929,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 12338,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 10140,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 10905,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 12111,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 18730,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 11099,
+              "body_id": 521935,
               "relative": 1.0,
               "spikes": 7
             },
             {
               "body_id": 10540,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 11603,
               "relative": 1.0,
               "spikes": 7
             },
@@ -1362,107 +1332,137 @@
               "spikes": 7
             },
             {
-              "body_id": 11244,
+              "body_id": 112819175,
               "relative": 1.0,
               "spikes": 7
-            }
-          ],
-          "total_spikes": 8825
-        },
-        "hp": 385,
-        "speed_x": 0,
-        "speed_y": 0,
-        "x": 465,
-        "y": 537
-      },
-      "p2": {
-        "action": "B",
-        "brain": {
-          "group_spike_counts": {
-            "A": 36,
-            "B": 48,
-            "BACKWARD": 39,
-            "C": 41,
-            "DOWN": 39,
-            "FORWARD": 29,
-            "UP": 26
-          },
-          "membrane_summary": {
-            "g_max_mV": 394.8962085870779,
-            "g_mean_mV": -1.4392689687376976,
-            "g_min_mV": -479.22657686658573,
-            "v_max_mV": 16.75,
-            "v_mean_mV": -53.78316920406961,
-            "v_min_mV": -583.5913714650643
-          },
-          "top_bodies": [
+            },
             {
-              "body_id": 816869,
+              "body_id": 11620,
               "relative": 1.0,
-              "spikes": 8
+              "spikes": 7
             },
             {
-              "body_id": 686346986,
+              "body_id": 11289,
               "relative": 1.0,
-              "spikes": 8
-            },
-            {
-              "body_id": 520787,
-              "relative": 0.875,
               "spikes": 7
             },
             {
-              "body_id": 524238,
-              "relative": 0.875,
+              "body_id": 11744,
+              "relative": 1.0,
               "spikes": 7
             },
             {
-              "body_id": 10140,
-              "relative": 0.875,
+              "body_id": 11828,
+              "relative": 1.0,
               "spikes": 7
             },
             {
-              "body_id": 10632,
-              "relative": 0.875,
+              "body_id": 520002,
+              "relative": 1.0,
               "spikes": 7
             },
             {
               "body_id": 532655,
-              "relative": 0.875,
+              "relative": 1.0,
               "spikes": 7
-            },
-            {
-              "body_id": 10977,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11736,
-              "relative": 0.875,
-              "spikes": 7
-            },
+            }
+          ],
+          "total_spikes": 9184
+        },
+        "hp": 385,
+        "speed_x": 0,
+        "speed_y": 0,
+        "x": 311,
+        "y": 537
+      },
+      "p2": {
+        "action": "BACKWARD",
+        "brain": {
+          "group_spike_counts": {
+            "A": 28,
+            "B": 43,
+            "BACKWARD": 43,
+            "C": 42,
+            "DOWN": 39,
+            "FORWARD": 27,
+            "UP": 27
+          },
+          "membrane_summary": {
+            "g_max_mV": 479.0055310062403,
+            "g_mean_mV": -1.3497124133319474,
+            "g_min_mV": -485.19304675778005,
+            "v_max_mV": 16.75,
+            "v_mean_mV": -53.71214730527226,
+            "v_min_mV": -557.1482258661412
+          },
+          "top_bodies": [
             {
               "body_id": 11975,
-              "relative": 0.875,
+              "relative": 1.0,
               "spikes": 7
             },
             {
-              "body_id": 11501,
-              "relative": 0.875,
+              "body_id": 11400,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 10905,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 10929,
+              "relative": 1.0,
               "spikes": 7
             },
             {
               "body_id": 10942,
-              "relative": 0.875,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 10540,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 11992,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 11531,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 11523,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 10977,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 11501,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 520002,
+              "relative": 1.0,
               "spikes": 7
             }
           ],
-          "total_spikes": 8970
+          "total_spikes": 8381
         },
-        "hp": 390,
+        "hp": 400,
         "speed_x": 0,
         "speed_y": 0,
-        "x": 649,
+        "x": 433,
         "y": 537
       }
     },
@@ -1473,24 +1473,29 @@
         "brain": {
           "group_spike_counts": {
             "A": 35,
-            "B": 49,
-            "BACKWARD": 39,
-            "C": 37,
-            "DOWN": 42,
-            "FORWARD": 30,
-            "UP": 19
+            "B": 60,
+            "BACKWARD": 46,
+            "C": 47,
+            "DOWN": 47,
+            "FORWARD": 34,
+            "UP": 26
           },
           "membrane_summary": {
-            "g_max_mV": 303.4823045852766,
-            "g_mean_mV": -1.281769596715411,
-            "g_min_mV": -635.5182261157494,
-            "v_max_mV": 15.935691538719203,
-            "v_mean_mV": -53.75892531412903,
-            "v_min_mV": -524.6096153052029
+            "g_max_mV": 298.9569459076501,
+            "g_mean_mV": -1.575891457363209,
+            "g_min_mV": -905.4100548313619,
+            "v_max_mV": 16.75,
+            "v_mean_mV": -53.84131036162659,
+            "v_min_mV": -551.084904677564
           },
           "top_bodies": [
             {
-              "body_id": 911544,
+              "body_id": 10463,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 10929,
               "relative": 1.0,
               "spikes": 7
             },
@@ -1500,225 +1505,87 @@
               "spikes": 7
             },
             {
-              "body_id": 11359,
+              "body_id": 555318,
               "relative": 1.0,
               "spikes": 7
             },
             {
-              "body_id": 530777,
+              "body_id": 10133,
               "relative": 1.0,
               "spikes": 7
             },
             {
-              "body_id": 532655,
+              "body_id": 10376,
               "relative": 1.0,
               "spikes": 7
             },
             {
-              "body_id": 10977,
+              "body_id": 11837,
               "relative": 1.0,
               "spikes": 7
             },
             {
-              "body_id": 520002,
+              "body_id": 11783,
               "relative": 1.0,
               "spikes": 7
             },
             {
-              "body_id": 11501,
+              "body_id": 10632,
               "relative": 1.0,
               "spikes": 7
             },
             {
-              "body_id": 11523,
+              "body_id": 11478,
               "relative": 1.0,
               "spikes": 7
             },
             {
-              "body_id": 10209,
+              "body_id": 11922,
               "relative": 1.0,
               "spikes": 7
             },
             {
-              "body_id": 819595,
-              "relative": 1.0,
-              "spikes": 7
-            },
-            {
-              "body_id": 11725,
+              "body_id": 11744,
               "relative": 1.0,
               "spikes": 7
             }
           ],
-          "total_spikes": 8763
+          "total_spikes": 8819
         },
         "hp": 385,
         "speed_x": 0,
         "speed_y": 0,
-        "x": 465,
+        "x": 311,
         "y": 537
       },
       "p2": {
         "action": "B",
         "brain": {
           "group_spike_counts": {
-            "A": 38,
+            "A": 21,
             "B": 46,
-            "BACKWARD": 31,
-            "C": 35,
-            "DOWN": 38,
-            "FORWARD": 27,
+            "BACKWARD": 35,
+            "C": 38,
+            "DOWN": 36,
+            "FORWARD": 21,
             "UP": 18
           },
           "membrane_summary": {
-            "g_max_mV": 279.3240082274573,
-            "g_mean_mV": -1.3277021316975148,
-            "g_min_mV": -440.00767214630554,
-            "v_max_mV": 16.75,
-            "v_mean_mV": -53.74233722452291,
-            "v_min_mV": -573.6666601975782
+            "g_max_mV": 510.82511773101425,
+            "g_mean_mV": -1.2245581773059244,
+            "g_min_mV": -490.6401541538477,
+            "v_max_mV": 16.54682901607165,
+            "v_mean_mV": -53.73714152698623,
+            "v_min_mV": -622.6353324540814
           },
           "top_bodies": [
             {
-              "body_id": 909025,
+              "body_id": 807664,
               "relative": 1.0,
               "spikes": 8
             },
             {
-              "body_id": 11478,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 10397,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 10942,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 10977,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11993,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11744,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11870,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11531,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 825524,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11244,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11262,
-              "relative": 0.875,
-              "spikes": 7
-            }
-          ],
-          "total_spikes": 8354
-        },
-        "hp": 390,
-        "speed_x": 0,
-        "speed_y": 0,
-        "x": 649,
-        "y": 537
-      }
-    },
-    {
-      "frame": 541,
-      "p1": {
-        "action": "B",
-        "brain": {
-          "group_spike_counts": {
-            "A": 37,
-            "B": 57,
-            "BACKWARD": 40,
-            "C": 41,
-            "DOWN": 38,
-            "FORWARD": 34,
-            "UP": 26
-          },
-          "membrane_summary": {
-            "g_max_mV": 524.8863113386644,
-            "g_mean_mV": -1.2226914319976916,
-            "g_min_mV": -420.0866533668356,
-            "v_max_mV": 16.75,
-            "v_mean_mV": -53.75389552826251,
-            "v_min_mV": -578.8418773983223
-          },
-          "top_bodies": [
-            {
-              "body_id": 810043,
-              "relative": 1.0,
-              "spikes": 8
-            },
-            {
-              "body_id": 817508,
-              "relative": 1.0,
-              "spikes": 8
-            },
-            {
-              "body_id": 10473,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11478,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11828,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11870,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 10929,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11744,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 529429,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11922,
+              "body_id": 11914,
               "relative": 0.875,
               "spikes": 7
             },
@@ -1728,52 +1595,7 @@
               "spikes": 7
             },
             {
-              "body_id": 10169,
-              "relative": 0.875,
-              "spikes": 7
-            }
-          ],
-          "total_spikes": 8592
-        },
-        "hp": 385,
-        "speed_x": 0,
-        "speed_y": 0,
-        "x": 465,
-        "y": 537
-      },
-      "p2": {
-        "action": "B",
-        "brain": {
-          "group_spike_counts": {
-            "A": 43,
-            "B": 57,
-            "BACKWARD": 34,
-            "C": 43,
-            "DOWN": 42,
-            "FORWARD": 36,
-            "UP": 28
-          },
-          "membrane_summary": {
-            "g_max_mV": 537.1681502261794,
-            "g_mean_mV": -1.5902732019425638,
-            "g_min_mV": -730.7562449252716,
-            "v_max_mV": 16.75,
-            "v_mean_mV": -53.76548531759991,
-            "v_min_mV": -572.0105978916414
-          },
-          "top_bodies": [
-            {
-              "body_id": 1155010907,
-              "relative": 1.0,
-              "spikes": 8
-            },
-            {
               "body_id": 23401,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11620,
               "relative": 0.875,
               "spikes": 7
             },
@@ -1783,74 +1605,252 @@
               "spikes": 7
             },
             {
-              "body_id": 11991,
+              "body_id": 810199,
               "relative": 0.875,
               "spikes": 7
             },
             {
-              "body_id": 11501,
+              "body_id": 10169,
               "relative": 0.875,
               "spikes": 7
             },
             {
-              "body_id": 11992,
+              "body_id": 22276,
               "relative": 0.875,
               "spikes": 7
             },
             {
-              "body_id": 10540,
+              "body_id": 520787,
               "relative": 0.875,
               "spikes": 7
             },
             {
-              "body_id": 520002,
+              "body_id": 10254,
               "relative": 0.875,
               "spikes": 7
             },
             {
-              "body_id": 11292,
+              "body_id": 12111,
               "relative": 0.875,
               "spikes": 7
             },
             {
-              "body_id": 11975,
-              "relative": 0.875,
-              "spikes": 7
-            },
-            {
-              "body_id": 11289,
+              "body_id": 11099,
               "relative": 0.875,
               "spikes": 7
             }
           ],
-          "total_spikes": 8993
+          "total_spikes": 8294
         },
-        "hp": 390,
+        "hp": 400,
         "speed_x": 0,
         "speed_y": 0,
-        "x": 649,
+        "x": 433,
+        "y": 537
+      }
+    },
+    {
+      "frame": 541,
+      "p1": {
+        "action": "B",
+        "brain": {
+          "group_spike_counts": {
+            "A": 35,
+            "B": 54,
+            "BACKWARD": 39,
+            "C": 40,
+            "DOWN": 44,
+            "FORWARD": 31,
+            "UP": 26
+          },
+          "membrane_summary": {
+            "g_max_mV": 456.81464427174325,
+            "g_mean_mV": -1.2302548964075397,
+            "g_min_mV": -715.6212745312376,
+            "v_max_mV": 16.75,
+            "v_mean_mV": -53.7753320961529,
+            "v_min_mV": -547.0576270073536
+          },
+          "top_bodies": [
+            {
+              "body_id": 816869,
+              "relative": 1.0,
+              "spikes": 9
+            },
+            {
+              "body_id": 814863,
+              "relative": 0.8888888888888888,
+              "spikes": 8
+            },
+            {
+              "body_id": 529429,
+              "relative": 0.7777777777777778,
+              "spikes": 7
+            },
+            {
+              "body_id": 521935,
+              "relative": 0.7777777777777778,
+              "spikes": 7
+            },
+            {
+              "body_id": 11870,
+              "relative": 0.7777777777777778,
+              "spikes": 7
+            },
+            {
+              "body_id": 520002,
+              "relative": 0.7777777777777778,
+              "spikes": 7
+            },
+            {
+              "body_id": 10140,
+              "relative": 0.7777777777777778,
+              "spikes": 7
+            },
+            {
+              "body_id": 520787,
+              "relative": 0.7777777777777778,
+              "spikes": 7
+            },
+            {
+              "body_id": 11289,
+              "relative": 0.7777777777777778,
+              "spikes": 7
+            },
+            {
+              "body_id": 532655,
+              "relative": 0.7777777777777778,
+              "spikes": 7
+            },
+            {
+              "body_id": 11262,
+              "relative": 0.7777777777777778,
+              "spikes": 7
+            },
+            {
+              "body_id": 10942,
+              "relative": 0.7777777777777778,
+              "spikes": 7
+            }
+          ],
+          "total_spikes": 8732
+        },
+        "hp": 370,
+        "speed_x": 0,
+        "speed_y": 0,
+        "x": 246,
+        "y": 537
+      },
+      "p2": {
+        "action": "C",
+        "brain": {
+          "group_spike_counts": {
+            "A": 28,
+            "B": 47,
+            "BACKWARD": 46,
+            "C": 48,
+            "DOWN": 39,
+            "FORWARD": 34,
+            "UP": 26
+          },
+          "membrane_summary": {
+            "g_max_mV": 338.1296490780756,
+            "g_mean_mV": -1.6927750270922295,
+            "g_min_mV": -518.7903653439887,
+            "v_max_mV": 16.75,
+            "v_mean_mV": -53.643440809972695,
+            "v_min_mV": -609.9876073311867
+          },
+          "top_bodies": [
+            {
+              "body_id": 143082,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 11244,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 123737608,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 10905,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 10942,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 10977,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 523591,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 11922,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 11262,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 815963,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 11281,
+              "relative": 1.0,
+              "spikes": 7
+            },
+            {
+              "body_id": 11828,
+              "relative": 1.0,
+              "spikes": 7
+            }
+          ],
+          "total_spikes": 8415
+        },
+        "hp": 400,
+        "speed_x": 0,
+        "speed_y": 0,
+        "x": 433,
         "y": 537
       }
     }
   ],
   "p1": {
-    "character": "GARNET",
-    "seed": 108010101
+    "character": "ZEN",
+    "seed": 109020202
   },
   "p2": {
     "character": "LUD",
-    "seed": 108030303
+    "seed": 109030303
   },
   "result": {
     "p1_reward": -1.0,
     "p2_reward": 1.0,
     "remaining_hps": [
-      385,
-      390
+      370,
+      400
     ],
     "winner": "LUD"
   },
-  "round_ordinal": 4,
-  "run_id": "baseline-r108-garnet-lud-GARNET-LUD",
+  "round_ordinal": 2,
+  "run_id": "baseline-r109-zen-lud-ZEN-LUD",
   "schema_version": 2
 }
