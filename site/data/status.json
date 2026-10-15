@@ -1888,42 +1888,57 @@
       "nonzero_reward_rounds": 1,
       "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/38729461866",
       "updated_at": "2026-10-15T11:49:42Z"
+    },
+    {
+      "action_rates": {
+        "A": 0.008333333333333333,
+        "B": 0.5760416666666667,
+        "BACKWARD": 0.2520833333333333,
+        "C": 0.041666666666666664,
+        "DOWN": 0.08854166666666667,
+        "FORWARD": 0.019791666666666666,
+        "UP": 0.013541666666666667
+      },
+      "independent_rounds": 48,
+      "nonzero_reward_rate": 0.020833333333333332,
+      "nonzero_reward_rounds": 1,
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/38775178489",
+      "updated_at": "2026-10-15T17:16:48Z"
     }
   ],
   "latest_match": {
     "replay_url": "./data/replay-latest.json",
-    "run_id": "baseline-r121-zen-lud-ZEN-LUD",
+    "run_id": "baseline-r122-lud-nez-LUD-NEZ",
     "winner": "LUD"
   },
   "metrics": {
     "action_counts": {
-      "A": 9,
-      "B": 595,
-      "BACKWARD": 193,
-      "C": 31,
-      "DOWN": 100,
-      "FORWARD": 20,
-      "UP": 12
+      "A": 8,
+      "B": 553,
+      "BACKWARD": 242,
+      "C": 40,
+      "DOWN": 85,
+      "FORWARD": 19,
+      "UP": 13
     },
     "action_rates": {
-      "A": 0.009375,
-      "B": 0.6197916666666666,
-      "BACKWARD": 0.20104166666666667,
-      "C": 0.03229166666666667,
-      "DOWN": 0.10416666666666667,
-      "FORWARD": 0.020833333333333332,
-      "UP": 0.0125
+      "A": 0.008333333333333333,
+      "B": 0.5760416666666667,
+      "BACKWARD": 0.2520833333333333,
+      "C": 0.041666666666666664,
+      "DOWN": 0.08854166666666667,
+      "FORWARD": 0.019791666666666666,
+      "UP": 0.013541666666666667
     },
     "characters": {
       "GARNET": {
         "action_counts": {
-          "A": 5,
-          "B": 153,
-          "BACKWARD": 41,
-          "C": 6,
-          "DOWN": 24,
-          "FORWARD": 8,
-          "UP": 3
+          "A": 4,
+          "B": 147,
+          "BACKWARD": 53,
+          "C": 14,
+          "DOWN": 19,
+          "FORWARD": 3
         },
         "decisions": 240,
         "draws": 24,
@@ -1933,13 +1948,13 @@
       },
       "LUD": {
         "action_counts": {
-          "A": 2,
-          "B": 154,
-          "BACKWARD": 39,
-          "C": 11,
+          "A": 3,
+          "B": 139,
+          "BACKWARD": 54,
+          "C": 8,
           "DOWN": 28,
-          "FORWARD": 2,
-          "UP": 4
+          "FORWARD": 5,
+          "UP": 3
         },
         "decisions": 240,
         "draws": 23,
@@ -1949,32 +1964,32 @@
       },
       "NEZ": {
         "action_counts": {
-          "B": 156,
-          "BACKWARD": 37,
-          "C": 8,
-          "DOWN": 29,
-          "FORWARD": 7,
-          "UP": 3
+          "A": 1,
+          "B": 139,
+          "BACKWARD": 60,
+          "C": 7,
+          "DOWN": 23,
+          "FORWARD": 6,
+          "UP": 4
         },
         "decisions": 240,
-        "draws": 24,
-        "losses": 0,
+        "draws": 23,
+        "losses": 1,
         "rounds": 24,
         "wins": 0
       },
       "ZEN": {
         "action_counts": {
-          "A": 2,
-          "B": 132,
-          "BACKWARD": 76,
-          "C": 6,
-          "DOWN": 19,
-          "FORWARD": 3,
-          "UP": 2
+          "B": 128,
+          "BACKWARD": 75,
+          "C": 11,
+          "DOWN": 15,
+          "FORWARD": 5,
+          "UP": 6
         },
         "decisions": 240,
-        "draws": 23,
-        "losses": 1,
+        "draws": 24,
+        "losses": 0,
         "rounds": 24,
         "wins": 0
       }
@@ -1998,10 +2013,10 @@
     "win": 1.0
   },
   "schema_version": 4,
-  "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/38729461866",
+  "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/38775178489",
   "spatial_visualization": {
     "available": false,
     "policy_access": false
   },
-  "updated_at": "2026-10-15T11:49:42Z"
+  "updated_at": "2026-10-15T17:16:48Z"
 }
