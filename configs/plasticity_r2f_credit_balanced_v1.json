@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "KC-MBON-valence-depression-v0",
+  "status": "research-only-credit-balanced-fork",
+  "learning_rate_per_unit_modulatory_signal": 0.01,
+  "eligibility_decay_per_decision": 0.9,
+  "pair_count_cap": 25,
+  "normalization_percentile": 95,
+  "multiplier_min": 0.8,
+  "multiplier_max": 1,
+  "positive_signal_target": "avoidance_associated",
+  "negative_signal_target": "approach_associated",
+  "update_direction": "depression_only",
+  "reward_config": "R2f-credit-balanced-v1",
+  "literature_basis": {
+    "doi": "10.7554/eLife.04580",
+    "summary": "The project maps game utility to sign-dependent KC-MBON depression as an engineering hypothesis; this is not an identified fly reward signal."
+  },
+  "interpretation_boundary": "Experimental only. Fixed MaleCNS topology, candidate edge identities, transmitter sign and all numerical plasticity parameters remain identical to R2e; only the reward ID differs."
+}
