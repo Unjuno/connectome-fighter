@@ -1,0 +1,37 @@
+name: reward-r2f-research-contract
+
+# No trainer, CI runtime download, releases, mutation of main or promotion.
+on:
+  pull_request:
+    paths:
+      - "src/connectome_fighter/combat_reward_r2f.py"
+      - "src/connectome_fighter/combat_reward_r2f_checkpoint.py"
+      - "scripts/update_malecns_valence_plasticity.py"
+      - "scripts/fork_r2f_candidate.py"
+      - "configs/reward_r2f_credit_balanced_v1.json"
+      - "configs/plasticity_r2f_credit_balanced_v1.json"
+      - "tests/test_reward_r2f_credit_balanced.py"
+      - ".github/workflows/reward-r2f-research-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  research-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install "numpy==1.26.4" "pandas==2.2.3" "pytest==8.3.5"
+      - name: Verify R2f contracts and unchanged R2e tests
+        run: |
+          PYTHONPATH=src python -m pytest -q \
+            tests/test_reward_r2f_credit_balanced.py \
+            tests/test_combat_reward.py \
+            tests/test_combat_checkpoint.py
