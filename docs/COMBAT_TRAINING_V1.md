@@ -27,14 +27,14 @@ For equal initial state, terminal-corrected potential differences telescope to t
 
 | Clock | Configuration |
 |---|---|
-| Training-cycle request | After a successful main run, wait 120 seconds and request exactly one next `workflow_dispatch` if no sibling run is queued or active |
-| Watchdog | Hourly at minute 17 UTC; schedule is recovery-only because GitHub scheduled events are best effort |
+| Training-cycle request | GitHub Actions scheduled attempt at **:17 and :47 UTC**, every **30 minutes nominally** (start-to-start); optional manual `workflow_dispatch` |
+| Scheduler behavior | GitHub scheduled events are best effort and may be delayed or skipped; no completion-triggered self-dispatch or automatic catch-up |
 | Neural action decision | Every 60 FightingICE frames |
 | Weight update | Once after one completed 3600-frame-maximum training round, outside gameplay |
 
-The lane remains single-writer and never cancels a running update. The self-dispatch request is bounded to one successor and checks queued/in-progress sibling runs before dispatching. The hourly schedule is only a watchdog for a stopped chain; GitHub may delay or drop scheduled events. This targets a practical roughly five-to-ten-minute cycle with the current measured runtime, but it is not a throughput guarantee and it does not replay missed wall-clock slots.
+The lane remains single-writer and does not cancel an active learning run. The two UTC cron slots are 30 minutes apart, but these are **scheduled starts, not guaranteed observed starts**: GitHub can delay or drop cron events; an active longer-than-30-minute run may push the next request into the queue. There is no follow-on dispatch after a successful run, and no catch-up for missed scheduled runs. Explicit manual `workflow_dispatch` remains available and is an operator override, not part of the 30-minute nominal cadence. A PR must not start real training; publication remains restricted to accepted main-branch candidates.
 
-Set repository variable `CONNECTOME_TRAINING_PAUSED=true` or disable the workflow to stop further scheduled training/publication. This does not cancel an already running read-only computation. No billing changes are made. Logs/artifacts have three-day retention; published candidate/video assets persist for audit.
+Set repository variable `CONNECTOME_TRAINING_PAUSED=true` or disable the workflow to stop future training/publication (the cron job may still enter its inexpensive contract-test stage). This does not cancel an already running training job. No billing changes are made. Logs/artifacts have three-day retention; published candidate/video assets persist for audit.
 
 ## Cycle and publication
 
@@ -47,7 +47,7 @@ Set repository variable `CONNECTOME_TRAINING_PAUSED=true` or disable the workflo
 7. Materialize the updated state and repeat the same three validation cases plus the legacy ZEN comparability anchor. None of these evaluations updates weights.
 8. Compute R2e terminal-plus-net-damage utility for every validation pair. Publication requires all of the following: positive mean paired utility change, strict improvement on at least two of the three opponents, and no regression in win/draw/loss outcome class on any opponent. The legacy 800101/20202 ZEN replay is excluded from this acceptance decision.
 9. Main-branch publication, in a separate write-authorized job, exposes only an accepted candidate and the two legacy-anchor videos. PR jobs never publish. Video URLs are run-addressed and existing bytes cannot be replaced. The training status also records the three-opponent before/after validation evidence.
-10. After an accepted publication or a clean rejection, the main workflow may request one successor run after the bounded hold. Rejected generations do not advance the checkpoint, and the next attempt uses a deterministic run-ID seed salt so it does not repeat the same training trace.
+10. After an accepted publication or a clean rejection, the workflow exits; the next normal training attempt is requested by the next :17/:47 UTC schedule slot. Rejected generations do not advance the checkpoint, and the next attempt uses a deterministic run-ID seed salt so it does not repeat the same training trace.
 
 The trainer workflow is now named `combat-candidate-training`. Legacy `canonical-continuous-training` workflow-run consumers are not triggered; this cycle owns its evaluations and history, avoiding competing automatic publishers. Old manual R2d evaluation workflows remain historical tools, not the new automatic lane.
 
