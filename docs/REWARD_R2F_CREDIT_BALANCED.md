@@ -1,6 +1,6 @@
 # R2f credit-balanced reward candidate (October 19, 2026)
 
-**Status: implemented research candidate; behavioral improvement unverified; not eligible for canonical training or automatic promotion.**
+**Status: active candidate-training credit on main once merged; R2e remains the frozen external performance score and checkpoint fingerprint. Research candidate, never approved LIVE inference or auto-promotion. Actual improvement remains unverified.**
 
 ## 1. Measured motivation
 
@@ -72,7 +72,7 @@ python scripts/fork_r2f_candidate.py \
   --research-state runs/r2f/parent/GARNET.npz
 ```
 
-Only apply the existing spike/candidate-table updater to that *research* state with explicit `--reward-config configs/reward_r2f_credit_balanced_v1.json` and `--plasticity-config configs/plasticity_r2f_credit_balanced_v1.json`, plus a provenance-verified complete real-game round. No R2f real-game learning has been executed by this PR.
+Only apply the existing spike/candidate-table updater to that *research* state with explicit `--reward-config configs/reward_r2f_credit_balanced_v1.json` and `--plasticity-config configs/plasticity_r2f_credit_balanced_v1.json`, plus a provenance-verified complete real-game round. Once deployed to the main combat-candidate-training workflow, R2f is used for every complete real-game training update and its ID and byte hash are recorded in each checkpoint, candidate history, and rejected-run result. Until the first main-branch update finishes, actual R2f learning remains unverified.
 
 **Runtime assumptions:** FightingICE 7.1, pyftg 2.3, Java 21, MaleCNS v1.0, pinned Shiu LIF, reference Brian2 2.5.1 / NumPy 1.24.0 / Cython 0.29.36, Python 3.10 Brian2 compiled cache at its pinned path/ABI, and Python 3.11 game bridge. CI contract tests use Ubuntu 24.04, Python 3.11, NumPy 1.26.4, pandas 2.2.3, pytest 8.3.5 (CPU only). Compilerless Cython caching cannot be transferred across incompatible Python ABIs or runtime paths. No full-system performance benchmark is asserted.
 
@@ -99,3 +99,14 @@ Statistics/causal design: matched seed blocks, factorial ablation, independent t
 Reproducible systems: pin every source/graph hash, runtime ABI, candidate state and exact code commit, reject truncated games and record CI/test boundaries.
 
 **ERROR CHECK:** The existing R2e reward function, training workflow, public application, approved model and releases remain unchanged. R2f requires explicit routing and explicit source-to-research checkpoint fork. Real-source algebra is -0.025 + 0.015625 - 1 = -1.009375. No claim of combat improvement follows from that equality.
+
+
+## 7. Main-branch activation and rollback
+
+The **canonical GitHub Actions combat-candidate-training lane** invokes the updater with the pinned R2f learning-credit JSON, and requires the R2f ID and SHA-256 in `update.json`, checkpoint metadata, and all final results. External assessment, public utility, generation counter, training opponent rotation, readout, 60-frame action cadence, and brain model remain unchanged from R2e. Source Gen49 weights are inherited byte-for-byte until a full, trainable 3,600-frame match is evaluated and the plasticity updater runs.
+
+A candidate is only published when the old R2e fixed ZEN/LUD/NEZ acceptance gate improves; otherwise the candidate state is discarded and the same parent Gen49 is retried. A published R2f-updated candidate can be resumed only when its versioned learning-credit file SHA matches exactly. This is **production candidate-training** but **not enabled learning inside Vercel LIVE**, and does not automatically serve or approve a newly trained policy.
+
+To roll back the training semantics, revert the integration commit on main and retain the source checkpoint and per-run immutable provenance. If an R2f-updated generation was already accepted, do **not** relabel those weights as R2e-trained: explicitly fork or restore the earlier accepted R2e checkpoint before changing the active credit. Preserve R2f run artifacts and their immutable SHA receipts for audit.
+
+The project never treats a green GitHub Actions job as evidence that the model became a stronger fighter; `accepted_update` and the fixed paired evaluation must be inspected separately.
