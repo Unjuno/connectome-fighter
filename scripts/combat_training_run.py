@@ -23,8 +23,10 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'src'))
 from connectome_fighter.combat_reward import paired_evaluation_suite_gate
 from connectome_fighter.combat_curriculum import training_curriculum
+from connectome_fighter.combat_reward_r2f import REWARD_ID as LEARNING_CREDIT_ID, validate_config as validate_credit_config
 
-REWARD = 'R2e-combat-v1'
+REWARD = 'R2e-combat-v1' # external objective remains invariant
+CREDIT_CONFIG = ROOT/'configs/reward_r2f_credit_balanced_v1.json'
 REPO = 'Unjuno/connectome-fighter'
 READOUT_MODE = 'ema-residual'
 READOUT_CONTRACT = 'malecns-temporal-readout-v1'
