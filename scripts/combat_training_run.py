@@ -32,9 +32,11 @@ READOUT_MODE = 'ema-residual'
 READOUT_CONTRACT = 'malecns-temporal-readout-v1'
 MATCH_STATUS = 'COMPLETED_WITH_VALIDATED_EXPERIMENTAL_READOUT_TRACES'
 SCHEDULE_CONTRACT = {
-    'mode': 'bounded-self-chain-with-hourly-watchdog',
-    'self_chain_hold_seconds': 120,
-    'watchdog_cron': '17 * * * *',
+    'mode': 'scheduled-30-minute-single-writer',
+    'interval_minutes': 30,
+    'schedule_cron': '17,47 * * * *',
+    'self_dispatch_enabled': False,
+    'manual_dispatch_allowed': True,
     'guaranteed_interval': False,
 }
 LEGACY_EVALUATION = {'opponent':'ZEN','seed_p1':800101,'seed_p2':20202}
@@ -272,7 +274,7 @@ else:
                 'readout_mode':READOUT_MODE,'readout_contract':READOUT_CONTRACT,
                 'match_status':MATCH_STATUS,'signal_summary':update['signals'],'update_summary':update['updates'],
                 'parent_generation':generation,'parent_reward_id':parent['reward_id'],'parent_state_sha256':parent['state_sha256'],
-                'archive_file':archive_name,'archive_sha256':archive_sha,'schedule_minutes':None,'schedule_contract':SCHEDULE_CONTRACT,
+                'archive_file':archive_name,'archive_sha256':archive_sha,'schedule_minutes':30,'schedule_contract':SCHEDULE_CONTRACT,
                 'actual_pipeline_seconds':time.monotonic()-clock,'training_seed':train_seed,'training_seed_p2':train_seed_p2,
                 'training_attempt_salt':attempt_salt,'accepted_update':True,'acceptance_gate':gate,
                 'training_curriculum':curriculum,
