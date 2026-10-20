@@ -78,6 +78,12 @@ def main():
     if os.environ.get('CI')!='true' or os.environ.get('VERCEL'): p.error('standalone CI only')
     if not 180<=args.timeout_seconds<=1200: p.error('timeout must be 180..1200 seconds')
     curriculum=training_curriculum(os.environ.get('GITHUB_RUN_NUMBER'))
+    r2e_spec=json.loads((ROOT/'configs/reward_r2e_combat_v1.json').read_text())
+    credit_spec=json.loads(CREDIT_CONFIG.read_text())
+    validate_credit_config(credit_spec)
+    if credit_spec['base_reward'] != r2e_spec:
+        raise ValueError('R2f credit must preserve the exact canonical R2e evaluation objective')
+    learning_credit_sha256=sha(CREDIT_CONFIG)
     runtime=args.runtime_root.resolve();out=args.out.resolve();out.mkdir(parents=True,exist_ok=True)
     deadline=time.monotonic()+args.timeout_seconds
     manifest=json.loads((runtime/'manifest.json').read_text())
@@ -208,7 +214,7 @@ else:
         train_seed_p2=700001+generation*103+attempt_salt*3
         training=match('training',before_adapter,opponent,train_seed,train_seed_p2,train=True)
         assert sha(state)==frozen
-        run([bridge,runtime/'repo/scripts/update_malecns_valence_plasticity.py','--character','GARNET','--side','1','--round-trace',out/'matches/training/p1.jsonl','--spikes',out/'matches/training/p1-brain/spikes.parquet','--candidates',candidates,'--reward-config',ROOT/'configs/reward_r2e_combat_v1.json','--plasticity-config',cfg,'--state',state,'--out-summary',out/'update.json'],'update')
+        run([bridge,runtime/'repo/scripts/update_malecns_valence_plasticity.py','--character','GARNET','--side','1','--round-trace',out/'matches/training/p1.jsonl','--spikes',out/'matches/training/p1-brain/spikes.parquet','--candidates',candidates,'--reward-config',ROOT/'configs/reward_r2e_combat_v1.json','--learning-credit-config',CREDIT_CONFIG,'--plasticity-config',cfg,'--state',state,'--out-summary',out/'update.json'],'update')
         update=json.loads((out/'update.json').read_text());assert update['status']=='PASS'
         assert update['updates']['potentiated_edges']==0 and update['invariants']['topology_changed'] is False and update['invariants']['sign_changed'] is False
         after_adapter=materialize('after-adapter');after_hash=sha(state)
