@@ -255,7 +255,10 @@ else:
         publish=out/'publish';publish.mkdir()
         package=out/'package';(package/'state').mkdir(parents=True)
         shutil.copy2(state,package/'state/GARNET.npz');shutil.copy2(state.with_suffix('.npz.json'),package/'state/GARNET.npz.json')
-        write(package/'parent.json',{'state_sha256':parent['state_sha256'],'generation':generation,'reward_id':parent['reward_id'],'config_sha256':parent['config_sha256'],'metadata':parent})
+        write(package/'parent.json',{'state_sha256':parent['state_sha256'],'generation':generation,'reward_id':parent['reward_id'],
+                                    'learning_credit_id':parent.get('learning_credit_id'),
+                                    'learning_credit_sha256':parent.get('learning_credit_sha256'),
+                                    'config_sha256':parent['config_sha256'],'metadata':parent})
         write(package/'update.json',update)
         archive_name=f"garnet-g{meta['generation']:06d}-{meta['state_sha256'][:16]}.tar.gz"
         with tarfile.open(publish/archive_name,'w:gz') as tar:tar.add(package,arcname='.')
@@ -275,7 +278,7 @@ else:
                 'training_curriculum':curriculum,
                 'combat_metrics':{'before':before,'training':training,'after':after,
                                   'validation_before':validation_before,'validation_after':validation_after},
-                'interpretation_boundary':'Experimental R2e candidate using the held-out-selected EMA-residual P1 readout. Publication now requires improvement across a small fixed ZEN/LUD/NEZ validation suite; this is still not proof of general fighting strength or biological validity.'}
+                'interpretation_boundary':'External utility remains frozen R2e. Real-game KC-MBON modulation uses versioned R2f learning credit. This is research-candidate evidence, not independently confirmed strength or approved LIVE.'}
         write(publish/'training-manifest.json',status);write(publish/'training-status.json',status)
         video_tag=f'combat-evaluation-{run_id}'
         for phase,metrics,g in [('before',before,generation),('after',after,meta['generation'])]:
@@ -288,6 +291,8 @@ else:
                         'candidate_only':True,'auto_promotion':False,'served_by_vercel':False,'policy_pixel_access':False,
                         'character':'GARNET','opponent':'ZEN','generation':g,'matches':meta['matches'] if phase=='after' else parent['matches'],
                         'state_sha256':after_hash if phase=='after' else frozen,'model':meta['model'],'reward_id':REWARD,
+                         'external_evaluation_reward_id':REWARD,
+                         'learning_credit_id':LEARNING_CREDIT_ID if phase=='after' else parent.get('learning_credit_id'),
                         'readout_mode':READOUT_MODE,'readout_contract':READOUT_CONTRACT,
                         'evaluated_at':now(),'source_training_run_url':run_url,'comparison_phase':phase,
                         'evaluation':{'protocol':'fixed-full-round-v2','rounds':1,'fixed_opponent':True,'seed_p1':800101,'seed_p2':20202,'round_frame_limit':3600,'nominal_game_fps':60,'configured_round_limit_seconds':60,'decision_interval_frames':60},
