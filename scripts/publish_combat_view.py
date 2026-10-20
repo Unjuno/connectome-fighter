@@ -26,6 +26,15 @@ def validate_payload(payload: dict) -> dict:
     validate_status(status)
     if status.get('reward_id') != 'R2e-combat-v1':
         raise ValueError('wrong combat reward')
+    if status.get('learning_credit_id') is not None:
+        if status['learning_credit_id']!='R2f-credit-balanced-v1':
+            raise ValueError('unexpected published learning credit')
+        if status.get('external_evaluation_reward_id')!='R2e-combat-v1':
+            raise ValueError('R2e external evaluation changed')
+        if payload['evaluation-status.json'].get('learning_credit_id')!=status['learning_credit_id']:
+            raise ValueError('after-evaluation credit provenance mismatch')
+        if payload['evaluation-previous.json'].get('learning_credit_id')!=status.get('parent_learning_credit_id'):
+            raise ValueError('before-evaluation credit provenance mismatch')
     if type(status.get('parent_generation')) is not int or status['generation'] != status['parent_generation'] + 1:
         raise ValueError('invalid parent generation')
     for name, phase, generation, digest in (
