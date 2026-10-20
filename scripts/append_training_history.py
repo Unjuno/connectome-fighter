@@ -40,6 +40,13 @@ def validate_status(status: dict[str, Any]) -> None:
     sha = str(status.get("state_sha256", ""))
     if not SHA256_RE.fullmatch(sha):
         raise ValueError("candidate state_sha256 is invalid")
+    if status.get("learning_credit_id") is not None:
+        if status.get("learning_credit_id") != "R2f-credit-balanced-v1":
+            raise ValueError("unrecognized candidate learning credit")
+        if status.get("reward_id") != "R2e-combat-v1" or status.get("external_evaluation_reward_id") != "R2e-combat-v1":
+            raise ValueError("candidate external evaluation reward mismatch")
+        if not SHA256_RE.fullmatch(str(status.get("learning_credit_sha256", ""))):
+            raise ValueError("candidate learning credit hash is invalid")
     source = str(status.get("source_run_url", ""))
     if not source.startswith("https://github.com/Unjuno/connectome-fighter/actions/runs/"):
         raise ValueError("candidate source_run_url is outside the canonical Actions ledger")
