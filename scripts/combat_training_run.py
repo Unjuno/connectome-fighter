@@ -227,7 +227,7 @@ else:
         meta=json.loads(state.with_suffix('.npz.json').read_text());assert meta['generation']==generation+1
         assert meta['reward_id']==REWARD and meta['external_evaluation_reward_id']==REWARD
         assert meta['learning_credit_id']==LEARNING_CREDIT_ID and meta['learning_credit_sha256']==learning_credit_sha256
-        reward_config=json.loads((ROOT/'configs/reward_r2e_combat_v1.json').read_text())
+        reward_config=r2e_spec
         gate_cases=[]
         for before_case,after_case in zip(validation_before,validation_after,strict=True):
             assert before_case['case_id']==after_case['case_id']
