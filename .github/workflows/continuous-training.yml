@@ -13,6 +13,8 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/continuous-training.yml'
+      - 'configs/reward_r2f_credit_balanced_v1.json'
+      - 'scripts/combat_training_run.py'
   pull_request:
     paths:
       - '.github/workflows/continuous-training.yml'
@@ -23,6 +25,8 @@ on:
       - 'scripts/update_malecns_valence_plasticity.py'
       - 'src/connectome_fighter/combat_*.py'
       - 'configs/reward_r2e_combat_v1.json'
+      - 'configs/reward_r2f_credit_balanced_v1.json'
+      - 'tests/test_combat_credit_activation.py'
       - 'configs/plasticity_combat_v1.json'
       - 'tests/test_combat_*.py'
 
@@ -59,7 +63,7 @@ jobs:
     needs: contract
     outputs:
       accepted_update: ${{ steps.acceptance.outputs.accepted_update }}
-    if: vars.CONNECTOME_TRAINING_PAUSED != 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    if: vars.CONNECTOME_TRAINING_PAUSED != 'true' && github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
