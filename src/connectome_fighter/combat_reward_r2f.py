@@ -23,7 +23,7 @@ def validate_config(config: dict) -> None:
         raise ValueError("R2f config must be an object")
     if config.get("schema_version") != 1 or config.get("id") != REWARD_ID:
         raise ValueError("R2f schema / reward identity mismatch")
-    if config.get("status") != "research-only-unvalidated-not-canonical":
+    if config.get("status") != "active-candidate-training-not-approved-inference":
         raise ValueError("R2f must remain an unvalidated research candidate")
     if config.get("source_reward_id") != r2e.REWARD_ID:
         raise ValueError("R2f source reward mismatch")
