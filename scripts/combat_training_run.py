@@ -237,7 +237,8 @@ else:
                 'before':before_case['metrics'],'after':after_case['metrics'],
             })
         gate=paired_evaluation_suite_gate(gate_cases,reward_config)
-        gate.update({'protocol':'fixed-three-opponent-validation-v1',
+        gate.update({'protocol':'fixed-three-opponent-validation-v1','external_evaluation_reward_id':REWARD,
+                     'learning_credit_id':LEARNING_CREDIT_ID,
                      'parent_generation':generation,'proposed_generation':meta['generation'],
                      'parent_state_sha256':parent['state_sha256'],'proposed_state_sha256':after_hash})
         write(out/'acceptance.json',gate)
@@ -261,7 +262,9 @@ else:
         archive_sha=sha(publish/archive_name)
         status={'schema_version':1,'kind':'canonical-continuous-training-candidate','status':'candidate-only-not-arena-approved',
                 'character':'GARNET','generation':meta['generation'],'matches':meta['matches'],'state_sha256':meta['state_sha256'],
-                'model':meta['model'],'reward_id':REWARD,'opponent':opponent,'source_kind':'combat-training-v1',
+                'model':meta['model'],'reward_id':REWARD,'learning_credit_id':LEARNING_CREDIT_ID,'learning_credit_sha256':learning_credit_sha256,
+                 'external_evaluation_reward_id':REWARD,'parent_learning_credit_id':parent.get('learning_credit_id'),
+                 'opponent':opponent,'source_kind':'combat-training-v1-r2f-credit',
                 'source_run_url':run_url,'served_by_vercel':False,'auto_promotion':False,'updated_at':now(),
                 'readout_mode':READOUT_MODE,'readout_contract':READOUT_CONTRACT,
                 'match_status':MATCH_STATUS,'signal_summary':update['signals'],'update_summary':update['updates'],
@@ -301,6 +304,9 @@ else:
                 'new_state_sha256':after_hash,'parent_state_sha256':parent['state_sha256'],
                 'auto_promotion':False,'pipeline_seconds':time.monotonic()-clock}
     finally:
+        result['learning_credit_id']=LEARNING_CREDIT_ID
+        result['learning_credit_sha256']=learning_credit_sha256
+        result['external_evaluation_reward_id']=REWARD
         result['training_curriculum']=curriculum
         if update is not None:
             result['signal_summary']=update.get('signals',{})
