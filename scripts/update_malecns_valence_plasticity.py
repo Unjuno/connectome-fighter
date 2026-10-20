@@ -73,6 +73,9 @@ def reward_sequence(round_row:dict,side:int,reward_cfg:dict)->list[dict]:
     if reward_cfg.get('id') == 'R2e-combat-v1':
         from connectome_fighter.combat_reward import reward_sequence as combat_sequence
         return combat_sequence(round_row, side, reward_cfg)
+    if reward_cfg.get('id') == 'R2f-credit-balanced-v1':
+        from connectome_fighter.combat_reward_r2f import reward_sequence as balanced_sequence
+        return balanced_sequence(round_row, side, reward_cfg)
     ts=round_row.get('transitions') or []
     terminal=round_row.get('remaining_hps')
     if not ts or not isinstance(terminal,list) or len(terminal)!=2: raise ValueError('invalid round trace')
@@ -107,6 +110,8 @@ def main()->int:
     p.add_argument('--spikes',type=Path,required=True)
     p.add_argument('--candidates',type=Path,required=True)
     p.add_argument('--reward-config',type=Path,required=True)
+    p.add_argument('--learning-credit-config',type=Path,default=None,
+                   help='Explicit R2f modulatory-credit treatment; R2e evaluation/checkpoint identity remains unchanged')
     p.add_argument('--plasticity-config',type=Path,required=True)
     p.add_argument('--state',type=Path,required=True)
     p.add_argument('--round-index',type=int,default=0)
@@ -119,6 +124,20 @@ def main()->int:
     raw_plastic=json.loads(args.plasticity_config.read_text(encoding='utf-8'))
     if str(raw_plastic.get('reward_config') or '')!=reward_id: raise ValueError('plasticity/reward config mismatch')
     cfg=plasticity_config(raw_plastic,reward_id); cfg.validate()
+    learning_credit_id=reward_id
+    learning_credit_sha256=sha256_file(args.reward_config)
+    credit_cfg=None
+    if args.learning_credit_config is not None:
+        from connectome_fighter.combat_reward_r2f import validate_config as validate_r2f
+        from connectome_fighter.combat_reward_r2f import REWARD_ID as R2F_ID
+        if reward_id != 'R2e-combat-v1':
+            raise ValueError('R2f credit requires R2e external reward objective')
+        credit_cfg=json.loads(args.learning_credit_config.read_text(encoding='utf-8'))
+        validate_r2f(credit_cfg)
+        if credit_cfg['base_reward'] != reward_cfg or credit_cfg['source_reward_id'] != reward_id:
+            raise ValueError('R2f credit config does not bind the selected R2e reward')
+        learning_credit_id=R2F_ID
+        learning_credit_sha256=sha256_file(args.learning_credit_config)
 
     candidates=pd.read_parquet(args.candidates).sort_values('synapse_index').reset_index(drop=True)
     required={'body_pre','body_post','mbon_valence_channel','sign','synapse_index'}
@@ -131,6 +150,9 @@ def main()->int:
     rounds=read_jsonl(args.round_trace)
     if args.round_index<0 or args.round_index>=len(rounds): raise IndexError('round-index outside trace')
     events=reward_sequence(rounds[args.round_index],args.side-1,reward_cfg)
+    if credit_cfg is not None:
+        from connectome_fighter.combat_reward_r2f import rebalance_events
+        events=rebalance_events(events,credit_cfg)
 
     spikes=pd.read_parquet(args.spikes)
     if not {'decision_index','body_id'}.issubset(spikes.columns): raise ValueError('spike log missing columns')
@@ -139,6 +161,13 @@ def main()->int:
 
     if args.state.is_file():
         state=load_state(args.state,expected_character=args.character,n_candidates=len(candidates),expected_candidate_sha256=candidate_sha,config=cfg)
+        previous_meta=json.loads(args.state.with_suffix(args.state.suffix+'.json').read_text(encoding='utf-8'))
+        prior_credit=previous_meta.get('learning_credit_id')
+        prior_sha=previous_meta.get('learning_credit_sha256')
+        # A legacy R2e checkpoint can enter this treatment exactly once without
+        # changing the inherited weights; subsequent R2f credit must match bytes.
+        if prior_credit is not None and (prior_credit != learning_credit_id or prior_sha != learning_credit_sha256):
+            raise ValueError('checkpoint learning credit version or byte hash mismatch')
         source='checkpoint'
     else:
         state=initialize_state(character=args.character,n_candidates=len(candidates),candidate_sha256=candidate_sha,config=cfg)
@@ -155,6 +184,11 @@ def main()->int:
         event_metrics.append({**event,**metrics})
     finish_match(state)
     state_meta=save_state(args.state,state,cfg)
+    state_meta['learning_credit_id']=learning_credit_id
+    state_meta['learning_credit_sha256']=learning_credit_sha256
+    state_meta['external_evaluation_reward_id']=reward_id
+    args.state.with_suffix(args.state.suffix+'.json').write_text(
+        json.dumps(state_meta,indent=2,sort_keys=True)+'\n',encoding='utf-8')
     after=state.multipliers.astype(np.float64); before64=before.astype(np.float64)
     absolute_delta=np.abs(after-before64)
     changed=np.flatnonzero(absolute_delta>1e-12)
@@ -163,7 +197,9 @@ def main()->int:
     at_lower_bound=int(np.count_nonzero(after<=cfg.multiplier_min+bound_tol))
     at_upper_bound=int(np.count_nonzero(after>=cfg.multiplier_max-bound_tol))
     summary={
-        'status':'PASS','model':'KC-MBON-valence-depression-v0','reward_id':reward_id,'character':args.character,'side':args.side,
+        'status':'PASS','model':'KC-MBON-valence-depression-v0','reward_id':reward_id,
+        'learning_credit_id':learning_credit_id,'learning_credit_sha256':learning_credit_sha256,
+        'external_evaluation_reward_id':reward_id,'character':args.character,'side':args.side,
         'round_index':args.round_index,'state_source':source,'candidate_edges':int(len(candidates)),
         'channels':{'approach_edges':int(approach.sum()),'avoidance_edges':int(avoidance.sum())},
         'signals':{
@@ -192,7 +228,7 @@ def main()->int:
     if summary['updates']['potentiated_edges']!=0 or summary['updates']['max_multiplier']>1.0000001: raise RuntimeError('depression-only invariant violated')
     args.out_summary.parent.mkdir(parents=True,exist_ok=True)
     args.out_summary.write_text(json.dumps(summary,indent=2,sort_keys=True)+'\n',encoding='utf-8')
-    print(json.dumps({k:summary[k] for k in ['status','reward_id','character','signals','updates','state']},indent=2,sort_keys=True))
+    print(json.dumps({k:summary[k] for k in ['status','reward_id','learning_credit_id','learning_credit_sha256','character','signals','updates','state']},indent=2,sort_keys=True))
     return 0
 
 if __name__=='__main__': raise SystemExit(main())

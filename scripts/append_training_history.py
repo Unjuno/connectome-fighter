@@ -40,6 +40,13 @@ def validate_status(status: dict[str, Any]) -> None:
     sha = str(status.get("state_sha256", ""))
     if not SHA256_RE.fullmatch(sha):
         raise ValueError("candidate state_sha256 is invalid")
+    if status.get("learning_credit_id") is not None:
+        if status.get("learning_credit_id") != "R2f-credit-balanced-v1":
+            raise ValueError("unrecognized candidate learning credit")
+        if status.get("reward_id") != "R2e-combat-v1" or status.get("external_evaluation_reward_id") != "R2e-combat-v1":
+            raise ValueError("candidate external evaluation reward mismatch")
+        if not SHA256_RE.fullmatch(str(status.get("learning_credit_sha256", ""))):
+            raise ValueError("candidate learning credit hash is invalid")
     source = str(status.get("source_run_url", ""))
     if not source.startswith("https://github.com/Unjuno/connectome-fighter/actions/runs/"):
         raise ValueError("candidate source_run_url is outside the canonical Actions ledger")
@@ -60,6 +67,9 @@ def compact_entry(status: dict[str, Any]) -> dict[str, Any]:
         "match_status": status.get("match_status"),
         "model": status.get("model"),
         "reward_id": status.get("reward_id"),
+        "learning_credit_id": status.get("learning_credit_id"),
+        "learning_credit_sha256": status.get("learning_credit_sha256"),
+        "external_evaluation_reward_id": status.get("external_evaluation_reward_id", status.get("reward_id")),
         "signal_summary": status.get("signal_summary") or {},
         "update_summary": status.get("update_summary") or {},
         "acceptance_gate": status.get("acceptance_gate") or {},

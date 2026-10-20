@@ -23,8 +23,10 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'src'))
 from connectome_fighter.combat_reward import paired_evaluation_suite_gate
 from connectome_fighter.combat_curriculum import training_curriculum
+from connectome_fighter.combat_reward_r2f import REWARD_ID as LEARNING_CREDIT_ID, validate_config as validate_credit_config
 
-REWARD = 'R2e-combat-v1'
+REWARD = 'R2e-combat-v1' # external objective remains invariant
+CREDIT_CONFIG = ROOT/'configs/reward_r2f_credit_balanced_v1.json'
 REPO = 'Unjuno/connectome-fighter'
 READOUT_MODE = 'ema-residual'
 READOUT_CONTRACT = 'malecns-temporal-readout-v1'
@@ -76,6 +78,12 @@ def main():
     if os.environ.get('CI')!='true' or os.environ.get('VERCEL'): p.error('standalone CI only')
     if not 180<=args.timeout_seconds<=1200: p.error('timeout must be 180..1200 seconds')
     curriculum=training_curriculum(os.environ.get('GITHUB_RUN_NUMBER'))
+    r2e_spec=json.loads((ROOT/'configs/reward_r2e_combat_v1.json').read_text())
+    credit_spec=json.loads(CREDIT_CONFIG.read_text())
+    validate_credit_config(credit_spec)
+    if credit_spec['base_reward'] != r2e_spec:
+        raise ValueError('R2f credit must preserve the exact canonical R2e evaluation objective')
+    learning_credit_sha256=sha(CREDIT_CONFIG)
     runtime=args.runtime_root.resolve();out=args.out.resolve();out.mkdir(parents=True,exist_ok=True)
     deadline=time.monotonic()+args.timeout_seconds
     manifest=json.loads((runtime/'manifest.json').read_text())
@@ -184,7 +192,7 @@ else:
     started=now();clock=time.monotonic()
     run_id=os.environ.get('GITHUB_RUN_ID','local');run_url=f'https://github.com/{REPO}/actions/runs/{run_id}'
     write(out/'environment.json',{'started_at':started,'tested_commit':os.environ.get('GITHUB_SHA'),
-          'python':sys.version,'runtime_manifest':manifest,'reward':REWARD,'game_frames':3600,'decision_interval_frames':60,
+          'python':sys.version,'runtime_manifest':manifest,'reward':REWARD,'learning_credit_id':LEARNING_CREDIT_ID,'learning_credit_sha256':learning_credit_sha256,'game_frames':3600,'decision_interval_frames':60,
           'readout_mode_p1':READOUT_MODE,'readout_mode_p2':'canonical','readout_contract':READOUT_CONTRACT,
           'legacy_evaluation':LEGACY_EVALUATION,'acceptance_validation_suite':VALIDATION_SUITE,
           'training_curriculum':curriculum,
@@ -206,8 +214,10 @@ else:
         train_seed_p2=700001+generation*103+attempt_salt*3
         training=match('training',before_adapter,opponent,train_seed,train_seed_p2,train=True)
         assert sha(state)==frozen
-        run([bridge,runtime/'repo/scripts/update_malecns_valence_plasticity.py','--character','GARNET','--side','1','--round-trace',out/'matches/training/p1.jsonl','--spikes',out/'matches/training/p1-brain/spikes.parquet','--candidates',candidates,'--reward-config',ROOT/'configs/reward_r2e_combat_v1.json','--plasticity-config',cfg,'--state',state,'--out-summary',out/'update.json'],'update')
+        run([bridge,runtime/'repo/scripts/update_malecns_valence_plasticity.py','--character','GARNET','--side','1','--round-trace',out/'matches/training/p1.jsonl','--spikes',out/'matches/training/p1-brain/spikes.parquet','--candidates',candidates,'--reward-config',ROOT/'configs/reward_r2e_combat_v1.json','--learning-credit-config',CREDIT_CONFIG,'--plasticity-config',cfg,'--state',state,'--out-summary',out/'update.json'],'update')
         update=json.loads((out/'update.json').read_text());assert update['status']=='PASS'
+        assert update['reward_id']==REWARD and update['external_evaluation_reward_id']==REWARD
+        assert update['learning_credit_id']==LEARNING_CREDIT_ID and update['learning_credit_sha256']==learning_credit_sha256
         assert update['updates']['potentiated_edges']==0 and update['invariants']['topology_changed'] is False and update['invariants']['sign_changed'] is False
         after_adapter=materialize('after-adapter');after_hash=sha(state)
         validation_after=evaluate_suite('validation-after',after_adapter)
@@ -215,7 +225,9 @@ else:
         assert sha(state)==after_hash
         assert before_source=={str(f.relative_to(source)):sha(f) for f in source.rglob('*') if f.is_file()}
         meta=json.loads(state.with_suffix('.npz.json').read_text());assert meta['generation']==generation+1
-        reward_config=json.loads((ROOT/'configs/reward_r2e_combat_v1.json').read_text())
+        assert meta['reward_id']==REWARD and meta['external_evaluation_reward_id']==REWARD
+        assert meta['learning_credit_id']==LEARNING_CREDIT_ID and meta['learning_credit_sha256']==learning_credit_sha256
+        reward_config=r2e_spec
         gate_cases=[]
         for before_case,after_case in zip(validation_before,validation_after,strict=True):
             assert before_case['case_id']==after_case['case_id']
@@ -225,7 +237,8 @@ else:
                 'before':before_case['metrics'],'after':after_case['metrics'],
             })
         gate=paired_evaluation_suite_gate(gate_cases,reward_config)
-        gate.update({'protocol':'fixed-three-opponent-validation-v1',
+        gate.update({'protocol':'fixed-three-opponent-validation-v1','external_evaluation_reward_id':REWARD,
+                     'learning_credit_id':LEARNING_CREDIT_ID,
                      'parent_generation':generation,'proposed_generation':meta['generation'],
                      'parent_state_sha256':parent['state_sha256'],'proposed_state_sha256':after_hash})
         write(out/'acceptance.json',gate)
@@ -242,14 +255,19 @@ else:
         publish=out/'publish';publish.mkdir()
         package=out/'package';(package/'state').mkdir(parents=True)
         shutil.copy2(state,package/'state/GARNET.npz');shutil.copy2(state.with_suffix('.npz.json'),package/'state/GARNET.npz.json')
-        write(package/'parent.json',{'state_sha256':parent['state_sha256'],'generation':generation,'reward_id':parent['reward_id'],'config_sha256':parent['config_sha256'],'metadata':parent})
+        write(package/'parent.json',{'state_sha256':parent['state_sha256'],'generation':generation,'reward_id':parent['reward_id'],
+                                    'learning_credit_id':parent.get('learning_credit_id'),
+                                    'learning_credit_sha256':parent.get('learning_credit_sha256'),
+                                    'config_sha256':parent['config_sha256'],'metadata':parent})
         write(package/'update.json',update)
         archive_name=f"garnet-g{meta['generation']:06d}-{meta['state_sha256'][:16]}.tar.gz"
         with tarfile.open(publish/archive_name,'w:gz') as tar:tar.add(package,arcname='.')
         archive_sha=sha(publish/archive_name)
         status={'schema_version':1,'kind':'canonical-continuous-training-candidate','status':'candidate-only-not-arena-approved',
                 'character':'GARNET','generation':meta['generation'],'matches':meta['matches'],'state_sha256':meta['state_sha256'],
-                'model':meta['model'],'reward_id':REWARD,'opponent':opponent,'source_kind':'combat-training-v1',
+                'model':meta['model'],'reward_id':REWARD,'learning_credit_id':LEARNING_CREDIT_ID,'learning_credit_sha256':learning_credit_sha256,
+                 'external_evaluation_reward_id':REWARD,'parent_learning_credit_id':parent.get('learning_credit_id'),
+                 'opponent':opponent,'source_kind':'combat-training-v1-r2f-credit',
                 'source_run_url':run_url,'served_by_vercel':False,'auto_promotion':False,'updated_at':now(),
                 'readout_mode':READOUT_MODE,'readout_contract':READOUT_CONTRACT,
                 'match_status':MATCH_STATUS,'signal_summary':update['signals'],'update_summary':update['updates'],
@@ -260,7 +278,7 @@ else:
                 'training_curriculum':curriculum,
                 'combat_metrics':{'before':before,'training':training,'after':after,
                                   'validation_before':validation_before,'validation_after':validation_after},
-                'interpretation_boundary':'Experimental R2e candidate using the held-out-selected EMA-residual P1 readout. Publication now requires improvement across a small fixed ZEN/LUD/NEZ validation suite; this is still not proof of general fighting strength or biological validity.'}
+                'interpretation_boundary':'External utility remains frozen R2e. Real-game KC-MBON modulation uses versioned R2f learning credit. This is research-candidate evidence, not independently confirmed strength or approved LIVE.'}
         write(publish/'training-manifest.json',status);write(publish/'training-status.json',status)
         video_tag=f'combat-evaluation-{run_id}'
         for phase,metrics,g in [('before',before,generation),('after',after,meta['generation'])]:
@@ -273,6 +291,8 @@ else:
                         'candidate_only':True,'auto_promotion':False,'served_by_vercel':False,'policy_pixel_access':False,
                         'character':'GARNET','opponent':'ZEN','generation':g,'matches':meta['matches'] if phase=='after' else parent['matches'],
                         'state_sha256':after_hash if phase=='after' else frozen,'model':meta['model'],'reward_id':REWARD,
+                         'external_evaluation_reward_id':REWARD,
+                         'learning_credit_id':LEARNING_CREDIT_ID if phase=='after' else parent.get('learning_credit_id'),
                         'readout_mode':READOUT_MODE,'readout_contract':READOUT_CONTRACT,
                         'evaluated_at':now(),'source_training_run_url':run_url,'comparison_phase':phase,
                         'evaluation':{'protocol':'fixed-full-round-v2','rounds':1,'fixed_opponent':True,'seed_p1':800101,'seed_p2':20202,'round_frame_limit':3600,'nominal_game_fps':60,'configured_round_limit_seconds':60,'decision_interval_frames':60},
@@ -289,6 +309,9 @@ else:
                 'new_state_sha256':after_hash,'parent_state_sha256':parent['state_sha256'],
                 'auto_promotion':False,'pipeline_seconds':time.monotonic()-clock}
     finally:
+        result['learning_credit_id']=LEARNING_CREDIT_ID
+        result['learning_credit_sha256']=learning_credit_sha256
+        result['external_evaluation_reward_id']=REWARD
         result['training_curriculum']=curriculum
         if update is not None:
             result['signal_summary']=update.get('signals',{})

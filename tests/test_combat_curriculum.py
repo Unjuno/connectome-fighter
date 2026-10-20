@@ -51,7 +51,9 @@ def test_actual_trainer_finalizer_preserves_diagnostics_without_promoting(tmp_pa
     update = {'signals': {'positive': 2, 'negative': 1}, 'updates': {'max_abs_multiplier_delta': 0.01}} if has_update else None
     curriculum = training_curriculum(1496)
     namespace = {'Path': Path, 'json': json, 'result': result, 'update': update,
-                 'curriculum': curriculum, 'now': lambda: 'software-fixture-time', 'out': tmp_path}
+                 'curriculum': curriculum, 'now': lambda: 'software-fixture-time', 'out': tmp_path,
+                 'LEARNING_CREDIT_ID': 'R2f-credit-balanced-v1', 'learning_credit_sha256': 'a'*64,
+                 'REWARD': 'R2e-combat-v1'}
     # Execute the actual production writer/finalizer, not a reimplementation.
     exec(compile(ast.Module(body=[write, *finalizer], type_ignores=[]), '<trainer-finalizer>', 'exec'), namespace)
     saved = json.loads((tmp_path / 'result.json').read_text())
@@ -59,6 +61,8 @@ def test_actual_trainer_finalizer_preserves_diagnostics_without_promoting(tmp_pa
     assert saved['status'] == status and saved['accepted_update'] is accepted
     assert saved['generation'] == 40 and saved['auto_promotion'] is False
     assert saved['training_curriculum'] == curriculum
+    assert saved['learning_credit_id'] == 'R2f-credit-balanced-v1'
+    assert saved['external_evaluation_reward_id'] == 'R2e-combat-v1'
     if has_update:
         assert saved['signal_summary'] == update['signals']
         assert saved['update_summary'] == update['updates']

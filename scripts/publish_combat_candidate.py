@@ -45,6 +45,13 @@ def main():
     assert spec['checkpoint_tag']=='combat-training-v1' and spec['video_tag']=='combat-evaluation-'+os.environ['GITHUB_RUN_ID']
     manifest=json.loads((root/'training-manifest.json').read_text())
     assert manifest['reward_id']=='R2e-combat-v1' and manifest['auto_promotion'] is False and manifest['served_by_vercel'] is False
+    if manifest.get('learning_credit_id') != 'R2f-credit-balanced-v1':
+        raise ValueError('canonical candidate was not updated using active R2f credit')
+    credit_file=Path(__file__).resolve().parents[1]/'configs/reward_r2f_credit_balanced_v1.json'
+    if manifest.get('learning_credit_sha256')!=hashlib.sha256(credit_file.read_bytes()).hexdigest():
+        raise ValueError('published R2f credit hash mismatch')
+    if manifest.get('external_evaluation_reward_id')!='R2e-combat-v1':
+        raise ValueError('canonical combat evaluation utility changed')
     name=spec['archive_file'];assert re.fullmatch(r'garnet-g[0-9]+-[a-f0-9]{16}\.tar\.gz',name)
     assert hashlib.sha256((root/name).read_bytes()).hexdigest()==manifest['archive_sha256']
     existence=subprocess.run(['gh','api',f'repos/{REPO}/releases/tags/combat-training-v1'],capture_output=True,text=True,timeout=30)
