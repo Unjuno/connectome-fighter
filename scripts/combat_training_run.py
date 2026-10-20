@@ -192,7 +192,7 @@ else:
     started=now();clock=time.monotonic()
     run_id=os.environ.get('GITHUB_RUN_ID','local');run_url=f'https://github.com/{REPO}/actions/runs/{run_id}'
     write(out/'environment.json',{'started_at':started,'tested_commit':os.environ.get('GITHUB_SHA'),
-          'python':sys.version,'runtime_manifest':manifest,'reward':REWARD,'game_frames':3600,'decision_interval_frames':60,
+          'python':sys.version,'runtime_manifest':manifest,'reward':REWARD,'learning_credit_id':LEARNING_CREDIT_ID,'learning_credit_sha256':learning_credit_sha256,'game_frames':3600,'decision_interval_frames':60,
           'readout_mode_p1':READOUT_MODE,'readout_mode_p2':'canonical','readout_contract':READOUT_CONTRACT,
           'legacy_evaluation':LEGACY_EVALUATION,'acceptance_validation_suite':VALIDATION_SUITE,
           'training_curriculum':curriculum,
@@ -216,6 +216,8 @@ else:
         assert sha(state)==frozen
         run([bridge,runtime/'repo/scripts/update_malecns_valence_plasticity.py','--character','GARNET','--side','1','--round-trace',out/'matches/training/p1.jsonl','--spikes',out/'matches/training/p1-brain/spikes.parquet','--candidates',candidates,'--reward-config',ROOT/'configs/reward_r2e_combat_v1.json','--learning-credit-config',CREDIT_CONFIG,'--plasticity-config',cfg,'--state',state,'--out-summary',out/'update.json'],'update')
         update=json.loads((out/'update.json').read_text());assert update['status']=='PASS'
+        assert update['reward_id']==REWARD and update['external_evaluation_reward_id']==REWARD
+        assert update['learning_credit_id']==LEARNING_CREDIT_ID and update['learning_credit_sha256']==learning_credit_sha256
         assert update['updates']['potentiated_edges']==0 and update['invariants']['topology_changed'] is False and update['invariants']['sign_changed'] is False
         after_adapter=materialize('after-adapter');after_hash=sha(state)
         validation_after=evaluate_suite('validation-after',after_adapter)
@@ -223,6 +225,8 @@ else:
         assert sha(state)==after_hash
         assert before_source=={str(f.relative_to(source)):sha(f) for f in source.rglob('*') if f.is_file()}
         meta=json.loads(state.with_suffix('.npz.json').read_text());assert meta['generation']==generation+1
+        assert meta['reward_id']==REWARD and meta['external_evaluation_reward_id']==REWARD
+        assert meta['learning_credit_id']==LEARNING_CREDIT_ID and meta['learning_credit_sha256']==learning_credit_sha256
         reward_config=json.loads((ROOT/'configs/reward_r2e_combat_v1.json').read_text())
         gate_cases=[]
         for before_case,after_case in zip(validation_before,validation_after,strict=True):
