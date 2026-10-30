@@ -32,10 +32,11 @@ READOUT_MODE = 'ema-residual'
 READOUT_CONTRACT = 'malecns-temporal-readout-v1'
 MATCH_STATUS = 'COMPLETED_WITH_VALIDATED_EXPERIMENTAL_READOUT_TRACES'
 SCHEDULE_CONTRACT = {
-    'mode': 'scheduled-30-minute-single-writer',
+    'mode': 'start-anchored-30-minute-self-chain',
     'interval_minutes': 30,
-    'schedule_cron': '17,47 * * * *',
-    'self_dispatch_enabled': False,
+    'self_dispatch_enabled': True,
+    'self_dispatch_minimum_seconds': 1800,
+    'watchdog_cron': '17 * * * *',
     'manual_dispatch_allowed': True,
     'guaranteed_interval': False,
 }
@@ -200,7 +201,7 @@ else:
           'legacy_evaluation':LEGACY_EVALUATION,'acceptance_validation_suite':VALIDATION_SUITE,
           'training_curriculum':curriculum,
           'synthetic_neural_fixture':False,'candidate_only':True,'auto_promotion':False,
-          'pipeline':'legacy-anchor-before/validation-suite-before/train/validation-suite-after/legacy-anchor-after/robust-acceptance-gate',
+          'pipeline':'frozen-before/full-R2f-train/full-evaluation/optional-0.25-backtrack/frozen-selection/robust-R2e-gate',
           'training_seed_strategy':'generation-plus-github-run-id-salt','source_archive_sha256':sha(args.source_archive),
           'selected_dependency_descriptor':json.loads((out/'dependencies.json').read_text()) if (out/'dependencies.json').exists() else None})
     result={'status':'FAIL','accepted_update':False,'reward_id':REWARD,'source_run_url':run_url,'readout_mode':READOUT_MODE,'readout_contract':READOUT_CONTRACT}
