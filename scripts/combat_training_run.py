@@ -143,6 +143,12 @@ else:
     shutil.copy2(source,dest);shutil.copy2(source.with_suffix('.npz.json'),dest.with_suffix('.npz.json'))
 '''
     run([bridge,'-c',prepare,origin,state,old_cfg,cfg],'prepare-reward-fork')
+    # The candidate may be explicitly forked from R2d; backtracking needs the
+    # byte-verified R2e-evaluation parent, not the external legacy archive.
+    learning_parent=out/'parent-checkpoint/state/GARNET.npz'
+    learning_parent.parent.mkdir(parents=True)
+    shutil.copy2(state,learning_parent)
+    shutil.copy2(state.with_suffix('.npz.json'),learning_parent.with_suffix('.npz.json'))
     base=runtime/'data/malecns-shiu-strict-v1'
     candidates=runtime/'data/malecns-valence-v1/kc_mbon_valence_candidates.parquet'
     def materialize(name, selected_state=None):
@@ -208,6 +214,7 @@ else:
     update=None
     try:
         frozen=sha(state)
+        assert frozen==sha(learning_parent)
         before=match('before',before_adapter,LEGACY_EVALUATION['opponent'],LEGACY_EVALUATION['seed_p1'],LEGACY_EVALUATION['seed_p2'],video=True)
         validation_before=evaluate_suite('validation-before',before_adapter)
         assert sha(state)==frozen
@@ -254,13 +261,13 @@ else:
             # Both candidates are judged by the SAME frozen R2e game utility.
             alt_state=out/'backtrack/state/GARNET.npz'
             run([bridge,runtime/'repo/scripts/combat_candidate_backtrack.py',
-                 '--parent',origin,'--proposal',state,'--out',alt_state,
+                 '--parent',learning_parent,'--proposal',state,'--out',alt_state,
                  '--plasticity-config',cfg,'--credit-config',CREDIT_CONFIG,
                  '--summary',out/'backtrack/summary.json'],'backtrack-update')
             step_info=json.loads((out/'backtrack/summary.json').read_text())
             assert step_info['kind']=='r2f-trust-region-backtrack-v1'
             assert step_info['step_scale']==0.25 and step_info['potentiated_edges']==0
-            assert step_info['parent_sha256']==parent['state_sha256']
+            assert step_info['parent_sha256']==frozen
             assert step_info['full_proposal_sha256']==full_step_sha
             alt_hash=sha(alt_state)
             assert alt_hash==step_info['backtracked_sha256']
