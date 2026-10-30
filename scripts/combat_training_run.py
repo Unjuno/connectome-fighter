@@ -244,6 +244,76 @@ else:
                      'learning_credit_id':LEARNING_CREDIT_ID,
                      'parent_generation':generation,'proposed_generation':meta['generation'],
                      'parent_state_sha256':parent['state_sha256'],'proposed_state_sha256':after_hash})
+        gate['proposal_step_scale']=1.0
+        full_step_gate=dict(gate)
+        full_step_sha=after_hash
+        backtrack_diagnostics=None
+        if not gate['accepted_update']:
+            # A failed full depression step gets one predeclared smaller proposal.
+            # Both candidates are judged by the SAME frozen R2e game utility.
+            alt_state=out/'backtrack/state/GARNET.npz'
+            run([bridge,runtime/'repo/scripts/combat_candidate_backtrack.py',
+                 '--parent',origin,'--proposal',state,'--out',alt_state,
+                 '--plasticity-config',cfg,'--credit-config',CREDIT_CONFIG,
+                 '--summary',out/'backtrack/summary.json'],'backtrack-update')
+            step_info=json.loads((out/'backtrack/summary.json').read_text())
+            assert step_info['kind']=='r2f-trust-region-backtrack-v1'
+            assert step_info['step_scale']==0.25 and step_info['potentiated_edges']==0
+            assert step_info['parent_sha256']==parent['state_sha256']
+            assert step_info['full_proposal_sha256']==full_step_sha
+            alt_hash=sha(alt_state)
+            assert alt_hash==step_info['backtracked_sha256']
+            alt_meta=json.loads(alt_state.with_suffix('.npz.json').read_text())
+            assert alt_meta['generation']==generation+1 and alt_meta['state_sha256']==alt_hash
+            alt_adapter=materialize('backtrack-adapter',alt_state)
+            alt_validation=evaluate_suite('backtrack-validation',alt_adapter)
+            alt_cases=[]
+            for before_case,after_case in zip(validation_before,alt_validation,strict=True):
+                assert before_case['case_id']==after_case['case_id']
+                alt_cases.append({
+                    'case_id':before_case['case_id'],'opponent':before_case['opponent'],
+                    'seed_p1':before_case['seed_p1'],'seed_p2':before_case['seed_p2'],
+                    'before':before_case['metrics'],'after':after_case['metrics'],
+                })
+            alt_gate=paired_evaluation_suite_gate(alt_cases,reward_config)
+            alt_gate.update({'protocol':'fixed-three-opponent-validation-v1',
+                             'external_evaluation_reward_id':REWARD,
+                             'learning_credit_id':LEARNING_CREDIT_ID,
+                             'proposal_step_scheme':step_info['kind'],
+                             'proposal_step_scale':step_info['step_scale'],
+                             'parent_generation':generation,'proposed_generation':alt_meta['generation'],
+                             'parent_state_sha256':parent['state_sha256'],
+                             'proposed_state_sha256':alt_hash})
+            write(out/'backtrack-acceptance.json',alt_gate)
+            backtrack_diagnostics={'full_step_gate':full_step_gate,'backtracked_gate':alt_gate,
+                                   'backtracked_update':step_info,
+                                   'selected_step_scale':step_info['step_scale'] if alt_gate['accepted_update'] else None}
+            if alt_gate['accepted_update']:
+                # The only accepted output is the *actual* backtracked state.
+                alt_after=match('after-backtrack',alt_adapter,LEGACY_EVALUATION['opponent'],
+                                LEGACY_EVALUATION['seed_p1'],LEGACY_EVALUATION['seed_p2'],video=True)
+                shutil.copy2(out/'after-backtrack.mp4',out/'after.mp4')
+                shutil.copy2(alt_state,state)
+                shutil.copy2(alt_state.with_suffix('.npz.json'),state.with_suffix('.npz.json'))
+                assert sha(state)==alt_hash
+                meta=json.loads(state.with_suffix('.npz.json').read_text())
+                assert meta['state_sha256']==alt_hash and meta['proposal_step_scale']==0.25
+                after_hash=alt_hash
+                after=alt_after
+                validation_after=alt_validation
+                gate=alt_gate
+                update['full_step_updates']=dict(update['updates'])
+                update['updates']={
+                    'changed_edges':step_info['updated_edges'],
+                    'potentiated_edges':0,
+                    'depressed_edges':step_info['updated_edges'],
+                    'mean_abs_multiplier_delta':step_info['mean_abs_multiplier_delta'],
+                    'max_abs_multiplier_delta':step_info['max_abs_multiplier_delta'],
+                    'proposal_step_scale':step_info['step_scale'],
+                    'proposal_step_scheme':step_info['kind'],
+                }
+                update['selected_step']=step_info
+                write(out/'update.json',update)
         write(out/'acceptance.json',gate)
         if not gate['accepted_update']:
             result={'status':'REJECTED','accepted_update':False,'reward_id':REWARD,'source_run_url':run_url,
