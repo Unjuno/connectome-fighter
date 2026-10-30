@@ -320,7 +320,8 @@ else:
                     'generation':generation,'proposed_generation':meta['generation'],'readout_mode':READOUT_MODE,
                     'readout_contract':READOUT_CONTRACT,'before':before,'training':training,'after':after,
                     'validation_before':validation_before,'validation_after':validation_after,
-                    'acceptance_gate':gate,'changed_edges':update['updates']['changed_edges'],
+                    'acceptance_gate':gate,'backtrack_diagnostics':backtrack_diagnostics,
+                     'changed_edges':update['updates']['changed_edges'],
                     'parent_state_sha256':parent['state_sha256'],'proposed_state_sha256':after_hash,
                     'training_seed':train_seed,'training_seed_p2':train_seed_p2,'training_attempt_salt':attempt_salt,
                     'auto_promotion':False,'pipeline_seconds':time.monotonic()-clock}
@@ -348,6 +349,7 @@ else:
                 'archive_file':archive_name,'archive_sha256':archive_sha,'schedule_minutes':30,'schedule_contract':SCHEDULE_CONTRACT,
                 'actual_pipeline_seconds':time.monotonic()-clock,'training_seed':train_seed,'training_seed_p2':train_seed_p2,
                 'training_attempt_salt':attempt_salt,'accepted_update':True,'acceptance_gate':gate,
+                 'backtrack_diagnostics':backtrack_diagnostics,'selected_proposal_step_scale':gate.get('proposal_step_scale',1.0),
                 'training_curriculum':curriculum,
                 'combat_metrics':{'before':before,'training':training,'after':after,
                                   'validation_before':validation_before,'validation_after':validation_after},
@@ -377,7 +379,8 @@ else:
                 'readout_mode':READOUT_MODE,'readout_contract':READOUT_CONTRACT,
                 'before':before,'training':training,'after':after,
                 'validation_before':validation_before,'validation_after':validation_after,
-                'acceptance_gate':gate,'changed_edges':update['updates']['changed_edges'],
+                'acceptance_gate':gate,'backtrack_diagnostics':backtrack_diagnostics,
+                     'changed_edges':update['updates']['changed_edges'],
                 'training_seed':train_seed,'training_seed_p2':train_seed_p2,'training_attempt_salt':attempt_salt,
                 'new_state_sha256':after_hash,'parent_state_sha256':parent['state_sha256'],
                 'auto_promotion':False,'pipeline_seconds':time.monotonic()-clock}
