@@ -5,38 +5,47 @@ import yaml
 ROOT=Path(__file__).resolve().parents[1]
 
 
-def test_half_hourly_single_writer_with_read_only_pr_jobs():
-    raw = (ROOT / '.github/workflows/continuous-training.yml').read_text()
+def test_start_anchored_half_hour_single_writer_and_main_only_publish():
+    raw = (ROOT/'.github/workflows/continuous-training.yml').read_text()
     workflow = yaml.safe_load(raw)
     trigger = workflow.get('on', workflow.get(True))
-    assert workflow['name'] == 'combat-candidate-training'
-    assert trigger['schedule'] == [{'cron': '17,47 * * * *'}]
+    assert workflow['name']=='combat-candidate-training'
+    assert trigger['schedule']==[{'cron':'17 * * * *'}]
     assert 'workflow_dispatch' in trigger
-    # The job is scheduled twice per hour, not chained after its completion.
-    assert 'push' not in trigger
-    minutes = [17, 47]
-    assert minutes[1] - minutes[0] == 30
-    assert minutes[0] + 60 - minutes[1] == 30
-    concurrency = workflow['concurrency']
+    assert trigger['push']['branches']==['main']
+    assert trigger['push']['paths']==['.github/workflows/continuous-training.yml']
+    concurrency=workflow['concurrency']
     assert concurrency['cancel-in-progress'] is False
     assert 'canonical-continuous-training-single-writer' in concurrency['group']
     assert 'pull_request.number' in concurrency['group']
     assert 'combat-training-pr-' in concurrency['group']
-    assert workflow['permissions'] == {'contents': 'read'}
-    jobs = workflow['jobs']
-    assert 'continue-loop' not in jobs
-    assert 'gh api --method POST' not in raw
-    assert 'sleep 120' not in raw
-    assert 'CONNECTOME_TRAINING_PAUSED' in jobs['train-and-evaluate']['if']
+    assert workflow['permissions']=={'contents':'read'}
+    jobs=workflow['jobs']
+    assert "CONNECTOME_TRAINING_PAUSED" in jobs['train-and-evaluate']['if']
     assert "github.event_name != 'pull_request'" in jobs['train-and-evaluate']['if']
-    publish = jobs['publish']
-    assert publish['permissions'] == {'contents': 'write'}
+    publish=jobs['publish']
+    assert publish['permissions']=={'contents':'write'}
     assert "github.event_name != 'pull_request'" in publish['if']
     assert "github.ref == 'refs/heads/main'" in publish['if']
-    assert publish['needs'] == 'train-and-evaluate'
-    assert all(job['timeout-minutes'] <= 25 for job in jobs.values())
-    assert workflow['env']['TRAINING_TAG'] == 'combat-training-v1'
-    assert workflow['env']['SEED_TAG'] == 'canonical-training-latest'
+    assert publish['needs']=='train-and-evaluate'
+    loop=jobs['continue-loop']
+    assert loop['needs']==['train-and-evaluate','publish']
+    assert loop['permissions']=={'actions':'write','contents':'read'}
+    assert loop['timeout-minutes']==35
+    assert "github.event_name != 'pull_request'" in loop['if']
+    assert "github.ref == 'refs/heads/main'" in loop['if']
+    assert "CONNECTOME_TRAINING_PAUSED" in loop['if']
+    assert "needs.train-and-evaluate.result == 'success'" in loop['if']
+    assert "needs.train-and-evaluate.result == 'failure'" in loop['if']
+    assert "needs.publish.result == 'skipped'" in loop['if']
+    assert "needs.publish.result == 'success'" in loop['if']
+    assert 'scripts/combat_training_cadence.py --started-at' in raw
+    assert "gh api --method POST" in raw and '-f ref=main' in raw
+    assert "status=queued" in raw and "status=in_progress" in raw
+    assert 'sleep 120' not in raw
+    assert all(v['timeout-minutes']<=25 for k,v in jobs.items() if k!='continue-loop')
+    assert workflow['env']['TRAINING_TAG']=='combat-training-v1'
+    assert workflow['env']['SEED_TAG']=='canonical-training-latest'
     assert 'gh release upload arena-inference-latest' not in raw
     assert 'VERCEL_TOKEN' not in raw and 'vercel deploy' not in raw
 
@@ -56,11 +65,12 @@ def test_actual_pipeline_contains_both_frozen_evaluations_and_no_promotion():
     assert "validation_after=evaluate_suite('validation-after',after_adapter)" in source
     assert "LEGACY_EVALUATION = {'opponent':'ZEN','seed_p1':800101,'seed_p2':20202}" in source
     assert "'schedule_minutes':30" in source
-    assert "'mode': 'scheduled-30-minute-single-writer'" in source
+    assert "'mode': 'start-anchored-30-minute-self-chain'" in source
     assert "'interval_minutes': 30" in source
-    assert "'schedule_cron': '17,47 * * * *'" in source
+    assert "'watchdog_cron': '17 * * * *'" in source
     assert "'guaranteed_interval': False" in source
-    assert "'self_dispatch_enabled': False" in source
+    assert "'self_dispatch_enabled': True" in source
+    assert "'self_dispatch_minimum_seconds': 1800" in source
     assert "'manual_dispatch_allowed': True" in source
     assert "'schedule_minutes':10" not in source
     assert "'auto_promotion':False" in source and "'served_by_vercel':False" in source

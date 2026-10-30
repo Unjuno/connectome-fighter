@@ -32,10 +32,11 @@ READOUT_MODE = 'ema-residual'
 READOUT_CONTRACT = 'malecns-temporal-readout-v1'
 MATCH_STATUS = 'COMPLETED_WITH_VALIDATED_EXPERIMENTAL_READOUT_TRACES'
 SCHEDULE_CONTRACT = {
-    'mode': 'scheduled-30-minute-single-writer',
+    'mode': 'start-anchored-30-minute-self-chain',
     'interval_minutes': 30,
-    'schedule_cron': '17,47 * * * *',
-    'self_dispatch_enabled': False,
+    'self_dispatch_enabled': True,
+    'self_dispatch_minimum_seconds': 1800,
+    'watchdog_cron': '17 * * * *',
     'manual_dispatch_allowed': True,
     'guaranteed_interval': False,
 }
@@ -142,11 +143,18 @@ else:
     shutil.copy2(source,dest);shutil.copy2(source.with_suffix('.npz.json'),dest.with_suffix('.npz.json'))
 '''
     run([bridge,'-c',prepare,origin,state,old_cfg,cfg],'prepare-reward-fork')
+    # The candidate may be explicitly forked from R2d; backtracking needs the
+    # byte-verified R2e-evaluation parent, not the external legacy archive.
+    learning_parent=out/'parent-checkpoint/state/GARNET.npz'
+    learning_parent.parent.mkdir(parents=True)
+    shutil.copy2(state,learning_parent)
+    shutil.copy2(state.with_suffix('.npz.json'),learning_parent.with_suffix('.npz.json'))
     base=runtime/'data/malecns-shiu-strict-v1'
     candidates=runtime/'data/malecns-valence-v1/kc_mbon_valence_candidates.parquet'
-    def materialize(name):
+    def materialize(name, selected_state=None):
         adapter=out/name
-        run([bridge,runtime/'repo/scripts/materialize_malecns_valence_adapter.py','--base-adapter',base,'--candidates',candidates,'--state',state,'--character','GARNET','--plasticity-config',cfg,'--out',adapter],name)
+        checkpoint=state if selected_state is None else selected_state
+        run([bridge,runtime/'repo/scripts/materialize_malecns_valence_adapter.py','--base-adapter',base,'--candidates',candidates,'--state',checkpoint,'--character','GARNET','--plasticity-config',cfg,'--out',adapter],name)
         return adapter
     before_adapter=materialize('before-adapter')
     def match(name,adapter,opponent,seed1,seed2,train=False,video=False):
@@ -199,13 +207,14 @@ else:
           'legacy_evaluation':LEGACY_EVALUATION,'acceptance_validation_suite':VALIDATION_SUITE,
           'training_curriculum':curriculum,
           'synthetic_neural_fixture':False,'candidate_only':True,'auto_promotion':False,
-          'pipeline':'legacy-anchor-before/validation-suite-before/train/validation-suite-after/legacy-anchor-after/robust-acceptance-gate',
+          'pipeline':'frozen-before/full-R2f-train/full-evaluation/optional-0.25-backtrack/frozen-selection/robust-R2e-gate',
           'training_seed_strategy':'generation-plus-github-run-id-salt','source_archive_sha256':sha(args.source_archive),
           'selected_dependency_descriptor':json.loads((out/'dependencies.json').read_text()) if (out/'dependencies.json').exists() else None})
     result={'status':'FAIL','accepted_update':False,'reward_id':REWARD,'source_run_url':run_url,'readout_mode':READOUT_MODE,'readout_contract':READOUT_CONTRACT}
     update=None
     try:
         frozen=sha(state)
+        assert frozen==sha(learning_parent)
         before=match('before',before_adapter,LEGACY_EVALUATION['opponent'],LEGACY_EVALUATION['seed_p1'],LEGACY_EVALUATION['seed_p2'],video=True)
         validation_before=evaluate_suite('validation-before',before_adapter)
         assert sha(state)==frozen
@@ -243,13 +252,84 @@ else:
                      'learning_credit_id':LEARNING_CREDIT_ID,
                      'parent_generation':generation,'proposed_generation':meta['generation'],
                      'parent_state_sha256':parent['state_sha256'],'proposed_state_sha256':after_hash})
+        gate['proposal_step_scale']=1.0
+        full_step_gate=dict(gate)
+        full_step_sha=after_hash
+        backtrack_diagnostics=None
+        if not gate['accepted_update']:
+            # A failed full depression step gets one predeclared smaller proposal.
+            # Both candidates are judged by the SAME frozen R2e game utility.
+            alt_state=out/'backtrack/state/GARNET.npz'
+            run([bridge,runtime/'repo/scripts/combat_candidate_backtrack.py',
+                 '--parent',learning_parent,'--proposal',state,'--out',alt_state,
+                 '--plasticity-config',cfg,'--credit-config',CREDIT_CONFIG,
+                 '--summary',out/'backtrack/summary.json'],'backtrack-update')
+            step_info=json.loads((out/'backtrack/summary.json').read_text())
+            assert step_info['kind']=='r2f-trust-region-backtrack-v1'
+            assert step_info['step_scale']==0.25 and step_info['potentiated_edges']==0
+            assert step_info['parent_sha256']==frozen
+            assert step_info['full_proposal_sha256']==full_step_sha
+            alt_hash=sha(alt_state)
+            assert alt_hash==step_info['backtracked_sha256']
+            alt_meta=json.loads(alt_state.with_suffix('.npz.json').read_text())
+            assert alt_meta['generation']==generation+1 and alt_meta['state_sha256']==alt_hash
+            alt_adapter=materialize('backtrack-adapter',alt_state)
+            alt_validation=evaluate_suite('backtrack-validation',alt_adapter)
+            alt_cases=[]
+            for before_case,after_case in zip(validation_before,alt_validation,strict=True):
+                assert before_case['case_id']==after_case['case_id']
+                alt_cases.append({
+                    'case_id':before_case['case_id'],'opponent':before_case['opponent'],
+                    'seed_p1':before_case['seed_p1'],'seed_p2':before_case['seed_p2'],
+                    'before':before_case['metrics'],'after':after_case['metrics'],
+                })
+            alt_gate=paired_evaluation_suite_gate(alt_cases,reward_config)
+            alt_gate.update({'protocol':'fixed-three-opponent-validation-v1',
+                             'external_evaluation_reward_id':REWARD,
+                             'learning_credit_id':LEARNING_CREDIT_ID,
+                             'proposal_step_scheme':step_info['kind'],
+                             'proposal_step_scale':step_info['step_scale'],
+                             'parent_generation':generation,'proposed_generation':alt_meta['generation'],
+                             'parent_state_sha256':parent['state_sha256'],
+                             'proposed_state_sha256':alt_hash})
+            write(out/'backtrack-acceptance.json',alt_gate)
+            backtrack_diagnostics={'full_step_gate':full_step_gate,'backtracked_gate':alt_gate,
+                                   'backtracked_update':step_info,
+                                   'selected_step_scale':step_info['step_scale'] if alt_gate['accepted_update'] else None}
+            if alt_gate['accepted_update']:
+                # The only accepted output is the *actual* backtracked state.
+                alt_after=match('after-backtrack',alt_adapter,LEGACY_EVALUATION['opponent'],
+                                LEGACY_EVALUATION['seed_p1'],LEGACY_EVALUATION['seed_p2'],video=True)
+                shutil.copy2(out/'after-backtrack.mp4',out/'after.mp4')
+                shutil.copy2(alt_state,state)
+                shutil.copy2(alt_state.with_suffix('.npz.json'),state.with_suffix('.npz.json'))
+                assert sha(state)==alt_hash
+                meta=json.loads(state.with_suffix('.npz.json').read_text())
+                assert meta['state_sha256']==alt_hash and meta['proposal_step_scale']==0.25
+                after_hash=alt_hash
+                after=alt_after
+                validation_after=alt_validation
+                gate=alt_gate
+                update['full_step_updates']=dict(update['updates'])
+                update['updates']={
+                    'changed_edges':step_info['updated_edges'],
+                    'potentiated_edges':0,
+                    'depressed_edges':step_info['updated_edges'],
+                    'mean_abs_multiplier_delta':step_info['mean_abs_multiplier_delta'],
+                    'max_abs_multiplier_delta':step_info['max_abs_multiplier_delta'],
+                    'proposal_step_scale':step_info['step_scale'],
+                    'proposal_step_scheme':step_info['kind'],
+                }
+                update['selected_step']=step_info
+                write(out/'update.json',update)
         write(out/'acceptance.json',gate)
         if not gate['accepted_update']:
             result={'status':'REJECTED','accepted_update':False,'reward_id':REWARD,'source_run_url':run_url,
                     'generation':generation,'proposed_generation':meta['generation'],'readout_mode':READOUT_MODE,
                     'readout_contract':READOUT_CONTRACT,'before':before,'training':training,'after':after,
                     'validation_before':validation_before,'validation_after':validation_after,
-                    'acceptance_gate':gate,'changed_edges':update['updates']['changed_edges'],
+                    'acceptance_gate':gate,'backtrack_diagnostics':backtrack_diagnostics,
+                     'changed_edges':update['updates']['changed_edges'],
                     'parent_state_sha256':parent['state_sha256'],'proposed_state_sha256':after_hash,
                     'training_seed':train_seed,'training_seed_p2':train_seed_p2,'training_attempt_salt':attempt_salt,
                     'auto_promotion':False,'pipeline_seconds':time.monotonic()-clock}
@@ -277,6 +357,7 @@ else:
                 'archive_file':archive_name,'archive_sha256':archive_sha,'schedule_minutes':30,'schedule_contract':SCHEDULE_CONTRACT,
                 'actual_pipeline_seconds':time.monotonic()-clock,'training_seed':train_seed,'training_seed_p2':train_seed_p2,
                 'training_attempt_salt':attempt_salt,'accepted_update':True,'acceptance_gate':gate,
+                 'backtrack_diagnostics':backtrack_diagnostics,'selected_proposal_step_scale':gate.get('proposal_step_scale',1.0),
                 'training_curriculum':curriculum,
                 'combat_metrics':{'before':before,'training':training,'after':after,
                                   'validation_before':validation_before,'validation_after':validation_after},
@@ -306,7 +387,8 @@ else:
                 'readout_mode':READOUT_MODE,'readout_contract':READOUT_CONTRACT,
                 'before':before,'training':training,'after':after,
                 'validation_before':validation_before,'validation_after':validation_after,
-                'acceptance_gate':gate,'changed_edges':update['updates']['changed_edges'],
+                'acceptance_gate':gate,'backtrack_diagnostics':backtrack_diagnostics,
+                     'changed_edges':update['updates']['changed_edges'],
                 'training_seed':train_seed,'training_seed_p2':train_seed_p2,'training_attempt_salt':attempt_salt,
                 'new_state_sha256':after_hash,'parent_state_sha256':parent['state_sha256'],
                 'auto_promotion':False,'pipeline_seconds':time.monotonic()-clock}
