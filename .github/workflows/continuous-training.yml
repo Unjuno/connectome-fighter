@@ -92,7 +92,7 @@ jobs:
           ffmpeg -version > runs/combat/ffmpeg-version.txt
       - name: Real frozen baseline, full training round, and frozen updated evaluation
         run: |
-          python scripts/combat_training_run.py --runtime-root "$RUNTIME_ROOT" --source-archive runs/combat/source.tar.gz --out runs/combat --timeout-seconds 1050
+          python scripts/combat_training_run.py --runtime-root "$RUNTIME_ROOT" --source-archive runs/combat/source.tar.gz --out runs/combat --timeout-seconds 1200
       - name: Read strict paired acceptance decision
         id: acceptance
         run: |
@@ -108,7 +108,7 @@ jobs:
         if: always()
         run: |
           mkdir -p runs/combat/evidence
-          cp scripts/combat_training_run.py scripts/fetch_combat_dependencies.py scripts/publish_combat_candidate.py scripts/update_malecns_valence_plasticity.py configs/reward_r2e_combat_v1.json configs/reward_r2f_credit_balanced_v1.json configs/plasticity_combat_v1.json src/connectome_fighter/combat_reward_r2f.py runs/combat/evidence/
+          cp scripts/combat_training_run.py scripts/combat_candidate_backtrack.py scripts/combat_training_cadence.py scripts/fetch_combat_dependencies.py scripts/publish_combat_candidate.py scripts/update_malecns_valence_plasticity.py configs/reward_r2e_combat_v1.json configs/reward_r2f_credit_balanced_v1.json configs/plasticity_combat_v1.json src/connectome_fighter/combat_reward_r2f.py runs/combat/evidence/
           git rev-parse HEAD > runs/combat/evidence/tested-checkout.txt
       - uses: actions/upload-artifact@v4
         if: always()
@@ -125,6 +125,7 @@ jobs:
             runs/combat/backtrack-acceptance.json
             runs/combat/backtrack/*.json
             runs/combat/backtrack/*.log
+            runs/combat/backtrack/state/*
             runs/combat/*.log
             runs/combat/*.txt
             runs/combat/evidence
