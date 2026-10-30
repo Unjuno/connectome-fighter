@@ -144,9 +144,10 @@ else:
     run([bridge,'-c',prepare,origin,state,old_cfg,cfg],'prepare-reward-fork')
     base=runtime/'data/malecns-shiu-strict-v1'
     candidates=runtime/'data/malecns-valence-v1/kc_mbon_valence_candidates.parquet'
-    def materialize(name):
+    def materialize(name, selected_state=None):
         adapter=out/name
-        run([bridge,runtime/'repo/scripts/materialize_malecns_valence_adapter.py','--base-adapter',base,'--candidates',candidates,'--state',state,'--character','GARNET','--plasticity-config',cfg,'--out',adapter],name)
+        checkpoint=state if selected_state is None else selected_state
+        run([bridge,runtime/'repo/scripts/materialize_malecns_valence_adapter.py','--base-adapter',base,'--candidates',candidates,'--state',checkpoint,'--character','GARNET','--plasticity-config',cfg,'--out',adapter],name)
         return adapter
     before_adapter=materialize('before-adapter')
     def match(name,adapter,opponent,seed1,seed2,train=False,video=False):
