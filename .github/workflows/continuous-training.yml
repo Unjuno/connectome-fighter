@@ -201,7 +201,7 @@ jobs:
                 --jq ".workflow_runs[] | select(.id != ${GITHUB_RUN_ID}) | .id"
               gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/runs?branch=main&status=in_progress&per_page=100" \
                 --jq ".workflow_runs[] | select(.id != ${GITHUB_RUN_ID}) | .id"
-            } | head -n 1
+            } | awk 'NR == 1 { first = $0 } END { print first }'
           )"
           if [ -n "$sibling" ]; then
             echo "A queued or active sibling already owns the next training request: $sibling"
