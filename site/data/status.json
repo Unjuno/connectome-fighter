@@ -2783,38 +2783,72 @@
       "nonzero_reward_rounds": 1,
       "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/41138478273",
       "updated_at": "2026-10-30T22:35:17Z"
+    },
+    {
+      "action_rates": {
+        "A": 0.005208333333333333,
+        "B": 0.6125,
+        "BACKWARD": 0.215625,
+        "C": 0.042708333333333334,
+        "DOWN": 0.08541666666666667,
+        "FORWARD": 0.017708333333333333,
+        "UP": 0.020833333333333332
+      },
+      "independent_rounds": 48,
+      "nonzero_reward_rate": 0.020833333333333332,
+      "nonzero_reward_rounds": 1,
+      "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/41174620030",
+      "updated_at": "2026-10-31T06:03:12Z"
     }
   ],
   "latest_match": {
     "replay_url": "./data/replay-latest.json",
-    "run_id": "baseline-r177-garnet-lud-GARNET-LUD",
-    "winner": "GARNET"
+    "run_id": "baseline-r178-lud-nez-LUD-NEZ",
+    "winner": "LUD"
   },
   "metrics": {
     "action_counts": {
-      "B": 564,
-      "BACKWARD": 250,
-      "C": 34,
-      "DOWN": 74,
-      "FORWARD": 15,
-      "UP": 23
+      "A": 5,
+      "B": 588,
+      "BACKWARD": 207,
+      "C": 41,
+      "DOWN": 82,
+      "FORWARD": 17,
+      "UP": 20
     },
     "action_rates": {
-      "B": 0.5875,
-      "BACKWARD": 0.2604166666666667,
-      "C": 0.035416666666666666,
-      "DOWN": 0.07708333333333334,
-      "FORWARD": 0.015625,
-      "UP": 0.023958333333333335
+      "A": 0.005208333333333333,
+      "B": 0.6125,
+      "BACKWARD": 0.215625,
+      "C": 0.042708333333333334,
+      "DOWN": 0.08541666666666667,
+      "FORWARD": 0.017708333333333333,
+      "UP": 0.020833333333333332
     },
     "characters": {
       "GARNET": {
         "action_counts": {
-          "B": 153,
-          "BACKWARD": 40,
-          "C": 11,
-          "DOWN": 21,
-          "FORWARD": 8,
+          "A": 3,
+          "B": 158,
+          "BACKWARD": 37,
+          "C": 6,
+          "DOWN": 24,
+          "FORWARD": 6,
+          "UP": 6
+        },
+        "decisions": 240,
+        "draws": 24,
+        "losses": 0,
+        "rounds": 24,
+        "wins": 0
+      },
+      "LUD": {
+        "action_counts": {
+          "B": 144,
+          "BACKWARD": 59,
+          "C": 13,
+          "DOWN": 13,
+          "FORWARD": 4,
           "UP": 7
         },
         "decisions": 240,
@@ -2823,14 +2857,14 @@
         "rounds": 24,
         "wins": 1
       },
-      "LUD": {
+      "NEZ": {
         "action_counts": {
-          "B": 143,
-          "BACKWARD": 67,
-          "C": 9,
-          "DOWN": 15,
-          "FORWARD": 5,
-          "UP": 1
+          "A": 1,
+          "B": 164,
+          "BACKWARD": 34,
+          "C": 10,
+          "DOWN": 26,
+          "FORWARD": 5
         },
         "decisions": 240,
         "draws": 23,
@@ -2838,29 +2872,15 @@
         "rounds": 24,
         "wins": 0
       },
-      "NEZ": {
-        "action_counts": {
-          "B": 120,
-          "BACKWARD": 92,
-          "C": 6,
-          "DOWN": 10,
-          "FORWARD": 1,
-          "UP": 11
-        },
-        "decisions": 240,
-        "draws": 24,
-        "losses": 0,
-        "rounds": 24,
-        "wins": 0
-      },
       "ZEN": {
         "action_counts": {
-          "B": 148,
-          "BACKWARD": 51,
-          "C": 8,
-          "DOWN": 28,
-          "FORWARD": 1,
-          "UP": 4
+          "A": 1,
+          "B": 122,
+          "BACKWARD": 77,
+          "C": 12,
+          "DOWN": 19,
+          "FORWARD": 2,
+          "UP": 7
         },
         "decisions": 240,
         "draws": 24,
@@ -2888,10 +2908,10 @@
     "win": 1.0
   },
   "schema_version": 4,
-  "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/41138478273",
+  "source_run_url": "https://github.com/Unjuno/connectome-fighter/actions/runs/41174620030",
   "spatial_visualization": {
     "available": false,
     "policy_access": false
   },
-  "updated_at": "2026-10-30T22:35:17Z"
+  "updated_at": "2026-10-31T06:03:12Z"
 }
