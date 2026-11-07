@@ -41,7 +41,7 @@ def validate_status(status: dict[str, Any]) -> None:
     if not SHA256_RE.fullmatch(sha):
         raise ValueError("candidate state_sha256 is invalid")
     if status.get("learning_credit_id") is not None:
-        if status.get("learning_credit_id") != "R2f-credit-balanced-v1":
+        if status.get("learning_credit_id") not in ("R2f-credit-balanced-v1", "R2g-local-damage-credit-v1"):
             raise ValueError("unrecognized candidate learning credit")
         if status.get("reward_id") != "R2e-combat-v1" or status.get("external_evaluation_reward_id") != "R2e-combat-v1":
             raise ValueError("candidate external evaluation reward mismatch")

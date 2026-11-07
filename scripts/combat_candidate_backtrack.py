@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministically attenuate ONE complete R2f KC-MBON proposal.
+"""Deterministically attenuate ONE complete R2g KC-MBON proposal.
 
 No synthetic game data and no invented reward: both inputs are SHA-verified
 checkpoints created by real MaleCNS/FightingICE training. This is a bounded
@@ -15,10 +15,10 @@ import numpy as np
 from connectome_fighter.combat_checkpoint import config_from_json
 from connectome_fighter.valence_plasticity import load_state, save_state, sha256_file
 
-SCHEME = "r2f-trust-region-backtrack-v1"
+SCHEME = "r2g-local-damage-backtrack-v1"
 SCALE = 0.25
 REWARD = "R2e-combat-v1"
-CREDIT = "R2f-credit-balanced-v1"
+CREDIT = "R2g-local-damage-credit-v1"
 
 
 def make_backtracked_checkpoint(parent: Path, proposed: Path, destination: Path,
@@ -35,7 +35,7 @@ def make_backtracked_checkpoint(parent: Path, proposed: Path, destination: Path,
     if cfg.reward_id != REWARD or raw["reward_config"] != REWARD:
         raise ValueError("external objective cannot change")
     credit = json.loads(Path(credit_config).read_text(encoding="utf-8"))
-    from connectome_fighter.combat_reward_r2f import validate_config
+    from connectome_fighter.combat_reward_r2g import validate_config
     validate_config(credit)
     credit_sha = sha256_file(credit_config)
 

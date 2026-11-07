@@ -11,7 +11,7 @@ from scripts.combat_candidate_backtrack import make_backtracked_checkpoint, SCHE
 
 ROOT=Path(__file__).resolve().parents[1]
 PLASTIC=ROOT/'configs/plasticity_combat_v1.json'
-CREDIT=ROOT/'configs/reward_r2f_credit_balanced_v1.json'
+CREDIT=ROOT/'configs/reward_r2g_local_damage_credit_v1.json'
 
 
 def source_state(tmp_path):
@@ -30,7 +30,7 @@ def source_state(tmp_path):
     state.matches=50
     state.update_events=51
     meta=save_state(proposed,state,cfg)
-    meta['learning_credit_id']='R2f-credit-balanced-v1'
+    meta['learning_credit_id']='R2g-local-damage-credit-v1'
     meta['learning_credit_sha256']=sha256_file(CREDIT)
     meta['external_evaluation_reward_id']='R2e-combat-v1'
     proposed.with_suffix('.npz.json').write_text(json.dumps(meta))

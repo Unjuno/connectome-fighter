@@ -55,18 +55,24 @@ def main():
         manifest=json.loads((args.out/'selected-training-manifest.json').read_text())
         if manifest.get('reward_id')!='R2e-combat-v1':raise ValueError('wrong external evaluation reward')
         prior_credit=manifest.get('learning_credit_id')
-        if prior_credit not in (None,'R2f-credit-balanced-v1'):
-            raise ValueError('unknown checkpoint learning-credit lineage')
+        credit_versions={
+            'R2f-credit-balanced-v1':'reward_r2f_credit_balanced_v1.json',
+            'R2g-local-damage-credit-v1':'reward_r2g_local_damage_credit_v1.json',
+        }
         if prior_credit is not None:
-            cfg=Path(__file__).resolve().parents[1]/'configs/reward_r2f_credit_balanced_v1.json'
+            if prior_credit not in credit_versions:
+                raise ValueError('unknown checkpoint learning-credit lineage')
+            cfg=Path(__file__).resolve().parents[1]/'configs'/credit_versions[prior_credit]
             expected=hashlib.sha256(cfg.read_bytes()).hexdigest()
             if manifest.get('learning_credit_sha256')!=expected:
                 raise ValueError('selected checkpoint credit version hash mismatch')
+            if prior_credit != 'R2g-local-damage-credit-v1':
+                raise ValueError('older accepted credit requires an explicit audited R2g fork')
         name=manifest['archive_file']
         if not re.fullmatch(r'garnet-g[0-9]+-[a-f0-9]{16}\.tar\.gz',name):raise ValueError('invalid checkpoint asset name')
         checkpoint=asset(candidate_release,name)
         if checkpoint['digest']!='sha256:'+manifest['archive_sha256']:raise ValueError('pointer/archive mismatch')
-        source_kind='R2f-credit-resume' if prior_credit else 'R2e-resume'
+        source_kind='R2g-local-damage-resume' if prior_credit else 'R2e-resume'
     descriptor={'runtime':{k:runtime[k] for k in ['id','name','digest','size']},'checkpoint':{k:checkpoint[k] for k in ['id','name','digest','size']},'source_kind':source_kind}
     (args.out/'dependencies.json').write_text(json.dumps(descriptor,indent=2)+'\n')
     download(runtime,args.out/'runtime.tar.gz');download(checkpoint,args.out/'source.tar.gz')

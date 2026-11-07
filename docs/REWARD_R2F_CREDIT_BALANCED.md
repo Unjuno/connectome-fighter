@@ -1,6 +1,6 @@
 # R2f credit-balanced reward candidate (October 19, 2026)
 
-**Status: active candidate-training credit on main once merged; R2e remains the frozen external performance score and checkpoint fingerprint. Research candidate, never approved LIVE inference or auto-promotion. Actual improvement remains unverified.**
+**Status: archived production candidate-training treatment. R2f was active from October 20 to November 8, 2026 and produced no accepted Gen50 update in the inspected runs. It has been superseded by the distinct versioned [R2g local damage learning-credit experiment](REWARD_R2G_LOCAL_DAMAGE.md). The frozen R2e performance score and checkpoint fingerprint remain unchanged; no approved LIVE inference or automatic promotion was granted.**
 
 ## 1. Measured motivation
 
@@ -110,3 +110,12 @@ A candidate is only published when the old R2e fixed ZEN/LUD/NEZ acceptance gate
 To roll back the training semantics, revert the integration commit on main and retain the source checkpoint and per-run immutable provenance. If an R2f-updated generation was already accepted, do **not** relabel those weights as R2e-trained: explicitly fork or restore the earlier accepted R2e checkpoint before changing the active credit. Preserve R2f run artifacts and their immutable SHA receipts for audit.
 
 The project never treats a green GitHub Actions job as evidence that the model became a stronger fighter; `accepted_update` and the fixed paired evaluation must be inspected separately.
+
+
+## 8. Negative operational result and supersession (November 8, 2026)
+
+On November 7, a retrospective audit of 20 consecutive real GARNET Gen49 R2f full-step attempts and their 25% backtracking alternatives found **0/20 accepted updates in each arm** under the same fixed ZEN/LUD/NEZ R2e suite. The full-step mean utility delta was about -0.974 and the quarter-step mean utility delta about -1.241. The quarter-step method had 0 positive deltas and 0 instances improving at least two opponents. All candidates were rejected and the accepted parent remained Gen49.
+
+The two arms share training attempts and an unchanged fixed parent, so these statistics are descriptive, not independent evidence of generalization. This is sufficient evidence to avoid continuing to claim that *terminal magnitude reduction alone* solved the production learning problem. R2g is a distinct and falsifiable learning-credit intervention that preserves the external objective; **it is not yet proven effective**.
+
+The historical R2f configuration, code, test fixtures and recorded GitHub Actions execution evidence remain immutable and available for reproduction.

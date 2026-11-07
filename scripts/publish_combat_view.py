@@ -27,7 +27,7 @@ def validate_payload(payload: dict) -> dict:
     if status.get('reward_id') != 'R2e-combat-v1':
         raise ValueError('wrong combat reward')
     if status.get('learning_credit_id') is not None:
-        if status['learning_credit_id']!='R2f-credit-balanced-v1':
+        if status['learning_credit_id']!='R2g-local-damage-credit-v1':
             raise ValueError('unexpected published learning credit')
         if status.get('external_evaluation_reward_id')!='R2e-combat-v1':
             raise ValueError('R2e external evaluation changed')

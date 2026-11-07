@@ -23,10 +23,10 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'src'))
 from connectome_fighter.combat_reward import paired_evaluation_suite_gate
 from connectome_fighter.combat_curriculum import training_curriculum
-from connectome_fighter.combat_reward_r2f import REWARD_ID as LEARNING_CREDIT_ID, validate_config as validate_credit_config
+from connectome_fighter.combat_reward_r2g import REWARD_ID as LEARNING_CREDIT_ID, validate_config as validate_credit_config
 
 REWARD = 'R2e-combat-v1' # external objective remains invariant
-CREDIT_CONFIG = ROOT/'configs/reward_r2f_credit_balanced_v1.json'
+CREDIT_CONFIG = ROOT/'configs/reward_r2g_local_damage_credit_v1.json'
 REPO = 'Unjuno/connectome-fighter'
 READOUT_MODE = 'ema-residual'
 READOUT_CONTRACT = 'malecns-temporal-readout-v1'
@@ -71,6 +71,18 @@ def stop(proc):
         os.killpg(proc.pid,signal.SIGKILL);proc.wait(timeout=5)
 
 
+
+def enforce_nontrivial_candidate(gate: dict, changed_edges: int) -> dict:
+    """Reject zero-weight-change candidates even if stochastic evaluations differ."""
+    if type(changed_edges) is not int or changed_edges < 0:
+        raise ValueError('invalid changed KC-MBON edge count')
+    adjusted=dict(gate)
+    if changed_edges == 0:
+        adjusted['accepted_update']=False
+        adjusted['reason']='no KC-MBON synapses changed; candidate cannot advance'
+    return adjusted
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--runtime-root',type=Path,required=True)
@@ -85,7 +97,7 @@ def main():
     credit_spec=json.loads(CREDIT_CONFIG.read_text())
     validate_credit_config(credit_spec)
     if credit_spec['base_reward'] != r2e_spec:
-        raise ValueError('R2f credit must preserve the exact canonical R2e evaluation objective')
+        raise ValueError('R2g credit must preserve the exact canonical R2e evaluation objective')
     learning_credit_sha256=sha(CREDIT_CONFIG)
     runtime=args.runtime_root.resolve();out=args.out.resolve();out.mkdir(parents=True,exist_ok=True)
     deadline=time.monotonic()+args.timeout_seconds
@@ -207,7 +219,7 @@ else:
           'legacy_evaluation':LEGACY_EVALUATION,'acceptance_validation_suite':VALIDATION_SUITE,
           'training_curriculum':curriculum,
           'synthetic_neural_fixture':False,'candidate_only':True,'auto_promotion':False,
-          'pipeline':'frozen-before/full-R2f-train/full-evaluation/optional-0.25-backtrack/frozen-selection/robust-R2e-gate',
+          'pipeline':'frozen-before/full-R2g-local-damage-train/full-evaluation/optional-0.25-backtrack/frozen-selection/robust-R2e-gate',
           'training_seed_strategy':'generation-plus-github-run-id-salt','source_archive_sha256':sha(args.source_archive),
           'selected_dependency_descriptor':json.loads((out/'dependencies.json').read_text()) if (out/'dependencies.json').exists() else None})
     result={'status':'FAIL','accepted_update':False,'reward_id':REWARD,'source_run_url':run_url,'readout_mode':READOUT_MODE,'readout_contract':READOUT_CONTRACT}
@@ -252,12 +264,14 @@ else:
                      'learning_credit_id':LEARNING_CREDIT_ID,
                      'parent_generation':generation,'proposed_generation':meta['generation'],
                      'parent_state_sha256':parent['state_sha256'],'proposed_state_sha256':after_hash})
+        gate=enforce_nontrivial_candidate(gate, update['updates']['changed_edges'])
         gate['proposal_step_scale']=1.0
         full_step_gate=dict(gate)
         full_step_sha=after_hash
         backtrack_diagnostics=None
-        if not gate['accepted_update']:
+        if not gate['accepted_update'] and update['updates']['changed_edges'] > 0:
             # A failed full depression step gets one predeclared smaller proposal.
+            # A zero-synapse-change game is a clean rejection, not an error.
             # Both candidates are judged by the SAME frozen R2e game utility.
             alt_state=out/'backtrack/state/GARNET.npz'
             run([bridge,runtime/'repo/scripts/combat_candidate_backtrack.py',
@@ -265,7 +279,7 @@ else:
                  '--plasticity-config',cfg,'--credit-config',CREDIT_CONFIG,
                  '--summary',out/'backtrack/summary.json'],'backtrack-update')
             step_info=json.loads((out/'backtrack/summary.json').read_text())
-            assert step_info['kind']=='r2f-trust-region-backtrack-v1'
+            assert step_info['kind']=='r2g-local-damage-backtrack-v1'
             assert step_info['step_scale']==0.25 and step_info['potentiated_edges']==0
             assert step_info['parent_sha256']==frozen
             assert step_info['full_proposal_sha256']==full_step_sha
@@ -349,7 +363,7 @@ else:
                 'character':'GARNET','generation':meta['generation'],'matches':meta['matches'],'state_sha256':meta['state_sha256'],
                 'model':meta['model'],'reward_id':REWARD,'learning_credit_id':LEARNING_CREDIT_ID,'learning_credit_sha256':learning_credit_sha256,
                  'external_evaluation_reward_id':REWARD,'parent_learning_credit_id':parent.get('learning_credit_id'),
-                 'opponent':opponent,'source_kind':'combat-training-v1-r2f-credit',
+                 'opponent':opponent,'source_kind':'combat-training-v1-r2g-local-damage-credit',
                 'source_run_url':run_url,'served_by_vercel':False,'auto_promotion':False,'updated_at':now(),
                 'readout_mode':READOUT_MODE,'readout_contract':READOUT_CONTRACT,
                 'match_status':MATCH_STATUS,'signal_summary':update['signals'],'update_summary':update['updates'],
@@ -361,7 +375,7 @@ else:
                 'training_curriculum':curriculum,
                 'combat_metrics':{'before':before,'training':training,'after':after,
                                   'validation_before':validation_before,'validation_after':validation_after},
-                'interpretation_boundary':'External utility remains frozen R2e. Real-game KC-MBON modulation uses versioned R2f learning credit. This is research-candidate evidence, not independently confirmed strength or approved LIVE.'}
+                'interpretation_boundary':'External utility remains frozen R2e. Real-game KC-MBON modulation uses versioned R2g local-damage learning credit. This is research-candidate evidence, not independently confirmed strength or approved LIVE.'}
         write(publish/'training-manifest.json',status);write(publish/'training-status.json',status)
         video_tag=f'combat-evaluation-{run_id}'
         for phase,metrics,g in [('before',before,generation),('after',after,meta['generation'])]:
