@@ -71,6 +71,18 @@ def stop(proc):
         os.killpg(proc.pid,signal.SIGKILL);proc.wait(timeout=5)
 
 
+
+def enforce_nontrivial_candidate(gate: dict, changed_edges: int) -> dict:
+    """Reject zero-weight-change candidates even if stochastic evaluations differ."""
+    if type(changed_edges) is not int or changed_edges < 0:
+        raise ValueError('invalid changed KC-MBON edge count')
+    adjusted=dict(gate)
+    if changed_edges == 0:
+        adjusted['accepted_update']=False
+        adjusted['reason']='no KC-MBON synapses changed; candidate cannot advance'
+    return adjusted
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--runtime-root',type=Path,required=True)
@@ -252,12 +264,14 @@ else:
                      'learning_credit_id':LEARNING_CREDIT_ID,
                      'parent_generation':generation,'proposed_generation':meta['generation'],
                      'parent_state_sha256':parent['state_sha256'],'proposed_state_sha256':after_hash})
+        gate=enforce_nontrivial_candidate(gate, update['updates']['changed_edges'])
         gate['proposal_step_scale']=1.0
         full_step_gate=dict(gate)
         full_step_sha=after_hash
         backtrack_diagnostics=None
-        if not gate['accepted_update']:
+        if not gate['accepted_update'] and update['updates']['changed_edges'] > 0:
             # A failed full depression step gets one predeclared smaller proposal.
+            # A zero-synapse-change game is a clean rejection, not an error.
             # Both candidates are judged by the SAME frozen R2e game utility.
             alt_state=out/'backtrack/state/GARNET.npz'
             run([bridge,runtime/'repo/scripts/combat_candidate_backtrack.py',
