@@ -96,3 +96,17 @@ def test_updater_dispatches_both_historical_r2f_and_new_r2g_explicitly():
     old=json.loads((ROOT/'configs/reward_r2f_credit_balanced_v1.json').read_text())
     assert routed(trace(),0,old)==r2f.reward_sequence(trace(),0,old)
     assert r2g.reward_sequence(trace(),0,CREDIT)[-1]['terminal_reward']==0
+
+
+def test_noop_local_credit_cannot_be_accepted_even_with_noisy_game_utility():
+    from scripts.combat_training_run import enforce_nontrivial_candidate
+    misleading={"accepted_update":True,"after_utility":2.2,"before_utility":2.0,
+                "improved_pairs":3,"outcome_regressions":0}
+    result=enforce_nontrivial_candidate(misleading,0)
+    assert result["accepted_update"] is False
+    assert "no KC-MBON synapses" in result["reason"]
+    assert misleading["accepted_update"] is True
+    assert enforce_nontrivial_candidate(misleading,1)["accepted_update"] is True
+    for bad in (-1,True,1.5,"1"):
+        with pytest.raises(ValueError):
+            enforce_nontrivial_candidate(misleading,bad)
