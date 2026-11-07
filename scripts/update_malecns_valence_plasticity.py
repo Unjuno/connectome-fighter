@@ -160,6 +160,10 @@ def main()->int:
     events=reward_sequence(rounds[args.round_index],args.side-1,reward_cfg)
     if credit_cfg is not None:
         events=credit_rebalance(events,credit_cfg)
+    credit_attribution=None
+    if learning_credit_id=='R2g-local-damage-credit-v1':
+        from connectome_fighter.combat_credit_audit import audit_r2g_credit
+        credit_attribution=audit_r2g_credit(events)
 
     spikes=pd.read_parquet(args.spikes)
     if not {'decision_index','body_id'}.issubset(spikes.columns): raise ValueError('spike log missing columns')
@@ -232,10 +236,13 @@ def main()->int:
         'invariants':{'topology_changed':False,'sign_changed':False,'potentiation_allowed':False,'only_existing_KC_MBON_edges':True},
         'interpretation_boundary':f'{reward_id} and its mapping to MBON valence channels are project-defined game-learning interfaces, not identified endogenous FightingICE reinforcement pathways in Drosophila.',
     }
+    if credit_attribution is not None:
+        assert abs(credit_attribution['net_modulatory_credit'] - summary['signals']['sum']) <= 1e-9
+        summary['credit_attribution']=credit_attribution
     if summary['updates']['potentiated_edges']!=0 or summary['updates']['max_multiplier']>1.0000001: raise RuntimeError('depression-only invariant violated')
     args.out_summary.parent.mkdir(parents=True,exist_ok=True)
     args.out_summary.write_text(json.dumps(summary,indent=2,sort_keys=True)+'\n',encoding='utf-8')
-    print(json.dumps({k:summary[k] for k in ['status','reward_id','learning_credit_id','learning_credit_sha256','character','signals','updates','state']},indent=2,sort_keys=True))
+    print(json.dumps({k:summary[k] for k in ['status','reward_id','learning_credit_id','learning_credit_sha256','character','signals','updates','state'] if k in summary} | ({'credit_attribution':summary['credit_attribution']} if 'credit_attribution' in summary else {}),indent=2,sort_keys=True))
     return 0
 
 if __name__=='__main__': raise SystemExit(main())

@@ -59,6 +59,34 @@ The trainer workflow is now named `combat-candidate-training`. Legacy `canonical
 - If the backtracking proposal triggers a validation/runtime error, the main run fails closed and does not publish. The next isolated run may retry via the self-chain after a training failure; a failed publication is **not** automatically retried by the chain.
 - The same `combat-training-v1` release checkpoint is used only after passing the unchanged R2e gate. New R2g accepted states require exact credit-ID/SHA provenance; any accepted R2f state cannot silently transition to R2g without an explicit audited lineage fork. Vercel LIVE remains `learning_enabled=false` with no auto-promotion.
 
+## R2g operational credit attribution and historical cache recovery
+
+Every real R2g updater invocation now independently audits the completed,
+canonical-R2e-validated reward sequence *before* it changes the KC-MBON state.
+The `credit_attribution` object is written to `update.json` and to every
+completed `result.json`, including rejected candidate updates. It separates:
+
+- `net_damage_credit` and `damage_window_count`: actual observed HP-based credit;
+- `net_potential_credit` and `potential_window_count`: engineering distance shaping;
+- `removed_terminal_credit` and `removed_ko_bonus_credit`: completion terms present
+  in unchanged R2e evaluation but removed from local R2g learning;
+- `net_modulatory_credit`, gross absolute credit, and number/sign of nonzero
+  decision windows: the signal actually applied to eligible KC-MBON edges.
+
+All these credit components are dimensionless engineering scores (HP is
+normalized by the project's 400-HP round baseline, while pixel distances
+use the frozen game-stage scale). Component accounting is **not** a causal
+attribution of individual synapses, and no result may be interpreted as a
+biological reward pathway or evidence of improved fighting ability.
+
+Separately, the historical `reward-plasticity-ab` R2c/R2d comparison rebuilds
+the original anatomical valence partition from the pinned MaleCNS metadata,
+connectivity and adapter manifest when the GitHub Actions cache expires.
+On both a cache hit and a rebuild it verifies candidate count, transmitter
+sign, unique synapse identity and no structural or learned modifications.
+The historical comparison is independent of the active R2g combat trainer;
+cache recovery is **not** reward optimization or a synthetic neural fixture.
+
 ## Assessment before claiming improvement
 
 The three-opponent before/after gate reduces selection pressure toward one fixed ZEN seed, but it remains a small deterministic validation suite and therefore is not held-out generalization evidence. The next assessment must use an independent seed set that never participates in publication decisions, plus baseline and archived opponents, role/character effects, win rate, damage differential, KO completion time conditional on winning, no-damage draws, and uncertainty intervals. A large terminal reward does not prove effective credit assignment. If contact remains rare, test action-decision interval and fixed sensor/motor routing as separate interventions rather than silently changing several variables together.
