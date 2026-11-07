@@ -367,6 +367,7 @@ else:
                 'source_run_url':run_url,'served_by_vercel':False,'auto_promotion':False,'updated_at':now(),
                 'readout_mode':READOUT_MODE,'readout_contract':READOUT_CONTRACT,
                 'match_status':MATCH_STATUS,'signal_summary':update['signals'],'update_summary':update['updates'],
+                 'credit_attribution':update.get('credit_attribution'),
                 'parent_generation':generation,'parent_reward_id':parent['reward_id'],'parent_state_sha256':parent['state_sha256'],
                 'archive_file':archive_name,'archive_sha256':archive_sha,'schedule_minutes':30,'schedule_contract':SCHEDULE_CONTRACT,
                 'actual_pipeline_seconds':time.monotonic()-clock,'training_seed':train_seed,'training_seed_p2':train_seed_p2,
@@ -414,6 +415,8 @@ else:
         if update is not None:
             result['signal_summary']=update.get('signals',{})
             result['update_summary']=update.get('updates',{})
+            if 'credit_attribution' in update:
+                result['credit_attribution']=update['credit_attribution']
         result['finished_at']=now();write(out/'result.json',result)
         print(json.dumps(result,indent=2))
     return 0
