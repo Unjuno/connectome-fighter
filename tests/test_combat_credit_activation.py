@@ -64,6 +64,16 @@ def test_real_updater_cli_uses_r2g_credit_and_keeps_r2e_checkpoint(tmp_path,monk
     assert data["signals"]["sum"]==pytest.approx(sum(x["signal"] for x in modified))
     assert data["signals"]["sum"]!=pytest.approx(sum(x["signal"] for x in canonical))
     assert data["updates"]["potentiated_edges"]==0
+    attribution=data["credit_attribution"]
+    assert attribution["learning_credit_id"]=="R2g-local-damage-credit-v1"
+    assert attribution["net_modulatory_credit"]==pytest.approx(data["signals"]["sum"])
+    assert attribution["net_terminal_credit"]==0
+    assert attribution["removed_terminal_credit"]==2.0
+    assert attribution["net_damage_credit"]==pytest.approx(
+        sum(x["damage_reward"] for x in modified))
+    assert attribution["net_potential_credit"]==pytest.approx(
+        sum(x["potential_reward"] for x in modified))
+    assert attribution["decision_windows"]==3
     cfg=config_from_json(json.loads(PLASTIC.read_text()))
     loaded=load_state(state,expected_character="GARNET",n_candidates=2,
                       expected_candidate_sha256=sha256_file(cands),config=cfg)
