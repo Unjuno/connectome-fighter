@@ -1,4 +1,4 @@
-"""Actual updater entrypoint: R2f credit, R2e checkpoint and external objective."""
+"""Actual updater entrypoint: R2g credit, R2e checkpoint and external objective."""
 import json
 from pathlib import Path
 import sys
@@ -8,17 +8,17 @@ import pytest
 
 from connectome_fighter.combat_checkpoint import config_from_json
 from connectome_fighter.combat_reward import reward_sequence as canonical_sequence
-from connectome_fighter.combat_reward_r2f import reward_sequence as r2f_sequence
+from connectome_fighter.combat_reward_r2g import reward_sequence as r2g_sequence
 from connectome_fighter.valence_plasticity import load_state, sha256_file
 from scripts import update_malecns_valence_plasticity as updater
 
 ROOT = Path(__file__).resolve().parents[1]
 REWARD = ROOT/"configs/reward_r2e_combat_v1.json"
-CREDIT = ROOT/"configs/reward_r2f_credit_balanced_v1.json"
+CREDIT = ROOT/"configs/reward_r2g_local_damage_credit_v1.json"
 PLASTIC = ROOT/"configs/plasticity_combat_v1.json"
 
 
-def test_real_updater_cli_uses_r2f_credit_and_keeps_r2e_checkpoint(tmp_path,monkeypatch):
+def test_real_updater_cli_uses_r2g_credit_and_keeps_r2e_checkpoint(tmp_path,monkeypatch):
     cands=tmp_path/"candidates.parquet"
     spikes=tmp_path/"spikes.parquet"
     trace=tmp_path/"trainable.jsonl"
@@ -56,10 +56,10 @@ def test_real_updater_cli_uses_r2f_credit_and_keeps_r2e_checkpoint(tmp_path,monk
     assert updater.main()==0
     data=json.loads(out.read_text())
     canonical=canonical_sequence(game,0,json.loads(REWARD.read_text()))
-    modified=r2f_sequence(game,0,json.loads(CREDIT.read_text()))
+    modified=r2g_sequence(game,0,json.loads(CREDIT.read_text()))
     assert data["reward_id"]=="R2e-combat-v1"
     assert data["external_evaluation_reward_id"]=="R2e-combat-v1"
-    assert data["learning_credit_id"]=="R2f-credit-balanced-v1"
+    assert data["learning_credit_id"]=="R2g-local-damage-credit-v1"
     assert data["learning_credit_sha256"]==sha256_file(CREDIT)
     assert data["signals"]["sum"]==pytest.approx(sum(x["signal"] for x in modified))
     assert data["signals"]["sum"]!=pytest.approx(sum(x["signal"] for x in canonical))
@@ -75,16 +75,16 @@ def test_real_updater_cli_uses_r2f_credit_and_keeps_r2e_checkpoint(tmp_path,monk
     assert updater.main()==0
     meta2=json.loads(state.with_suffix(".npz.json").read_text())
     assert meta2["generation"]==2
-    assert meta2["learning_credit_id"]=="R2f-credit-balanced-v1"
+    assert meta2["learning_credit_id"]=="R2g-local-damage-credit-v1"
     meta2["learning_credit_id"]="untracked"
     state.with_suffix(".npz.json").write_text(json.dumps(meta2))
     with pytest.raises(ValueError,match="credit"):
         updater.main()
 
 
-def test_main_trainer_actively_passes_r2f_credit_and_keeps_external_r2e():
+def test_main_trainer_actively_passes_r2g_credit_and_keeps_external_r2e():
     source=(ROOT/"scripts/combat_training_run.py").read_text()
-    assert "CREDIT_CONFIG = ROOT/'configs/reward_r2f_credit_balanced_v1.json'" in source
+    assert "CREDIT_CONFIG = ROOT/'configs/reward_r2g_local_damage_credit_v1.json'" in source
     assert "'--learning-credit-config',CREDIT_CONFIG" in source
     assert "gate=paired_evaluation_suite_gate(gate_cases,reward_config)" in source
     assert "reward_config=r2e_spec" in source
