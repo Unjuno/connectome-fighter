@@ -72,6 +72,7 @@ def compact_entry(status: dict[str, Any]) -> dict[str, Any]:
         "external_evaluation_reward_id": status.get("external_evaluation_reward_id", status.get("reward_id")),
         "signal_summary": status.get("signal_summary") or {},
         "update_summary": status.get("update_summary") or {},
+        "credit_attribution": status.get("credit_attribution") or {},
         "acceptance_gate": status.get("acceptance_gate") or {},
         "status": status.get("status"),
         "served_by_vercel": False,
