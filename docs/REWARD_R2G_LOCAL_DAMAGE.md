@@ -37,6 +37,7 @@ Remove **all terminal modulation**: win/loss, ordinary draw, no-damage draw, and
 - The accepted Gen49 R2e checkpoint remains the parent. No weights change until a complete game has been played and candidate weights have passed the R2e validation gate.
 - The actual trainer calls the updater with `--learning-credit-config configs/reward_r2g_local_damage_credit_v1.json`; `update.json`, new checkpoint metadata, public status and history carry the R2g credit ID and exact SHA256.
 - A published accepted R2g checkpoint must resume using the same R2g credit bytes. An accepted older R2f checkpoint must **not** be silently relabeled R2g; that case requires an explicit audited fork and is rejected by the dependency resolver.
+- If a completed game produces **zero changed KC-MBON edges**, reject the candidate without accepting weightless Gen50 or treating the missing backtrack as an infrastructure failure.
 - If the full candidate fails, the existing `r2g-local-damage-backtrack-v1` step produces exactly one 25% synaptic-change alternative and evaluates real frozen games on the same original R2e suite. This is a multiple-hypothesis selection mechanism; both candidates can be rejected. No relaxation of acceptance, no auto-promotion and no LIVE learning.
 
 ## Falsifiable verification plan — H/T/D/C/U
