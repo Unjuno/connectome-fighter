@@ -80,11 +80,41 @@ jobs:
           fail-on-cache-miss: true
 
       - name: Restore valence partition cache
+        id: valence-cache
         uses: actions/cache@v4
         with:
           path: data/processed/malecns-valence-v1
           key: ${{ env.VALENCE_CACHE_KEY }}
-          fail-on-cache-miss: true
+
+      - name: Rebuild valence partition from pinned MaleCNS anatomy on cache miss
+        if: steps.valence-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          rm -rf data/processed/malecns-valence-v1
+          python scripts/build_malecns_valence_partition.py \
+            --metadata data/processed/malecns-shiu-strict-v1/neuron_metadata.parquet \
+            --connectivity data/processed/malecns-shiu-strict-v1/connectivity.parquet \
+            --adapter-manifest data/processed/malecns-shiu-strict-v1/manifest.json \
+            --out-dir data/processed/malecns-valence-v1
+
+      - name: Verify partition identity and anatomical invariants
+        run: |
+          python - <<'PY'
+          import json
+          import pandas as pd
+          root='data/processed/malecns-valence-v1'
+          m=json.load(open(f'{root}/manifest.json'))
+          c=pd.read_parquet(f'{root}/kc_mbon_valence_candidates.parquet')
+          assert m['invariants']['topology_changed'] is False
+          assert m['invariants']['weights_changed'] is False
+          assert m['invariants']['signs_changed'] is False
+          assert m['invariants']['learning_applied'] is False
+          assert len(c)==33496, len(c)
+          assert (c['sign']==1).all()
+          assert set(c['mbon_valence_channel']).issubset({'approach_associated','avoidance_associated'})
+          assert c['synapse_index'].is_unique
+          print(json.dumps(m['counts'],sort_keys=True))
+          PY
 
       - name: Build fixed game interface
         run: |
@@ -271,7 +301,7 @@ jobs:
                 'delta_wins':delta(name,'wins'),
               } for name in ('r2c','r2d')
             },
-            'interpretation_boundary':'Six training matches plus eight held-out rounds is an engineering smoke, not evidence of stable learning superiority. Continuous training remains disabled pending interpretation.',
+            'interpretation_boundary':'Six training matches plus eight held-out rounds is an engineering smoke, not evidence of stable learning superiority. Historical R2c/R2d comparison is independent of the active R2g candidate-training lane; no claim of superior fighting strength.',
           }
           pathlib.Path('runs/reward-plasticity-ab-comparison.json').write_text(json.dumps(out,indent=2,sort_keys=True)+'\n')
           print(json.dumps(out['vs_control'],indent=2,sort_keys=True))
