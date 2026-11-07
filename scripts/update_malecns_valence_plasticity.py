@@ -127,16 +127,24 @@ def main()->int:
     learning_credit_id=reward_id
     learning_credit_sha256=sha256_file(args.reward_config)
     credit_cfg=None
+    credit_rebalance=None
     if args.learning_credit_config is not None:
-        from connectome_fighter.combat_reward_r2f import validate_config as validate_r2f
-        from connectome_fighter.combat_reward_r2f import REWARD_ID as R2F_ID
         if reward_id != 'R2e-combat-v1':
-            raise ValueError('R2f credit requires R2e external reward objective')
+            raise ValueError('credit modulation requires R2e external evaluation objective')
         credit_cfg=json.loads(args.learning_credit_config.read_text(encoding='utf-8'))
-        validate_r2f(credit_cfg)
+        credit_id=credit_cfg.get('id')
+        if credit_id == 'R2f-credit-balanced-v1':
+            from connectome_fighter.combat_reward_r2f import validate_config as validate_credit
+            from connectome_fighter.combat_reward_r2f import rebalance_events as credit_rebalance
+        elif credit_id == 'R2g-local-damage-credit-v1':
+            from connectome_fighter.combat_reward_r2g import validate_config as validate_credit
+            from connectome_fighter.combat_reward_r2g import rebalance_events as credit_rebalance
+        else:
+            raise ValueError('unknown learning-credit version')
+        validate_credit(credit_cfg)
         if credit_cfg['base_reward'] != reward_cfg or credit_cfg['source_reward_id'] != reward_id:
-            raise ValueError('R2f credit config does not bind the selected R2e reward')
-        learning_credit_id=R2F_ID
+            raise ValueError('credit config does not bind selected R2e reward')
+        learning_credit_id=credit_id
         learning_credit_sha256=sha256_file(args.learning_credit_config)
 
     candidates=pd.read_parquet(args.candidates).sort_values('synapse_index').reset_index(drop=True)
@@ -151,8 +159,7 @@ def main()->int:
     if args.round_index<0 or args.round_index>=len(rounds): raise IndexError('round-index outside trace')
     events=reward_sequence(rounds[args.round_index],args.side-1,reward_cfg)
     if credit_cfg is not None:
-        from connectome_fighter.combat_reward_r2f import rebalance_events
-        events=rebalance_events(events,credit_cfg)
+        events=credit_rebalance(events,credit_cfg)
 
     spikes=pd.read_parquet(args.spikes)
     if not {'decision_index','body_id'}.issubset(spikes.columns): raise ValueError('spike log missing columns')
